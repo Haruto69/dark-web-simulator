@@ -1,0 +1,8 @@
+{% extends "base_stub.html" %}
+{% block content %}
+  <h2>Phishing Simulation - Consent</h2>
+  <p><strong>WARNING:</strong> This is a training simulation. <em>Do not</em> enter any real usernames or passwords.</p>
+  <form action="{{ url_for('phishing_login') }}" method="get">
+    <button type="submit">Proceed to Simulated Login (I CONSENT)</button>
+  </form>
+{% endblock %}

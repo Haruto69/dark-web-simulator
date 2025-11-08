@@ -1,0 +1,41 @@
+{% extends "base_stub.html" %}
+{% block content %}
+  <h2>Monitoring & Forensics Dashboard</h2>
+
+  <section>
+    <h3>Simulated Credentials Captured (consented)</h3>
+    <table class="table">
+      <thead><tr><th>ID</th><th>Username</th><th>Note</th><th>Timestamp</th></tr></thead>
+      <tbody>
+      {% for c in creds %}
+        <tr>
+          <td>{{ c.id }}</td>
+          <td>{{ c.username }}</td>
+          <td>{{ c.note }}</td>
+          <td>{{ c.timestamp }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4">No simulated credentials yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h3>Demo Files</h3>
+    <form method="post" action="{{ url_for('ransomware_simulate') }}" style="display:inline;">
+      <button type="submit">Simulate Ransomware (mark demo files)</button>
+    </form>
+    <form method="post" action="{{ url_for('ransomware_restore') }}" style="display:inline;">
+      <button type="submit">Restore Demo Files</button>
+    </form>
+
+    <ul>
+      {% for f in files %}
+        <li>{{ f.name }} - <strong>{{ f.status }}</strong> ({{ f.remark }})</li>
+      {% else %}
+        <li>No demo files found.</li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endblock %}

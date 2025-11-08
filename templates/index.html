@@ -1,0 +1,43 @@
+﻿{% extends "base_stub.html" %}
+{% block content %}
+<section class="hero">
+  <h1 class="hero-title">.onion index</h1>
+  <p class="hero-sub">A simulated directory to learn dark-web risks. No real vendors or transaction flows.</p>
+
+  <form class="search-form" method="get" action="{{ url_for('index') }}">
+    <input class="search-input" name="q" placeholder="search .onion (simulation)..." value="{{ q|default('') }}">
+    <button class="search-btn">search</button>
+  </form>
+</section>
+
+<section class="featured">
+  <div class="market-row">
+    {% for link in navigation_links %}
+    <div class="market">
+      <div class="market-head">{{ link.title.lower().replace(' & ', '-') }}.onion <span class="sim-pill">SIM</span></div>
+      <div class="market-desc">{{ link.title }} marketplace.</div>
+      <div class="market-actions">
+        <a class="btn" href="{{ link.url }}">open market</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="results">
+  <h2 class="results-head">search results</h2>
+  <div class="result-list">
+    {% for page in results %}
+    <div class="result">
+      <div class="res-left">
+        <div class="res-host">{{ page.slug }}.onion</div>
+      </div>
+      <div class="res-right">
+        <a class="res-title" href="{{ page.url }}">{{ page.title }}</a>
+        <div class="res-snippet">{{ page.content[:100] }}...</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

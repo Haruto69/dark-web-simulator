@@ -1,0 +1,38 @@
+﻿{% extends "base_stub.html" %}
+{% block content %}
+<div class="sim-banner">
+  <strong>SIMULATION NOTICE:</strong> This is an educational mock. No real items, sellers, or contact info are included.
+</div>
+
+<section class="market-page">
+  <h2 class="market-title">{{ page.title }}</h2>
+  <div class="market-desc muted">{{ page.content | safe }}</div>
+
+  <div class="listings">
+    <div class="listing">
+      <div class="left">
+        <div class="title">Example Listing — placeholder</div>
+        <div class="meta muted">price: [simulated] • vendor: [mock]</div>
+      </div>
+      <div class="right">
+        <button class="btn" disabled>buy (disabled)</button>
+      </div>
+    </div>
+
+    <div class="listing">
+      <div class="left">
+        <div class="title">Sample Listing — educational only</div>
+        <div class="meta muted">price: [simulated] • vendor: [mock]</div>
+      </div>
+      <div class="right">
+        <button class="btn" disabled>buy (disabled)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="market-links">
+    <a class="ghost" href="{{ url_for('phishing_consent') }}?ref={{ page.slug }}">Try simulated purchase (consent)</a>
+    <a class="ghost" href="{{ url_for('index') }}">← back</a>
+  </div>
+</section>
+{% endblock %}

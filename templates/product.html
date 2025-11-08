@@ -1,0 +1,14 @@
+{% extends "base_stub.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <img src="{{ url_for('static', filename=product.image) }}" class="card-img-top" alt="{{ product.name }}">
+        <div class="card-body">
+            <h5 class="card-title">{{ product.name }}</h5>
+            <p class="card-text">{{ product.description }}</p>
+            <p class="card-text"><strong>Price: ${{ "%.2f"|format(product.price) }}</strong></p>
+            <a href="{{ url_for('phishing_login') }}" class="btn btn-primary">Buy Now</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

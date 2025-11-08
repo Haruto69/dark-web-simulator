@@ -1,0 +1,28 @@
+{% extends "base_stub.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h1>{{ category if category else 'Marketplace Products' }}</h1>
+    
+    {% if not products %}
+        <div class="alert alert-warning">No products found in database</div>
+    {% else %}
+        <div class="row">
+            {% for product in products %}
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <img src="{{ url_for('static', filename=product.image) }}" 
+                         class="card-img-top" 
+                         alt="{{ product.name }}"
+                         style="height: 200px; object-fit: cover;">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ product.name }}</h5>
+                        <p class="card-text">{{ product.description }}</p>
+                        <p class="card-text"><strong>${{ "%.2f"|format(product.price) }}</strong></p>
+                        <a href="{{ url_for('product', product_id=product.id) }}" class="btn btn-primary">View Details</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

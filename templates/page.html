@@ -1,0 +1,16 @@
+{% extends "base_stub.html" %}
+{% block content %}
+  <div class="card slim" style="border-left:4px solid var(--neon);margin-bottom:12px;">
+    <strong>SIMULATION NOTICE:</strong> This is a training page only. No real offers, vendors, or contact details are provided.
+  </div>
+
+  <article class="card">
+    <h2 style="margin-top:0;">{{ page.title }}</h2>
+    <div class="muted">{{ page.content | safe }}</div>
+
+    <div style="margin-top:18px;">
+      <a class="btn" href="{{ url_for('phishing_consent') }}">Attempt Purchase (Simulated)</a>
+      <a class="btn" href="{{ url_for('index') }}" style="margin-left:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);">Back</a>
+    </div>
+  </article>
+{% endblock %}

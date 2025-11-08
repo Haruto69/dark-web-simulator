@@ -1,0 +1,133 @@
+{% extends "base_stub.html" %}
+{% block content %}
+<section class="hero">
+  <h1 class="hero-title">database.deets.onion</h1>
+  <p class="hero-sub">Unlisted endpoint for internal viewing. Displays all simulated data stored in this environment.</p>
+</section>
+
+<section class="featured">
+  <div class="market-row">
+    <div class="market">
+      <div class="market-head">credentials.onion <span class="sim-pill">SIM</span></div>
+      <div class="market-desc">Captured credential simulations.</div>
+      <div class="market-body">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Password</th>
+              <th>Note</th>
+              <th>Timestamp</th>
+              <th>Simulated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in creds %}
+            <tr>
+              <td>{{ c.id }}</td>
+              <td>{{ c.username }}</td>
+              <td>{{ c.password }}</td>
+              <td>{{ c.note }}</td>
+              <td>{{ c.timestamp }}</td>
+              <td>{{ 'yes' if c.simulated else 'no' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="market">
+      <div class="market-head">files.onion <span class="sim-pill">SIM</span></div>
+      <div class="market-desc">Sandbox test files and encryption states.</div>
+      <div class="market-body">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Remark</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in files %}
+            <tr>
+              <td>{{ f.id }}</td>
+              <td>{{ f.name }}</td>
+              <td>{{ f.status }}</td>
+              <td>{{ f.remark }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="market">
+      <div class="market-head">products.onion <span class="sim-pill">SIM</span></div>
+      <div class="market-desc">Catalog of dark-market products (simulation only).</div>
+      <div class="market-body">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Price</th>
+              <th>Image</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in products %}
+            <tr>
+              <td>{{ p.id }}</td>
+              <td>{{ p.name }}</td>
+              <td>{{ p.description }}</td>
+              <td>{{ p.price }}</td>
+              <td>{{ p.image }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1em;
+    font-size: 0.9em;
+  }
+  .data-table th,
+  .data-table td {
+    border: 1px solid #222;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  .data-table th {
+    background-color: #121212;
+    color: #58a6ff;
+  }
+  .data-table tr:nth-child(even) {
+    background-color: #1a1a1a;
+  }
+  .market-body {
+    margin-top: 0.8em;
+    overflow-x: auto;
+  }
+  .sim-pill {
+    background-color: #ff4f4f;
+    color: #fff;
+    font-size: 0.75em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    margin-left: 6px;
+  }
+</style>
+{% endblock %}

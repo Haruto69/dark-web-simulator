@@ -1,0 +1,49 @@
+{% extends "base_stub.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h2>Secure Payment Simulation</h2>
+    <div class="alert alert-info">
+        <strong>Educational Simulation Notice:</strong> This is a simulated payment page for educational purposes only.
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Order Summary
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">{{ product.name }}</h5>
+            <p class="card-text">{{ product.description }}</p>
+            <p class="card-text"><strong>Price: ${{ "%.2f"|format(product.price) }}</strong></p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            Payment Details
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('process_payment', product_id=product.id) }}">
+                <div class="mb-3">
+                    <label class="form-label">Card Number</label>
+                    <input type="text" class="form-control" pattern="[0-9]{16}" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Expiry Date</label>
+                        <input type="text" class="form-control" placeholder="MM/YY" pattern="[0-9]{2}/[0-9]{2}" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">CVV</label>
+                        <input type="text" class="form-control" pattern="[0-9]{3,4}" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Cardholder Name</label>
+                    <input type="text" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Complete Purchase</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

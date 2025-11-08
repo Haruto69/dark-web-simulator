@@ -1,10 +1,38 @@
 {% extends "base_stub.html" %}
 {% block content %}
-  <h2>Simulated Result</h2>
-  <p>Simulation recorded for username: <strong>{{ username }}</strong></p>
-  {% if ref %}
-    <p>Origin: <em>{{ ref }}</em></p>
-  {% endif %}
-  <p>Reminder: This was a simulated capture for training. Do not reuse passwords and never enter secrets on suspicious sites.</p>
-  <p><a href="{{ url_for('dashboard') }}">View Dashboard</a></p>
+<div class="container mt-5">
+    <div class="alert alert-warning">
+        <h4 class="alert-heading">Simulation Complete</h4>
+        <p>This was an educational simulation demonstrating potential risks of dark web marketplaces.</p>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            Simulation Details
+        </div>
+        <div class="card-body">
+            <h5>Account Information</h5>
+            <p>Username: <strong>{{ username }}</strong></p>
+            {% if product %}
+            <h5>Purchase Attempt</h5>
+            <p>Item: <strong>{{ product.name }}</strong></p>
+            <p>Price: <strong>${{ "%.2f"|format(product.price) }}</strong></p>
+            {% endif %}
+            {% if ref %}
+            <p>Origin: <em>{{ ref }}</em></p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        <h5>Educational Notes:</h5>
+        <ul>
+            <li>Never enter real credentials on suspicious marketplaces</li>
+            <li>Be cautious of seemingly legitimate payment forms</li>
+            <li>Protect your personal and financial information</li>
+        </ul>
+    </div>
+
+    <p><a href="{{ url_for('dashboard') }}" class="btn btn-primary">View Simulation Dashboard</a></p>
+</div>
 {% endblock %}

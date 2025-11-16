@@ -1,0 +1,86 @@
+{% extends "base_stub.html" %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 50px auto; padding: 30px; background: #1a1a1a; border: 1px solid #333; border-radius: 5px;">
+    <h2 style="color: #00ff00; text-align: center; margin-bottom: 10px;">⚠️ Security Awareness Resources</h2>
+
+    <div style="background: #0d0d0d; padding: 20px; border-left: 3px solid #ff0000; margin: 20px 0;">
+        <p style="color: #ff6b6b; font-weight: bold; margin-bottom: 10px;">YOU WERE PHISHED!</p>
+        <p style="color: #cccccc; line-height: 1.6;">
+            This was an educational simulation. You just entered your credentials on a fake dark web marketplace. 
+            In a real scenario, your information could have been compromised.
+        </p>
+    </div>
+
+    <div style="margin: 30px 0;">
+        <h3 style="color: #00ff00; margin-bottom: 20px;">📚 Download Security Resources</h3>
+        <p style="color: #cccccc; margin-bottom: 20px;">
+            We've prepared these resources to help you recognize and avoid phishing attacks in the future:
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <!-- PDF 1 -->
+            <a href="{{ url_for('static', filename='pdfs/Phishing_Awareness_Guide.pdf') }}" 
+               download 
+               style="display: block; padding: 15px 20px; background: #2a2a2a; border: 2px solid #00ff00; 
+                      color: #00ff00; text-decoration: none; border-radius: 5px; transition: all 0.3s;
+                      text-align: center; font-weight: bold;">
+                📄 Phishing Awareness Guide
+            </a>
+
+            <!-- PDF 2 -->
+            <a href="{{ url_for('static', filename='pdfs/Phishing_terms_you_should_know.pdf') }}" 
+               download 
+               style="display: block; padding: 15px 20px; background: #2a2a2a; border: 2px solid #00ff00; 
+                      color: #00ff00; text-decoration: none; border-radius: 5px; transition: all 0.3s;
+                      text-align: center; font-weight: bold;">
+                📄 Phishing Terms You Should Know
+            </a>
+
+            <!-- PDF 3 -->
+            <a href="{{ url_for('static', filename='pdfs/Phishing-awarebess-material.pdf') }}" 
+               download 
+               style="display: block; padding: 15px 20px; background: #2a2a2a; border: 2px solid #00ff00; 
+                      color: #00ff00; text-decoration: none; border-radius: 5px; transition: all 0.3s;
+                      text-align: center; font-weight: bold;">
+                📄 Phishing Awareness Material
+            </a>
+
+            <!-- PDF 4 -->
+            <a href="{{ url_for('static', filename='pdfs/sophos-anti-phishing-toolkit-guide.pdf') }}" 
+               download 
+               style="display: block; padding: 15px 20px; background: #2a2a2a; border: 2px solid #00ff00; 
+                      color: #00ff00; text-decoration: none; border-radius: 5px; transition: all 0.3s;
+                      text-align: center; font-weight: bold;">
+                📄 Sophos Anti-Phishing Toolkit Guide
+            </a>
+        </div>
+    </div>
+
+    <div style="background: #0d0d0d; padding: 20px; border-left: 3px solid #00ff00; margin: 30px 0;">
+        <h4 style="color: #00ff00; margin-bottom: 10px;">🛡️ Key Takeaways:</h4>
+        <ul style="color: #cccccc; line-height: 1.8;">
+            <li>Always verify the authenticity of websites before entering credentials</li>
+            <li>Check for HTTPS and legitimate domain names</li>
+            <li>Be suspicious of unsolicited requests for personal information</li>
+            <li>Use unique, strong passwords for different accounts</li>
+            <li>Enable two-factor authentication whenever possible</li>
+        </ul>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+        <p style="color: #888; font-size: 14px;">
+            Thank you for participating in this security awareness simulation.
+        </p>
+    </div>
+</div>
+
+<style>
+    a[download]:hover {
+        background: #00ff00 !important;
+        color: #000 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 255, 0, 0.3);
+    }
+</style>
+{% endblock %}

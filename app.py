@@ -432,7 +432,7 @@ def process_payment(product_id):
     product = Product.query.get_or_404(product_id)
     # Simulate payment processing
     flash("Simulated payment processed. Remember: This is an educational simulation.", "info")
-    return render_template("phishing_result.html", username="Simulated Buyer", product=product)
+    return redirect(url_for('resources'))
 
 @app.route("/dashboard")
 def dashboard():
@@ -469,11 +469,16 @@ def api_logs():
 
 @app.route("/deets")
 def deets():
-    # This route is not linked anywhere — only accessible by typing /deets manually.
+    # This route is not linked anywhere â€” only accessible by typing /deets manually.
     creds = SimulatedCredential.query.order_by(SimulatedCredential.id.desc()).all()
     files = DemoFile.query.order_by(DemoFile.id.desc()).all()
     products = Product.query.order_by(Product.id.desc()).all()
     return render_template("deets.html", creds=creds, files=files, products=products)
+
+@app.route('/resources')
+def resources():
+    return render_template('resources.html')
+
 
 
 if __name__ == "__main__":

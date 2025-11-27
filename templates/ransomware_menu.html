@@ -1,0 +1,245 @@
+{% extends "base_stub.html" %}
+
+{% block content %}
+<div class="ransomware-menu-container">
+    <div class="menu-header">
+        <h1>🎭 Ransomware Simulation Options</h1>
+        <p class="subtitle">Choose how you want to experience the ransomware simulation</p>
+    </div>
+
+    <div class="options-grid">
+        <div class="option-card">
+            <div class="option-icon">🛠️</div>
+            <h2>Option 1: Hacking Tools Download</h2>
+            <p class="option-description">
+                Browse a fake marketplace of "premium hacking tools." When you attempt to download one, 
+                you'll trigger a ransomware attack simulation. This demonstrates how attackers lure victims 
+                with promises of powerful software.
+            </p>
+            <div class="option-features">
+                <h3>What You'll Experience:</h3>
+                <ul>
+                    <li>✓ Realistic dark web tools marketplace</li>
+                    <li>✓ Fake download progress screen</li>
+                    <li>✓ Immediate ransomware activation</li>
+                    <li>✓ Social engineering demonstration</li>
+                </ul>
+            </div>
+            <a href="{{ url_for('marketplace_tools') }}" class="option-btn primary-btn">
+                Browse Hacking Tools
+            </a>
+        </div>
+
+        <div class="option-card">
+            <div class="option-icon">📁</div>
+            <h2>Option 2: File Browser Encryption</h2>
+            <p class="option-description">
+                Access a simulated file storage system containing dummy files. Click on a suspicious 
+                link or file to trigger the ransomware. This shows how ransomware can encrypt your 
+                files and hold them hostage.
+            </p>
+            <div class="option-features">
+                <h3>What You'll Experience:</h3>
+                <ul>
+                    <li>✓ Realistic file browser interface</li>
+                    <li>✓ Pre-populated dummy files</li>
+                    <li>✓ File encryption simulation</li>
+                    <li>✓ Traditional ransomware scenario</li>
+                </ul>
+            </div>
+            <a href="{{ url_for('file_browser') }}" class="option-btn secondary-btn">
+                Open File Browser
+            </a>
+        </div>
+    </div>
+
+    <div class="info-box">
+        <h3>⚠️ Important Information</h3>
+        <p>
+            <strong>Both simulations are completely safe.</strong> No real files will be encrypted, 
+            no actual malware is involved, and all data is simulated. This is purely educational 
+            to help you understand ransomware threats.
+        </p>
+        <p>
+            After experiencing the ransomware screen, you'll receive educational content explaining 
+            what happened and how to protect yourself in the real world.
+        </p>
+    </div>
+
+    <div class="navigation-links">
+        <a href="{{ url_for('index') }}" class="back-link">← Back to Home</a>
+        <a href="{{ url_for('dashboard') }}" class="back-link">View Dashboard</a>
+    </div>
+</div>
+
+<style>
+.ransomware-menu-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 30px 20px;
+}
+
+.menu-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.menu-header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    color: #fff;
+}
+
+.subtitle {
+    font-size: 1.2em;
+    color: #aaa;
+}
+
+.options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+.option-card {
+    background: #1a1a1a;
+    border: 2px solid #333;
+    border-radius: 12px;
+    padding: 30px;
+    transition: all 0.3s;
+}
+
+.option-card:hover {
+    border-color: #ff6b6b;
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(255, 107, 107, 0.2);
+}
+
+.option-icon {
+    font-size: 4em;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.option-card h2 {
+    font-size: 1.8em;
+    color: #fff;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.option-description {
+    color: #ccc;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.option-features {
+    background: #0a0a0a;
+    border-left: 3px solid #4CAF50;
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 5px;
+}
+
+.option-features h3 {
+    color: #4CAF50;
+    font-size: 1.1em;
+    margin-bottom: 10px;
+}
+
+.option-features ul {
+    list-style: none;
+    padding: 0;
+}
+
+.option-features li {
+    color: #aaa;
+    padding: 5px 0;
+    font-size: 0.95em;
+}
+
+.option-btn {
+    display: block;
+    text-align: center;
+    padding: 15px 30px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1em;
+    transition: all 0.3s;
+    margin-top: 20px;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.primary-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.secondary-btn {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+.secondary-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+}
+
+.info-box {
+    background: #1a3a1a;
+    border: 2px solid #4CAF50;
+    border-radius: 10px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.info-box h3 {
+    color: #4CAF50;
+    margin-top: 0;
+    font-size: 1.3em;
+}
+
+.info-box p {
+    color: #ccc;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+.info-box strong {
+    color: #fff;
+}
+
+.navigation-links {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.back-link {
+    color: #667eea;
+    text-decoration: none;
+    font-size: 1.1em;
+    transition: color 0.3s;
+}
+
+.back-link:hover {
+    color: #764ba2;
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .options-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

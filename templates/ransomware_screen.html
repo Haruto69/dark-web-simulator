@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>⚠️ YOUR FILES HAVE BEEN ENCRYPTED</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #1a0000;
+            color: #ff0000;
+            font-family: Arial, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        .ransom-container {
+            max-width: 900px;
+            margin: 20px auto;
+            background: #000;
+            border: 5px solid #ff0000;
+            padding: 30px;
+            box-shadow: 0 0 50px rgba(255,0,0,0.7);
+        }
+        
+        .skull {
+            text-align: center;
+            font-size: 6em;
+            animation: pulse 2s infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.8em;
+            margin: 20px 0;
+            text-shadow: 3px 3px 6px rgba(255,0,0,0.8);
+            animation: shake 0.5s infinite;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .timer {
+            background: #ff0000;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            font-size: 2em;
+            margin: 20px 0;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(255,0,0,0.8);
+        }
+        
+        .info-box {
+            background: #1a1a1a;
+            border: 2px solid #ff0000;
+            padding: 25px;
+            margin: 20px 0;
+        }
+        
+        .info-box h2 {
+            color: #ff0000;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+        
+        .info-box p {
+            line-height: 1.8;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .bitcoin-address {
+            background: #000;
+            color: #0f0;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            border: 2px solid #0f0;
+            margin: 15px 0;
+            font-size: 1.2em;
+            box-shadow: 0 0 15px rgba(0,255,0,0.5);
+        }
+        
+        .file-list {
+            max-height: 250px;
+            overflow-y: auto;
+            background: #1a1a1a;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid #ff0000;
+        }
+        
+        .file-item {
+            color: #888;
+            padding: 8px;
+            border-bottom: 1px solid #333;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .file-item::before {
+            content: "🔒 ";
+            color: #ff0000;
+        }
+        
+        .warning-btn {
+            display: block;
+            background: #ff0000;
+            color: #fff;
+            padding: 20px 40px;
+            text-align: center;
+            text-decoration: none;
+            font-size: 1.4em;
+            font-weight: bold;
+            margin: 30px auto;
+            max-width: 400px;
+            border: none;
+            cursor: pointer;
+            animation: blink 1s infinite;
+            border-radius: 5px;
+            box-shadow: 0 5px 15px rgba(255,0,0,0.5);
+        }
+        
+        .warning-btn:hover {
+            background: #cc0000;
+            transform: scale(1.05);
+        }
+        
+        @keyframes blink {
+            50% { opacity: 0.6; }
+        }
+        
+        .payment-warning {
+            background: #ffff00;
+            color: #000;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            margin: 20px 0;
+            font-size: 1.2em;
+            border: 3px solid #ff0000;
+        }
+        
+        .ransom-amount {
+            font-size: 2em;
+            color: #ffff00;
+            text-align: center;
+            margin: 20px 0;
+            text-shadow: 0 0 10px #ffff00;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="ransom-container">
+        <div class="skull">💀</div>
+        <h1>YOUR FILES HAVE BEEN ENCRYPTED!</h1>
+        
+        <div class="timer" id="countdown">
+            TIME REMAINING TO PAY: 47:59:32
+        </div>
+        
+        <div class="payment-warning">
+            ⚠️ AFTER TIMER EXPIRES, RANSOM DOUBLES EVERY 24 HOURS! ⚠️
+        </div>
+        
+        <div class="info-box">
+            <h2>⚠️ What happened to your computer?</h2>
+            <p>All your important files have been encrypted with military-grade AES-256 encryption. Your photos, documents, databases, backups - <strong>EVERYTHING is locked</strong>.</p>
+            <p>Without our decryption key, <strong>recovery is impossible</strong>. Even professional data recovery services cannot help you.</p>
+            
+            <h2>🔒 Encrypted Files:</h2>
+            <div class="file-list">
+                {% for file in encrypted_files %}
+                <div class="file-item">{{ file.name }}</div>
+                {% endfor %}
+                <div class="file-item">system_backup_2024.rar</div>
+                <div class="file-item">confidential_contracts.zip</div>
+                <div class="file-item">financial_records_2023.xlsx</div>
+                <div class="file-item">customer_database.sql</div>
+                <div class="file-item">source_code_backup.zip</div>
+                <div class="file-item">personal_photos_2020-2024.zip</div>
+                <div class="file-item">insurance_documents.pdf</div>
+            </div>
+            
+            <h2>💰 How can I recover my files?</h2>
+            <p>The ONLY way to decrypt your files is to purchase the unique decryption key from us.</p>
+            
+            <div class="ransom-amount">
+                PAY {{ ransom_amount }} BTC NOW
+            </div>
+            <p style="text-align: center; color: #888;">(Approximately ${{ (ransom_amount * 45000)|int }} USD)</p>
+            
+            <p><strong>Send payment to this Bitcoin wallet address:</strong></p>
+            <div class="bitcoin-address">{{ bitcoin_address }}</div>
+            
+            <h2>⏰ Time is running out!</h2>
+            <p><strong style="color: #ff0000;">⚠️ 48 HOURS:</strong> If you don't pay within 48 hours, the ransom will <strong>DOUBLE to {{ ransom_amount * 2 }} BTC</strong>!</p>
+            <p><strong style="color: #ff0000;">⚠️ 72 HOURS:</strong> After 72 hours, your decryption key will be <strong>PERMANENTLY DELETED</strong> from our servers!</p>
+            <p><strong style="color: #ff0000;">⚠️ NO RECOVERY:</strong> Your files will be <strong>LOST FOREVER</strong>!</p>
+        </div>
+        
+        <div class="info-box">
+            <h2>❓ Frequently Asked Questions</h2>
+            <p><strong>Q: Can I recover files without paying?</strong><br>
+            A: No. The encryption is unbreakable. Only we have the decryption key.</p>
+            
+            <p><strong>Q: What if I don't pay?</strong><br>
+            A: Your files will remain encrypted forever. Backups are also encrypted.</p>
+            
+            <p><strong>Q: Can antivirus help?</strong><br>
+            A: No. Your files are already encrypted. Antivirus cannot decrypt them.</p>
+            
+            <p><strong>Q: How do I get Bitcoin?</strong><br>
+            A: Use Coinbase, Binance, or LocalBitcoins. Search "how to buy Bitcoin".</p>
+            
+            <p><strong>Q: Will you really decrypt my files?</strong><br>
+            A: Yes. We are businesspeople. If we don't decrypt, nobody will pay us.</p>
+        </div>
+        
+        <button class="warning-btn" onclick="handleReveal()">
+            ⚠️ WAIT, WHAT IS HAPPENING?!
+        </button>
+    </div>
+    
+    <script>
+        // Countdown timer simulation
+        let hours = 47, minutes = 59, seconds = 32;
+        
+        function updateCountdown() {
+            seconds--;
+            if (seconds < 0) {
+                seconds = 59;
+                minutes--;
+            }
+            if (minutes < 0) {
+                minutes = 59;
+                hours--;
+            }
+            if (hours < 0) {
+                hours = 0;
+                minutes = 0;
+                seconds = 0;
+            }
+            
+            document.getElementById('countdown').textContent = 
+                `TIME REMAINING TO PAY: ${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+        }
+        
+        setInterval(updateCountdown, 1000);
+        
+        // Auto-reveal after 20 seconds
+        setTimeout(() => {
+            if (confirm('This looks really scary... Do you want to learn what just happened?')) {
+                window.location.href = "{{ url_for('ransomware_reveal') }}";
+            }
+        }, 20000);
+        
+        function handleReveal() {
+            window.location.href = "{{ url_for('ransomware_reveal') }}";
+        }
+        
+        // Prevent right-click (adds to realism)
+        document.addEventListener('contextmenu', event => event.preventDefault());
+    </script>
+</body>
+</html>

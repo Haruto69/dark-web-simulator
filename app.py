@@ -1,7 +1,9 @@
 # app.py - Safe Dark Web Risk Simulator (educational)
+
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import random
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-in-lab"
@@ -40,8 +42,21 @@ def init_db():
     files = [
         DemoFile(name="employee_list.csv"),
         DemoFile(name="sample_financials.xlsx"),
-        DemoFile(name="project_docs.pdf")
+        DemoFile(name="project_docs.pdf"),
+        DemoFile(name="family_photos_2024.zip"),
+        DemoFile(name="tax_returns_2023.pdf"),
+        DemoFile(name="passwords_backup.txt"),
+        DemoFile(name="business_contract.docx"),
+        DemoFile(name="vacation_photos.jpg"),
+        DemoFile(name="thesis_final_draft.docx"),
+        DemoFile(name="cryptocurrency_keys.txt"),
+        DemoFile(name="bank_statements.pdf"),
+        DemoFile(name="client_database.xlsx"),
+        DemoFile(name="personal_diary.docx"),
+        DemoFile(name="wedding_photos.zip"),
+        DemoFile(name="medical_records.pdf")
     ]
+    
     for file in files:
         db.session.add(file)
     
@@ -95,7 +110,6 @@ def init_db():
             price=749.99,
             image="images/products/guns1.jpeg"
         ),
-        
         # Plants Section
         Product(
             name="Special Blend",
@@ -143,6 +157,7 @@ def init_db():
     
     for product in products:
         db.session.add(product)
+    
     db.session.commit()
 
 with app.app_context():
@@ -227,7 +242,6 @@ def index():
             'category': 'plants',
             'url': '/marketplace/plants'
         },
-        
         # Equipment-related pages
         {
             'slug': 'tactical-gear',
@@ -298,6 +312,29 @@ def index():
             'content': 'Specialized parts and components for tactical equipment.',
             'category': 'equipment',
             'url': '/marketplace/weapons'
+        },
+        # NEW: Hacking tools page
+        {
+            'slug': 'hacking-tools',
+            'title': 'Premium Hacking Tools',
+            'content': 'Professional exploitation tools and penetration testing suites. Download the most advanced hacking software used by professionals worldwide.',
+            'category': 'tools',
+            'url': '/marketplace/tools'
+        },
+        {
+            'slug': 'exploit-kits',
+            'title': 'Exploit Kits Market',
+            'content': 'Advanced exploitation frameworks and zero-day vulnerabilities. Professional hacking tools.',
+            'category': 'tools',
+            'url': '/marketplace/tools'
+        },
+        # NEW: File storage page
+        {
+            'slug': 'secure-storage',
+            'title': 'Secure File Storage',
+            'content': 'Browse and manage your encrypted files. Access your secure document storage system.',
+            'category': 'storage',
+            'url': '/files/browser'
         }
     ]
     
@@ -305,10 +342,12 @@ def index():
         # Keywords for better categorization
         plant_keywords = ['plant', 'botanic', 'herb', 'crystal', 'specimen', 'extract', 'blend']
         equipment_keywords = ['equipment', 'weapon', 'tactical', 'military', 'gear', 'device']
+        tools_keywords = ['hack', 'tool', 'exploit', 'crack', 'penetration', 'software']
         
         # Check if query matches category keywords
         is_plant_search = any(keyword in q for keyword in plant_keywords)
         is_equipment_search = any(keyword in q for keyword in equipment_keywords)
+        is_tools_search = any(keyword in q for keyword in tools_keywords)
         
         # Define navigation links based on search category
         if is_plant_search:
@@ -319,24 +358,28 @@ def index():
             # Show only equipment-related results and navigation
             results = [page for page in mock_pages if page['category'] == 'equipment']
             navigation_links = [{'title': 'Equipment & Accessories', 'url': '/marketplace/weapons'}]
+        elif is_tools_search:
+            # Show tools-related results
+            results = [page for page in mock_pages if page['category'] == 'tools']
+            navigation_links = [{'title': 'Hacking Tools', 'url': '/marketplace/tools'}]
         else:
             # Regular search in title and content
             results = [page for page in mock_pages if q in page['title'].lower() or q in page['content'].lower()]
             # Show all navigation links if no specific category matches
             navigation_links = [
                 {'title': 'Plants & Botanicals', 'url': '/marketplace/plants'},
-                {'title': 'Equipment & Accessories', 'url': '/marketplace/weapons'}
+                {'title': 'Equipment & Accessories', 'url': '/marketplace/weapons'},
+                {'title': 'Hacking Tools', 'url': '/marketplace/tools'}
             ]
     else:
         # Show all navigation links if no search query
         navigation_links = [
             {'title': 'Plants & Botanicals', 'url': '/marketplace/plants'},
-            {'title': 'Equipment & Accessories', 'url': '/marketplace/weapons'}
+            {'title': 'Equipment & Accessories', 'url': '/marketplace/weapons'},
+            {'title': 'Hacking Tools', 'url': '/marketplace/tools'}
         ]
-        
-    return render_template("index.html", results=results, q=q, navigation_links=navigation_links)
     
-    return render_template("index.html", results=results, q=q)
+    return render_template("index.html", results=results, q=q, navigation_links=navigation_links)
 
 @app.route("/marketplace/plants")
 def marketplace_plants():
@@ -360,14 +403,156 @@ def marketplace_weapons():
             Product.image.like('%ak%'),
             Product.image.like('%drone%'),
             Product.image.like('%glock%'),
-            Product.image.like('%m16%')
-            ,
+            Product.image.like('%m16%'),
             Product.image.like('%MH12%'),
             Product.image.like('%AWM%'),
             Product.image.like('%guns1%')
         )
     ).all()
     return render_template("marketplace.html", products=products, category="Equipment & Accessories")
+
+# NEW RANSOMWARE ROUTES
+
+@app.route("/ransomware/menu")
+def ransomware_menu():
+    """Main menu for choosing ransomware simulation type"""
+    return render_template("ransomware_menu.html")
+
+@app.route("/marketplace/tools")
+def marketplace_tools():
+    """Option 1: Fake hacking tools marketplace"""
+    fake_tools = [
+        {
+            'id': 1,
+            'name': 'MetaSploit Pro Ultimate',
+            'description': 'Advanced exploitation framework. Penetrate any system. Includes all premium modules and zero-day exploits.',
+            'price': 499.99,
+            'downloads': random.randint(500, 2000),
+            'rating': 4.8
+        },
+        {
+            'id': 2,
+            'name': 'Network Cracker Suite',
+            'description': 'Crack WiFi passwords, bypass firewalls, access any network. Military-grade encryption breaking.',
+            'price': 299.99,
+            'downloads': random.randint(800, 1500),
+            'rating': 4.9
+        },
+        {
+            'id': 3,
+            'name': 'Database Exploit Kit',
+            'description': 'Extract data from any SQL/NoSQL database. Includes zero-days for MongoDB, MySQL, PostgreSQL.',
+            'price': 899.99,
+            'downloads': random.randint(300, 900),
+            'rating': 4.7
+        },
+        {
+            'id': 4,
+            'name': 'RAT Command Center',
+            'description': 'Remote access trojan with keylogger, screen capture, webcam access. Undetectable by antivirus.',
+            'price': 699.99,
+            'downloads': random.randint(600, 1200),
+            'rating': 4.6
+        },
+        {
+            'id': 5,
+            'name': 'Credential Stealer Pro',
+            'description': 'Harvest credentials from browsers, email clients, FTP applications. Works on all platforms.',
+            'price': 399.99,
+            'downloads': random.randint(900, 1800),
+            'rating': 4.8
+        },
+        {
+            'id': 6,
+            'name': 'Crypto Miner Botnet',
+            'description': 'Deploy mining software across networks. Includes DDoS capabilities and proxy chaining.',
+            'price': 1299.99,
+            'downloads': random.randint(200, 600),
+            'rating': 4.5
+        },
+        {
+            'id': 7,
+            'name': 'Mobile Spy Suite',
+            'description': 'Complete mobile surveillance. Track location, read messages, access camera remotely.',
+            'price': 549.99,
+            'downloads': random.randint(700, 1400),
+            'rating': 4.7
+        },
+        {
+            'id': 8,
+            'name': 'Ransomware Builder Kit',
+            'description': 'Build custom ransomware with GUI interface. Automated Bitcoin payment system included.',
+            'price': 1999.99,
+            'downloads': random.randint(150, 400),
+            'rating': 4.9
+        }
+    ]
+    return render_template("hacking_tools.html", tools=fake_tools)
+
+@app.route("/download/tool/<int:tool_id>")
+def download_tool(tool_id):
+    """Show fake download progress screen"""
+    return render_template("ransomware_download.html", tool_id=tool_id)
+
+@app.route("/files/browser")
+def file_browser():
+    """Option 2: File browser with encryption trigger"""
+    files = DemoFile.query.all()
+    return render_template("file_browser.html", files=files)
+
+@app.route("/ransomware/trigger")
+def ransomware_trigger():
+    """Trigger ransomware from file browser (Option 2)"""
+    # Mark files as encrypted
+    files = DemoFile.query.all()
+    for f in files:
+        f.status = "encrypted"
+        f.remark = f"Encrypted by LockBit Simulator - {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
+    db.session.commit()
+    
+    # Generate fake Bitcoin address
+    bitcoin_address = "1" + ''.join(random.choices('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', k=33))
+    ransom_amount = random.choice([0.5, 1.0, 1.5, 2.0])
+    
+    return render_template("ransomware_screen.html", 
+                         bitcoin_address=bitcoin_address,
+                         ransom_amount=ransom_amount,
+                         encrypted_files=files,
+                         source='browser')
+
+@app.route("/ransomware/activate")
+def ransomware_activate():
+    """Trigger ransomware from hacking tools download (Option 1)"""
+    # Mark files as encrypted
+    files = DemoFile.query.all()
+    for f in files:
+        f.status = "encrypted"
+        f.remark = f"Encrypted by WannaCry Simulator - {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
+    db.session.commit()
+    
+    # Generate fake Bitcoin address
+    bitcoin_address = "1" + ''.join(random.choices('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', k=33))
+    ransom_amount = random.choice([1.0, 1.5, 2.0, 2.5])
+    
+    return render_template("ransomware_screen.html", 
+                         bitcoin_address=bitcoin_address,
+                         ransom_amount=ransom_amount,
+                         encrypted_files=files,
+                         source='download')
+
+@app.route("/ransomware/reveal")
+def ransomware_reveal():
+    """Educational reveal page"""
+    # Restore files
+    files = DemoFile.query.all()
+    for f in files:
+        f.status = "available"
+        f.remark = "Restored after simulation"
+    db.session.commit()
+    
+    return render_template("ransomware_education.html")
+
+# EXISTING ROUTES CONTINUE BELOW
 
 @app.route('/product/<int:product_id>')
 def product(product_id):
@@ -388,7 +573,6 @@ def page(slug):
     page = mock_pages.get(slug)
     if page is None:
         return render_template('404.html'), 404
-    
     return render_template('page.html', page=page)
 
 @app.route("/phishing/consent")
@@ -401,7 +585,7 @@ def phishing_login():
     product = None
     if product_id:
         product = Product.query.get(product_id)
-
+    
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
@@ -417,7 +601,6 @@ def phishing_login():
         # Redirect to payment page if product exists
         if product:
             return redirect(url_for('payment', product_id=product_id))
-        
         return render_template("phishing_result.html", username=username, product=product)
     
     return render_template("phishing_login.html", product=product)
@@ -469,7 +652,7 @@ def api_logs():
 
 @app.route("/deets")
 def deets():
-    # This route is not linked anywhere â€” only accessible by typing /deets manually.
+    # This route is not linked anywhere — only accessible by typing /deets manually.
     creds = SimulatedCredential.query.order_by(SimulatedCredential.id.desc()).all()
     files = DemoFile.query.order_by(DemoFile.id.desc()).all()
     products = Product.query.order_by(Product.id.desc()).all()
@@ -478,8 +661,6 @@ def deets():
 @app.route('/resources')
 def resources():
     return render_template('resources.html')
-
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

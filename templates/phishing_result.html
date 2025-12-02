@@ -1,38 +1,164 @@
 {% extends "base_stub.html" %}
+
 {% block content %}
-<div class="container mt-5">
-    <div class="alert alert-warning">
-        <h4 class="alert-heading">Simulation Complete</h4>
-        <p>This was an educational simulation demonstrating potential risks of dark web marketplaces.</p>
+
+<div style="max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.8;">
+
+    <h1 style="text-align: center; color: #dc3545; margin-bottom: 30px;">⚠️ YOU'VE BEEN PHISHED! ⚠️</h1>
+
+    <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 5px solid #28a745;">
+        <p style="margin: 0; color: #155724;"><strong>This was an educational simulation.</strong></p>
+        <p style="margin: 10px 0 0 0; color: #155724;"><strong>No real credentials were compromised</strong>, and all data was handled in a safe training environment. Everything is completely secure!</p>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header">
-            Simulation Details
+    <h2 style="color: #dc3545; border-bottom: 2px solid #dc3545; padding-bottom: 10px;">📋 What Just Happened</h2>
+    
+    <p>You submitted your credentials to a simulated phishing page designed to look like a legitimate login form. In a real attack, your username and password would now be in the hands of cybercriminals who could:</p>
+    
+    <ul>
+        <li>Access your email, social media, and financial accounts</li>
+        <li>Steal your identity and commit fraud</li>
+        <li>Lock you out of your own accounts</li>
+        <li>Sell your credentials on the dark web</li>
+        <li>Use your account to phish your contacts</li>
+    </ul>
+
+    <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: #155724;"><strong>Username submitted:</strong> <code style="background: #c3e6cb; color: #155724; padding: 4px 8px; border-radius: 4px;">{{ username }}</code></p>
+        {% if product %}
+        <p style="margin: 10px 0 0 0; color: #155724;"><strong>Context:</strong> Attempted purchase of <em>{{ product.name }}</em> for ${{ "%.2f"|format(product.price) }}</p>
+        {% endif %}
+    </div>
+
+    {% if metrics %}
+    <h2 style="color: #fd7e14; border-bottom: 2px solid #fd7e14; padding-bottom: 10px;">📊 Live Phishing Statistics</h2>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+        <div style="background: #fff; border: 2px solid #dc3545; border-radius: 8px; padding: 20px; text-align: center;">
+            <div style="font-size: 3em; font-weight: bold; color: #dc3545; line-height: 1;">{{ metrics.total_phished }}</div>
+            <div style="color: #6c757d; margin-top: 10px; font-size: 0.9em;">Total Victims</div>
         </div>
-        <div class="card-body">
-            <h5>Account Information</h5>
-            <p>Username: <strong>{{ username }}</strong></p>
-            {% if product %}
-            <h5>Purchase Attempt</h5>
-            <p>Item: <strong>{{ product.name }}</strong></p>
-            <p>Price: <strong>${{ "%.2f"|format(product.price) }}</strong></p>
-            {% endif %}
-            {% if ref %}
-            <p>Origin: <em>{{ ref }}</em></p>
-            {% endif %}
+        <div style="background: #fff; border: 2px solid #fd7e14; border-radius: 8px; padding: 20px; text-align: center;">
+            <div style="font-size: 3em; font-weight: bold; color: #fd7e14; line-height: 1;">{{ metrics.recent_phished }}</div>
+            <div style="color: #6c757d; margin-top: 10px; font-size: 0.9em;">Last 24 Hours</div>
+        </div>
+        <div style="background: #fff; border: 2px solid #6610f2; border-radius: 8px; padding: 20px; text-align: center;">
+            <div style="font-size: 3em; font-weight: bold; color: #6610f2; line-height: 1;">{{ metrics.unique_victims }}</div>
+            <div style="color: #6c757d; margin-top: 10px; font-size: 0.9em;">Unique Users</div>
         </div>
     </div>
 
-    <div class="alert alert-info">
-        <h5>Educational Notes:</h5>
-        <ul>
-            <li>Never enter real credentials on suspicious marketplaces</li>
-            <li>Be cautious of seemingly legitimate payment forms</li>
-            <li>Protect your personal and financial information</li>
-        </ul>
+    <p><strong>You are victim #{{ metrics.your_number }}</strong> in this simulation. These numbers show how easy it is to fall for phishing attacks!</p>
+    {% endif %}
+
+    <h2 style="color: #dc3545; border-bottom: 2px solid #dc3545; padding-bottom: 10px;">🚩 Red Flags You Missed</h2>
+    
+    <p>Here are warning signs that should have made you suspicious:</p>
+    
+    <ul>
+        <li><strong>Dark web context:</strong> Legitimate services don't operate on .onion domains or dark web marketplaces</li>
+        <li><strong>Too good to be true:</strong> The products and prices were designed to look tempting but unrealistic</li>
+        <li><strong>Unusual login prompt:</strong> Asking for credentials to "purchase" items in this context is suspicious</li>
+        <li><strong>No HTTPS indicators:</strong> Real payment/login pages always use secure connections with visible padlock icons</li>
+        <li><strong>Generic branding:</strong> The page lacked specific branding, terms of service, or privacy policies</li>
+    </ul>
+
+    <h2 style="color: #17a2b8; border-bottom: 2px solid #17a2b8; padding-bottom: 10px;">🎣 How Phishing Works</h2>
+    
+    <p><strong>Phishing</strong> is a social engineering attack where criminals trick you into giving up sensitive information by impersonating trusted entities.</p>
+    
+    <p><strong>In this simulation, you were phished through:</strong></p>
+    <ul>
+        <li>A realistic dark web marketplace with convincing products</li>
+        <li>A credential-harvesting login form disguised as a payment gateway</li>
+        <li>Social engineering tactics that exploited curiosity and urgency</li>
+    </ul>
+
+    <p><strong>In the real world, phishing spreads through:</strong></p>
+    <ul>
+        <li>Fake emails appearing to be from banks, social media, or employers</li>
+        <li>Urgent messages claiming account issues or security alerts</li>
+        <li>Malicious links in text messages (smishing) or voice calls (vishing)</li>
+        <li>Fake websites that look identical to legitimate services</li>
+        <li>QR codes leading to credential-harvesting pages</li>
+    </ul>
+
+    <h2 style="color: #28a745; border-bottom: 2px solid #28a745; padding-bottom: 10px;">🛡️ How to Protect Yourself</h2>
+    
+    <ol>
+        <li><strong>✓ Verify Before Clicking</strong><br>Hover over links to see the real URL. Type website addresses directly instead of clicking email links.</li>
+        <li><strong>✓ Enable Two-Factor Authentication (2FA)</strong><br>Use 2FA everywhere possible. Even if credentials are stolen, 2FA adds another barrier.</li>
+        <li><strong>✓ Check the URL Carefully</strong><br>Look for HTTPS and the padlock icon. Verify the domain name is exactly correct (not a misspelling).</li>
+        <li><strong>✓ Use Password Managers</strong><br>Password managers only auto-fill on legitimate sites, protecting you from phishing domains.</li>
+        <li><strong>✓ Report Suspicious Messages</strong><br>Forward phishing emails to your IT/security team or use reporting tools built into email clients.</li>
+        <li><strong>✓ Stay Educated</strong><br>Phishing tactics evolve constantly. Regular training helps you recognize new threats.</li>
+        <li><strong>✓ Trust Your Instincts</strong><br>If something feels off or too urgent, slow down and verify independently.</li>
+        <li><strong>✓ Never Share Credentials</strong><br>Legitimate companies never ask for passwords via email, text, or phone.</li>
+        <li><strong>✓ Keep Software Updated</strong><br>Regular updates patch vulnerabilities that phishing attacks exploit.</li>
+        <li><strong>✓ Be Skeptical of Urgency</strong><br>Scammers create artificial urgency. Take time to verify before acting.</li>
+    </ol>
+
+    <h2 style="color: #6c757d; border-bottom: 2px solid #6c757d; padding-bottom: 10px;">💰 Real-World Impact</h2>
+    
+    <ul>
+        <li><strong>91% of cyberattacks</strong> start with a phishing email (Deloitte, 2024)</li>
+        <li><strong>$4.65 million</strong> average cost of a data breach caused by phishing (IBM, 2024)</li>
+        <li><strong>1 in 4 employees</strong> will click on a phishing link (Verizon DBIR, 2024)</li>
+        <li><strong>43% of data breaches</strong> involve phishing or social engineering (Verizon, 2024)</li>
+        <li>Credential phishing leads to <strong>account takeovers, ransomware, and financial fraud</strong></li>
+    </ul>
+
+    <h2 style="color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px;">📚 Additional Learning Resources</h2>
+    
+    <p>Download these guides to learn more about phishing defense:</p>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 20px 0;">
+        <a href="{{ url_for('static', filename='pdfs/Phishing_Awareness_Guide.pdf') }}" target="_blank" 
+           style="display: block; background: #007bff; color: white; padding: 15px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            📄 Phishing Awareness Guide
+        </a>
+        <a href="{{ url_for('static', filename='pdfs/Phishing_terms_you_should_know.pdf') }}" target="_blank"
+           style="display: block; background: #6610f2; color: white; padding: 15px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            📖 Phishing Terms to Know
+        </a>
+        <a href="{{ url_for('static', filename='pdfs/sophos-anti-phishing-toolkit-guide.pdf') }}" target="_blank"
+           style="display: block; background: #e83e8c; color: white; padding: 15px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            🛠️ Anti-Phishing Toolkit
+        </a>
+        <a href="{{ url_for('static', filename='pdfs/Phishing awarebess material.pdf') }}" target="_blank"
+           style="display: block; background: #fd7e14; color: white; padding: 15px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            📑 Full Awareness Material
+        </a>
     </div>
 
-    <p><a href="{{ url_for('dashboard') }}" class="btn btn-primary">View Simulation Dashboard</a></p>
+    <!-- NEW: 4 BUTTONS MATCHING RANSOMWARE PAGE -->
+    <div style="display: flex; gap: 15px; justify-content: center; margin-top: 40px; flex-wrap: wrap;">
+        <a href="{{ url_for('ransomware_menu') }}" 
+           style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; transition: all 0.3s;">
+            🎯 Try Other Simulation
+        </a>
+        <a href="{{ url_for('resources') }}" 
+           style="display: inline-block; background: #333; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; transition: all 0.3s;">
+            📚 More Security Resources
+        </a>
+        <a href="{{ url_for('dashboard') }}" 
+           style="display: inline-block; background: #333; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; transition: all 0.3s;">
+            📊 View Dashboard
+        </a>
+        <a href="{{ url_for('index') }}" 
+           style="display: inline-block; background: #333; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; transition: all 0.3s;">
+            🏠 Return to Home
+        </a>
+    </div>
+
+    <hr style="border: none; border-top: 2px solid #dee2e6; margin: 40px 0;">
+
+    <p style="text-align: center; color: #6c757d;"><strong>Remember:</strong> This simulation captured your credentials in a safe environment. In the real world, stolen credentials can lead to identity theft, financial loss, and compromised accounts. Always stay vigilant!</p>
+
+    <p style="text-align: center; font-size: 0.9em; color: #6c757d; margin-top: 20px;">
+        <em>Sources: IBM Security Cost of Data Breach Report 2024, Verizon Data Breach Investigations Report 2024, Deloitte Cyber Threat Report 2024</em>
+    </p>
+
 </div>
+
 {% endblock %}

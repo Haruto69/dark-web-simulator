@@ -1,41 +1,186 @@
 {% extends "base_stub.html" %}
+
 {% block content %}
-  <h2>Monitoring & Forensics Dashboard</h2>
 
-  <section>
-    <h3>Simulated Credentials Captured (consented)</h3>
-    <table class="table">
-      <thead><tr><th>ID</th><th>Username</th><th>Note</th><th>Timestamp</th></tr></thead>
-      <tbody>
-      {% for c in creds %}
-        <tr>
-          <td>{{ c.id }}</td>
-          <td>{{ c.username }}</td>
-          <td>{{ c.note }}</td>
-          <td>{{ c.timestamp }}</td>
-        </tr>
-      {% else %}
-        <tr><td colspan="4">No simulated credentials yet.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </section>
+<div style="max-width: 1400px; margin: 0 auto; padding: 20px;">
+    
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; text-align: center;">
+        <h1 style="margin: 0 0 10px 0; font-size: 2.5em;">📊 Attack Campaign Analytics Dashboard</h1>
+        <p style="margin: 0; font-size: 1.1em;">Multi-stage conversion funnel tracking for phishing and ransomware simulations</p>
+    </div>
 
-  <section>
-    <h3>Demo Files</h3>
-    <form method="post" action="{{ url_for('ransomware_simulate') }}" style="display:inline;">
-      <button type="submit">Simulate Ransomware (mark demo files)</button>
-    </form>
-    <form method="post" action="{{ url_for('ransomware_restore') }}" style="display:inline;">
-      <button type="submit">Restore Demo Files</button>
-    </form>
+    <!-- Phishing Funnel -->
+    <h2 style="color: #fd7e14; border-bottom: 3px solid #fd7e14; padding-bottom: 10px; margin-bottom: 25px;">🎣 Phishing Attack Funnel</h2>
+    
+    <div style="background: #1a1a1a; border-radius: 10px; padding: 30px; margin-bottom: 40px;">
+        
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div style="background: linear-gradient(135deg, #28a745, #1e7e34); color: white; padding: 25px; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">STAGE 1: Marketplace Visit</div>
+                <div style="font-size: 3em; font-weight: bold;">{{ metrics.phishing.stage1 }}</div>
+                <div style="font-size: 0.85em; margin-top: 10px; opacity: 0.8;">Viewed products</div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #ffc107, #e0a800); color: white; padding: 25px; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">STAGE 2: Payment Page</div>
+                <div style="font-size: 3em; font-weight: bold;">{{ metrics.phishing.stage2 }}</div>
+                <div style="font-size: 0.85em; margin-top: 10px; opacity: 0.8;">
+                    {{ "%.1f"|format(metrics.phishing.conv_1_2) }}% conversion
+                </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #dc3545, #c82333); color: white; padding: 25px; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">STAGE 3: Credentials Submitted</div>
+                <div style="font-size: 3em; font-weight: bold;">{{ metrics.phishing.stage3 }}</div>
+                <div style="font-size: 0.85em; margin-top: 10px; opacity: 0.8;">
+                    {{ "%.1f"|format(metrics.phishing.conv_2_3) }}% conversion
+                </div>
+            </div>
+        </div>
+        
+        <div style="background: #0a0a0a; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="color: #aaa; margin-bottom: 10px;">Overall Phishing Success Rate</div>
+            <div style="font-size: 2.5em; font-weight: bold; color: #dc3545;">
+                {{ "%.1f"|format(metrics.phishing.conv_total) }}%
+            </div>
+            <div style="color: #888; font-size: 0.9em; margin-top: 10px;">
+                {{ metrics.phishing.stage3 }} out of {{ metrics.phishing.stage1 }} visitors submitted credentials
+            </div>
+        </div>
+    </div>
 
-    <ul>
-      {% for f in files %}
-        <li>{{ f.name }} - <strong>{{ f.status }}</strong> ({{ f.remark }})</li>
-      {% else %}
-        <li>No demo files found.</li>
-      {% endfor %}
-    </ul>
-  </section>
+    <!-- Ransomware Funnel -->
+    <h2 style="color: #6610f2; border-bottom: 3px solid #6610f2; padding-bottom: 10px; margin-bottom: 25px;">🔒 Ransomware Attack Funnel</h2>
+    
+    <div style="background: #1a1a1a; border-radius: 10px; padding: 30px; margin-bottom: 40px;">
+        
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div style="background: linear-gradient(135deg, #28a745, #1e7e34); color: white; padding: 25px; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">STAGE 1: Menu Visit</div>
+                <div style="font-size: 3em; font-weight: bold;">{{ metrics.ransomware.stage1 }}</div>
+                <div style="font-size: 0.85em; margin-top: 10px; opacity: 0.8;">Entered ransomware menu</div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #ffc107, #e0a800); color: white; padding: 25px; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">STAGE 2: Interaction</div>
+                <div style="font-size: 3em; font-weight: bold;">{{ metrics.ransomware.stage2 }}</div>
+                <div style="font-size: 0.85em; margin-top: 10px; opacity: 0.8;">
+                    {{ "%.1f"|format(metrics.ransomware.conv_1_2) }}% conversion
+                </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #dc3545, #c82333); color: white; padding: 25px; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">STAGE 3: Ransomware Triggered</div>
+                <div style="font-size: 3em; font-weight: bold;">{{ metrics.ransomware.stage3 }}</div>
+                <div style="font-size: 0.85em; margin-top: 10px; opacity: 0.8;">
+                    {{ "%.1f"|format(metrics.ransomware.conv_2_3) }}% conversion
+                </div>
+            </div>
+        </div>
+        
+        <div style="background: #0a0a0a; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="color: #aaa; margin-bottom: 10px;">Overall Ransomware Success Rate</div>
+            <div style="font-size: 2.5em; font-weight: bold; color: #6610f2;">
+                {{ "%.1f"|format(metrics.ransomware.conv_total) }}%
+            </div>
+            <div style="color: #888; font-size: 0.9em; margin-top: 10px;">
+                {{ metrics.ransomware.stage3 }} out of {{ metrics.ransomware.stage1 }} visitors triggered ransomware
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(600px, 1fr)); gap: 25px; margin-bottom: 40px;">
+        
+        <!-- Recent Phishing Activity -->
+        <div style="background: #1a1a1a; border-radius: 10px; padding: 25px; border-top: 4px solid #fd7e14;">
+            <h3 style="color: #fd7e14; margin-top: 0;">🎣 Recent Phishing Activity</h3>
+            <div style="max-height: 400px; overflow-y: auto;">
+                {% if recent_phish %}
+                {% for activity in recent_phish %}
+                <div style="background: #0a0a0a; padding: 12px; margin-bottom: 8px; border-radius: 6px; border-left: 3px solid {% if activity.stage == 'credentials' %}#dc3545{% elif activity.stage == 'payment' %}#ffc107{% else %}#28a745{% endif %};">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span style="color: {% if activity.stage == 'credentials' %}#dc3545{% elif activity.stage == 'payment' %}#ffc107{% else %}#28a745{% endif %}; font-weight: bold; text-transform: uppercase; font-size: 0.85em;">
+                            {{ activity.stage }}
+                        </span>
+                        <span style="color: #888; font-size: 0.8em;">{{ activity.timestamp.strftime('%m/%d %H:%M:%S') }}</span>
+                    </div>
+                    <div style="color: #aaa; font-size: 0.9em;">{{ activity.details }}</div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="color: #888; text-align: center; padding: 30px 0;">No activity yet</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Recent Ransomware Activity -->
+        <div style="background: #1a1a1a; border-radius: 10px; padding: 25px; border-top: 4px solid #6610f2;">
+            <h3 style="color: #6610f2; margin-top: 0;">🔒 Recent Ransomware Activity</h3>
+            <div style="max-height: 400px; overflow-y: auto;">
+                {% if recent_ransom %}
+                {% for activity in recent_ransom %}
+                <div style="background: #0a0a0a; padding: 12px; margin-bottom: 8px; border-radius: 6px; border-left: 3px solid {% if activity.stage == 'triggered' %}#dc3545{% elif activity.stage == 'interaction' %}#ffc107{% else %}#28a745{% endif %};">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span style="color: {% if activity.stage == 'triggered' %}#dc3545{% elif activity.stage == 'interaction' %}#ffc107{% else %}#28a745{% endif %}; font-weight: bold; text-transform: uppercase; font-size: 0.85em;">
+                            {{ activity.stage }}
+                        </span>
+                        <span style="color: #888; font-size: 0.8em;">{{ activity.timestamp.strftime('%m/%d %H:%M:%S') }}</span>
+                    </div>
+                    <div style="color: #aaa; font-size: 0.9em;">{{ activity.details }}</div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="color: #888; text-align: center; padding: 30px 0;">No activity yet</p>
+                {% endif %}
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- All Captured Credentials -->
+    <h2 style="color: #dc3545; border-bottom: 3px solid #dc3545; padding-bottom: 10px; margin-bottom: 25px;">🔑 All Captured Credentials</h2>
+    
+    <div style="background: #1a1a1a; border-radius: 10px; padding: 25px; margin-bottom: 40px;">
+        {% if all_creds %}
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; color: #ccc;">
+                <thead>
+                    <tr style="background: #0a0a0a; text-align: left;">
+                        <th style="padding: 12px; border-bottom: 2px solid #333;">ID</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #333;">Username</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #333;">Note</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #333;">Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cred in all_creds %}
+                    <tr style="border-bottom: 1px solid #222;">
+                        <td style="padding: 12px;">{{ cred.id }}</td>
+                        <td style="padding: 12px; color: #fd7e14; font-weight: bold;">{{ cred.username }}</td>
+                        <td style="padding: 12px; color: #aaa;">{{ cred.note }}</td>
+                        <td style="padding: 12px; color: #888; font-size: 0.9em;">{{ cred.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="color: #888; text-align: center; padding: 30px 0;">No credentials captured yet</p>
+        {% endif %}
+    </div>
+
+    <!-- Navigation -->
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="{{ url_for('index') }}" style="display: inline-block; background: #6c757d; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em;">
+            🏠 Return to Simulator
+        </a>
+    </div>
+
+    <p style="text-align: center; color: #888; font-size: 0.9em; margin-top: 30px;">
+        <strong>Note:</strong> All data is from simulated attacks in a controlled training environment. Session tracking is anonymous.
+    </p>
+
+</div>
+
 {% endblock %}

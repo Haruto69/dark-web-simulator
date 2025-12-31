@@ -27,7 +27,7 @@ class DemoFile(db.Model):
     __tablename__ = 'demo_file'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256))
-    status = db.Column(db.String(50), default='available')  # available / encrypted
+    status = db.Column(db.String(50), default='available')
     remark = db.Column(db.String(256), default='')
 
 class SimulatedCredential(db.Model):
@@ -441,25 +441,16 @@ def marketplace_weapons():
 
 @app.route("/ransomware/menu")
 def ransomware_menu():
-    """Main menu for choosing ransomware simulation type - STAGE 1"""
-    # Track Stage 1: Visited ransomware menu
-    funnel = RansomwareFunnel(
-        session_id=session.get('session_id'),
-        stage='menu',
-        details="Visited ransomware simulation menu"
-    )
-    db.session.add(funnel)
-    db.session.commit()
-    
+    """Main menu for choosing ransomware simulation type"""
     return render_template("ransomware_menu.html")
 
 @app.route("/marketplace/tools")
 def marketplace_tools():
-    """Option 1: Fake hacking tools marketplace - STAGE 2"""
-    # Track Stage 2: Viewed hacking tools
+    """Fake hacking tools marketplace - STAGE 1"""
+    # Always track when tools page is viewed
     funnel = RansomwareFunnel(
         session_id=session.get('session_id'),
-        stage='interaction',
+        stage='menu',
         details="Viewed hacking tools marketplace"
     )
     db.session.add(funnel)
@@ -536,27 +527,27 @@ def marketplace_tools():
 
 @app.route("/download/tool/<int:tool_id>")
 def download_tool(tool_id):
-    """Show fake download progress screen"""
-    return render_template("ransomware_download.html", tool_id=tool_id)
-
-@app.route("/files/browser")
-def file_browser():
-    """Option 2: File browser with encryption trigger - STAGE 2"""
-    # Track Stage 2: Viewed file browser
+    """Show fake download progress screen - STAGE 2"""
+    # Always track when download is clicked
     funnel = RansomwareFunnel(
         session_id=session.get('session_id'),
         stage='interaction',
-        details="Accessed file browser"
+        details=f"Clicked download for tool #{tool_id}"
     )
     db.session.add(funnel)
     db.session.commit()
     
+    return render_template("ransomware_download.html", tool_id=tool_id)
+
+@app.route("/files/browser")
+def file_browser():
+    """File browser - separate from ransomware funnel"""
     files = DemoFile.query.all()
     return render_template("file_browser.html", files=files)
 
 @app.route("/ransomware/trigger")
 def ransomware_trigger():
-    """Trigger ransomware from file browser (Option 2) - STAGE 3"""
+    """Trigger ransomware from file browser - STAGE 3"""
     # Track Stage 3: Triggered ransomware
     funnel = RansomwareFunnel(
         session_id=session.get('session_id'),
@@ -585,7 +576,7 @@ def ransomware_trigger():
 
 @app.route("/ransomware/activate")
 def ransomware_activate():
-    """Trigger ransomware from hacking tools download (Option 1) - STAGE 3"""
+    """Trigger ransomware from hacking tools download - STAGE 3"""
     # Track Stage 3: Triggered ransomware
     funnel = RansomwareFunnel(
         session_id=session.get('session_id'),
@@ -678,6 +669,7 @@ def phishing_consent():
 
 @app.route("/phishing/login", methods=["GET", "POST"])
 def phishing_login():
+    """Login page - comes BEFORE payment, NOT tracked here"""
     product_id = request.args.get('product_id')
     product = None
     if product_id:
@@ -687,24 +679,20 @@ def phishing_login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
         
-        # Track Stage 3: Entered credentials
-        funnel = PhishingFunnel(
-            session_id=session.get('session_id'),
-            stage='credentials',
-            details=f"Submitted credentials - Username: {username}"
-        )
-        db.session.add(funnel)
-        
+        # Save credentials but DON'T track stage here
         cred = SimulatedCredential(
             username=username[:255],
             password=password,
             note=f"Purchase simulation for product {product_id if product_id else 'unknown'}"
         )
-        
         db.session.add(cred)
         db.session.commit()
         
-        # Calculate phishing metrics
+        # Redirect to payment page if product exists
+        if product:
+            return redirect(url_for('payment', product_id=product_id))
+        
+        # If no product, show result
         total_phished = SimulatedCredential.query.count()
         yesterday = datetime.utcnow() - timedelta(days=1)
         recent_phished = SimulatedCredential.query.filter(
@@ -719,9 +707,6 @@ def phishing_login():
             'your_number': total_phished
         }
         
-        # Redirect to payment page if product exists
-        if product:
-            return redirect(url_for('payment', product_id=product_id))
         return render_template("phishing_result.html",
                              username=username,
                              product=product,
@@ -747,7 +732,17 @@ def payment(product_id):
 
 @app.route("/process_payment/<product_id>", methods=["POST"])
 def process_payment(product_id):
+    """Process payment - PHISHING STAGE 3"""
     product = Product.query.get_or_404(product_id)
+    
+    # Track Stage 3: Submitted payment
+    funnel = PhishingFunnel(
+        session_id=session.get('session_id'),
+        stage='credentials',
+        details=f"Submitted payment for: {product.name}"
+    )
+    db.session.add(funnel)
+    db.session.commit()
     
     # Get the username from the most recent credential submission
     latest_cred = SimulatedCredential.query.order_by(SimulatedCredential.timestamp.desc()).first()
@@ -778,31 +773,31 @@ def process_payment(product_id):
 
 @app.route("/dashboard")
 def dashboard():
-    # Phishing Funnel Metrics
-    phish_stage1 = db.session.query(PhishingFunnel.session_id).filter(
+    # Phishing Funnel Metrics - TOTAL INTERACTIONS
+    phish_stage1 = PhishingFunnel.query.filter(
         PhishingFunnel.stage == 'marketplace'
-    ).distinct().count()
+    ).count()
     
-    phish_stage2 = db.session.query(PhishingFunnel.session_id).filter(
+    phish_stage2 = PhishingFunnel.query.filter(
         PhishingFunnel.stage == 'payment'
-    ).distinct().count()
+    ).count()
     
-    phish_stage3 = db.session.query(PhishingFunnel.session_id).filter(
+    phish_stage3 = PhishingFunnel.query.filter(
         PhishingFunnel.stage == 'credentials'
-    ).distinct().count()
+    ).count()
     
-    # Ransomware Funnel Metrics
-    ransom_stage1 = db.session.query(RansomwareFunnel.session_id).filter(
+    # Ransomware Funnel Metrics - TOTAL INTERACTIONS
+    ransom_stage1 = RansomwareFunnel.query.filter(
         RansomwareFunnel.stage == 'menu'
-    ).distinct().count()
+    ).count()
     
-    ransom_stage2 = db.session.query(RansomwareFunnel.session_id).filter(
+    ransom_stage2 = RansomwareFunnel.query.filter(
         RansomwareFunnel.stage == 'interaction'
-    ).distinct().count()
+    ).count()
     
-    ransom_stage3 = db.session.query(RansomwareFunnel.session_id).filter(
+    ransom_stage3 = RansomwareFunnel.query.filter(
         RansomwareFunnel.stage == 'triggered'
-    ).distinct().count()
+    ).count()
     
     # Calculate conversion rates
     phish_conv_1_2 = (phish_stage2 / phish_stage1 * 100) if phish_stage1 > 0 else 0

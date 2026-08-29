@@ -3,13 +3,24 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
+import os
 import random
+import secrets
 import uuid
 
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 app = Flask(__name__)
-app.secret_key = "change-this-secret-in-lab"
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///simulator.db'
+# Secret key comes from the environment. The development fallback is a random
+# per-process value, so a forgotten key can never become a shared static secret.
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    "SIMULATOR_DATABASE_URI", "sqlite:///simulator.db")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Project-controlled scratch root for the local sandbox backend. Never derived
+# from request data; the Docker backend uses no host directory at all.
+app.config['SANDBOX_LOCAL_ROOT'] = os.environ.get(
+    "SANDBOX_LOCAL_ROOT", os.path.join(BASE_DIR, "instance", "sandbox_workspaces"))
 
 db = SQLAlchemy(app)
 
@@ -54,6 +65,43 @@ class RansomwareFunnel(db.Model):
     stage = db.Column(db.String(50))  # 'menu', 'interaction', 'triggered'
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     details = db.Column(db.String(500))
+
+class SecurityEvent(db.Model):
+    """Structured telemetry from the conference sandbox subsystem.
+
+    Holds only simulation metadata (synthetic filenames, sandbox ids, event
+    types). No credentials, no host paths outside the sandbox workspace, and
+    no personal data are stored here.
+    """
+    __tablename__ = 'security_event'
+    id = db.Column(db.Integer, primary_key=True)
+    scenario_id = db.Column(db.String(64), index=True)
+    session_id = db.Column(db.String(100), index=True)
+    event_type = db.Column(db.String(64), nullable=False, index=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    source = db.Column(db.String(120))
+    target = db.Column(db.String(300))
+    details = db.Column(db.String(500))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "scenario_id": self.scenario_id,
+            "session_id": self.session_id,
+            "event_type": self.event_type,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "source": self.source,
+            "target": self.target,
+            "details": self.details,
+        }
+
+# --- Conference sandbox (instructor-only control surface) ---
+# All Docker / filesystem logic lives in the sandbox package; routes only
+# delegate. See README "Conference Sandbox Architecture".
+from sandbox_routes import create_sandbox_blueprint, sandbox_dashboard_context
+
+app.register_blueprint(create_sandbox_blueprint(
+    db, SecurityEvent, app.config['SANDBOX_LOCAL_ROOT']))
 
 # Session tracking
 @app.before_request
@@ -834,11 +882,15 @@ def dashboard():
         }
     }
     
+    sandbox_ctx = sandbox_dashboard_context(
+        app, db, SecurityEvent, app.config['SANDBOX_LOCAL_ROOT'])
+
     return render_template("dashboard.html",
                          metrics=metrics,
                          recent_phish=recent_phish,
                          recent_ransom=recent_ransom,
-                         all_creds=all_creds)
+                         all_creds=all_creds,
+                         **sandbox_ctx)
 
 # OTHER ROUTES
 
@@ -881,4 +933,9 @@ def resources():
     return render_template('resources.html')
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # Defaults are loopback-only and debug-off. Override deliberately via the
+    # environment when running a supervised classroom session on a LAN.
+    host = os.environ.get("FLASK_RUN_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_RUN_PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "0").lower() in ("1", "true", "yes")
+    app.run(host=host, port=port, debug=debug)

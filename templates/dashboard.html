@@ -170,6 +170,113 @@
         {% endif %}
     </div>
 
+    <!-- Conference Sandbox Control Panel -->
+    <h2 style="color: #0dcaf0; border-bottom: 3px solid #0dcaf0; padding-bottom: 10px; margin-bottom: 25px;">🧪 Conference Sandbox (Instructor Control)</h2>
+
+    <div style="background: #1a1a1a; border-radius: 10px; padding: 25px; margin-bottom: 40px; color: #ddd;">
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <div style="background: #0a0a0a; padding: 15px; border-radius: 8px;">
+                <div style="color: #888; font-size: 0.85em;">SANDBOX STATUS</div>
+                <div style="font-size: 1.4em; font-weight: bold; color: {{ '#28a745' if sandbox_info.ready else '#dc3545' }};">
+                    {{ sandbox_info.state | upper }}
+                </div>
+                <div style="color: #888; font-size: 0.8em; margin-top: 6px;">
+                    id: {{ sandbox_info.sandbox_id }}
+                </div>
+            </div>
+            <div style="background: #0a0a0a; padding: 15px; border-radius: 8px;">
+                <div style="color: #888; font-size: 0.85em;">BACKEND</div>
+                <div style="font-size: 1.4em; font-weight: bold;">{{ sandbox_info.backend }}</div>
+                <div style="color: #888; font-size: 0.8em; margin-top: 6px;">{{ sandbox_info.isolation }}</div>
+            </div>
+            <div style="background: #0a0a0a; padding: 15px; border-radius: 8px;">
+                <div style="color: #888; font-size: 0.85em;">SCENARIO</div>
+                <div style="font-size: 1.4em; font-weight: bold;">file_impact</div>
+                <div style="color: #888; font-size: 0.8em; margin-top: 6px;">
+                    reversible rename only &mdash; no encryption
+                </div>
+            </div>
+        </div>
+
+        {% if sandbox_info.backend == 'local' %}
+        <p style="background: #3a2f00; border-left: 4px solid #ffc107; padding: 10px 15px; border-radius: 4px; font-size: 0.9em;">
+            <strong>Reduced isolation:</strong> Docker was not available, so the local backend is active.
+            Workspace confinement still applies, but there is no container, process or network isolation.
+        </p>
+        {% endif %}
+        {% if not sandbox_auth_enabled %}
+        <p style="background: #3a2f00; border-left: 4px solid #ffc107; padding: 10px 15px; border-radius: 4px; font-size: 0.9em;">
+            <strong>Unauthenticated:</strong> set <code>SANDBOX_INSTRUCTOR_TOKEN</code> to require a token on sandbox control routes.
+        </p>
+        {% endif %}
+
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin: 20px 0;">
+            <form method="POST" action="{{ url_for('sandbox_ctl.create') }}">
+                <button type="submit" style="background: #28a745; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-weight: bold; cursor: pointer;">Create Sandbox</button>
+            </form>
+            <form method="POST" action="{{ url_for('sandbox_ctl.file_impact') }}">
+                <button type="submit" style="background: #dc3545; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-weight: bold; cursor: pointer;">Run File Impact Scenario</button>
+            </form>
+            <form method="POST" action="{{ url_for('sandbox_ctl.reset') }}">
+                <button type="submit" style="background: #0d6efd; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-weight: bold; cursor: pointer;">Reset Sandbox</button>
+            </form>
+            <form method="POST" action="{{ url_for('sandbox_ctl.destroy') }}">
+                <button type="submit" style="background: #6c757d; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-weight: bold; cursor: pointer;">Destroy Sandbox</button>
+            </form>
+        </div>
+
+        <h3 style="color: #0dcaf0;">Synthetic Workspace Files</h3>
+        {% if sandbox_files %}
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+            <thead>
+                <tr style="background: #0a0a0a; color: #888;">
+                    <th style="text-align: left; padding: 8px;">Baseline Name</th>
+                    <th style="text-align: left; padding: 8px;">Current State</th>
+                    <th style="text-align: left; padding: 8px;">Present As</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in sandbox_files %}
+                <tr style="border-bottom: 1px solid #333;">
+                    <td style="padding: 8px;">{{ f.name }}</td>
+                    <td style="padding: 8px; color: {{ '#dc3545' if f.status == 'impacted' else ('#28a745' if f.status == 'baseline' else '#888') }};">{{ f.status }}</td>
+                    <td style="padding: 8px; color: #aaa;">{{ f.present_as or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: #888;">No sandbox workspace. Create a sandbox to seed the synthetic dataset.</p>
+        {% endif %}
+
+        <h3 style="color: #0dcaf0;">Recent Telemetry</h3>
+        {% if sandbox_events %}
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.88em;">
+            <thead>
+                <tr style="background: #0a0a0a; color: #888;">
+                    <th style="text-align: left; padding: 8px;">Timestamp</th>
+                    <th style="text-align: left; padding: 8px;">Event</th>
+                    <th style="text-align: left; padding: 8px;">Target</th>
+                    <th style="text-align: left; padding: 8px;">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in sandbox_events %}
+                <tr style="border-bottom: 1px solid #333;">
+                    <td style="padding: 8px; color: #888;">{{ e.timestamp.strftime('%H:%M:%S') if e.timestamp else '-' }}</td>
+                    <td style="padding: 8px; font-family: monospace; color: #0dcaf0;">{{ e.event_type }}</td>
+                    <td style="padding: 8px; color: #aaa;">{{ e.target or '-' }}</td>
+                    <td style="padding: 8px; color: #aaa;">{{ e.details or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: #888;">No sandbox telemetry recorded yet.</p>
+        {% endif %}
+    </div>
+
     <!-- Navigation -->
     <div style="text-align: center; margin-top: 30px;">
         <a href="{{ url_for('index') }}" style="display: inline-block; background: #6c757d; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em;">

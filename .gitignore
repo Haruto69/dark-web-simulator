@@ -30,6 +30,12 @@ instance/
 .webassets-cache
 *.db
 
+# Sandbox scratch workspaces (local backend)
+instance/sandbox_workspaces/
+
+# Pytest
+.pytest_cache/
+
 # VS Code
 .vscode/
 

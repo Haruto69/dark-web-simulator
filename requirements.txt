@@ -1,3 +1,6 @@
 Flask>=2.2,<4
 Flask-SQLAlchemy>=3.0,<4
 SQLAlchemy>=1.4,<3
+
+# Testing (no Docker SDK required -- the Docker CLI is driven via subprocess)
+pytest>=7.0

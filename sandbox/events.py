@@ -15,6 +15,18 @@ class EventType:
     FILE_IMPACT_REJECTED = "FILE_IMPACT_REJECTED"
     FILE_IMPACT_COMPLETED = "FILE_IMPACT_COMPLETED"
 
+    # -- multi-stage phishing / synthetic credential-reuse scenario --------
+    # None of these events ever carries a password value; see
+    # ``sandbox/identity.py`` and ``sandbox/scenarios/phishing.py``.
+    CONSENT_GRANTED = "CONSENT_GRANTED"
+    PHISHING_EXPOSED = "PHISHING_EXPOSED"
+    PHISHING_FORM_VIEWED = "PHISHING_FORM_VIEWED"
+    CREDENTIAL_SUBMITTED = "CREDENTIAL_SUBMITTED"
+    CREDENTIAL_VALIDATED = "CREDENTIAL_VALIDATED"
+    CREDENTIAL_VALIDATION_FAILED = "CREDENTIAL_VALIDATION_FAILED"
+    SANDBOX_LOGIN_SUCCEEDED = "SANDBOX_LOGIN_SUCCEEDED"
+    SYNTHETIC_RESOURCE_ACCESSED = "SYNTHETIC_RESOURCE_ACCESSED"
+
 
 ALL_EVENT_TYPES = tuple(
     value for key, value in vars(EventType).items()

@@ -23,3 +23,7 @@ class BackendUnavailableError(SandboxError):
 
 class SandboxCommandError(SandboxError):
     """A backend command failed or timed out."""
+
+
+class ScenarioStateError(SandboxError):
+    """A scenario stage was requested out of order or without consent."""

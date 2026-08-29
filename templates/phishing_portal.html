@@ -1,0 +1,62 @@
+{% extends "base_stub.html" %}
+{% block content %}
+<div style="max-width: 860px; margin: 0 auto; padding: 20px; line-height:1.7;">
+
+  <h1 style="color:#dc3545;">The stolen identity has been reused</h1>
+
+  <div style="background:#3a0d0d;border-left:5px solid #dc3545;padding:16px;border-radius:6px;margin-bottom:22px;">
+    The credential you submitted to the fake marketplace login was replayed
+    against an internal system — and it worked. This is the step that turns one
+    careless login into an intrusion.
+  </div>
+
+  <p style="color:#aaa;">
+    Reused identity: <code style="color:#0dcaf0;">{{ synthetic_username }}</code><br>
+    Scenario id: <code style="color:#888;">{{ scenario_id }}</code>
+  </p>
+
+  <h2 style="color:#0dcaf0;">{{ resource.title }}</h2>
+  <p style="color:#aaa;">{{ resource.summary }}</p>
+
+  {% if files %}
+  <table style="width:100%;border-collapse:collapse;margin-bottom:22px;">
+    <thead>
+      <tr style="background:#0a0a0a;color:#888;">
+        <th style="text-align:left;padding:8px;">Document</th>
+        <th style="text-align:left;padding:8px;">State</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in files %}
+      <tr style="border-bottom:1px solid #333;">
+        <td style="padding:8px;font-family:monospace;">{{ f.name }}</td>
+        <td style="padding:8px;color:#aaa;">{{ f.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#888;">The session sandbox holds no readable documents right now.</p>
+  {% endif %}
+
+  <p style="color:#888;font-size:0.9em;">
+    Everything above is synthetic and lives in <em>your own</em> disposable sandbox.
+    The simulator opened no network connection and contacted no authentication
+    service; "reuse" here is a state transition, nothing more.
+  </p>
+
+  <div style="margin:20px 0;">
+    {% for key, meta in resources.items() %}
+      {% if key != resource.key %}
+      <a href="{{ url_for('phishing_portal', resource=key) }}"
+         style="color:#0dcaf0;margin-right:16px;">Open {{ meta.title }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <a href="{{ url_for('phishing_debrief') }}"
+     style="display:inline-block;background:#28a745;color:#fff;padding:12px 24px;border-radius:6px;font-weight:bold;text-decoration:none;">
+    Continue to the debrief
+  </a>
+</div>
+{% endblock %}

@@ -85,3 +85,12 @@ class LocalBackend(SandboxBackend):
 
     def workspace_state(self, sandbox_id):
         return impact_core.workspace_state(self._require(sandbox_id))
+
+    def list_sandboxes(self):
+        if not os.path.isdir(self.root):
+            return []
+        found = []
+        for entry in sorted(os.listdir(self.root)):
+            if os.path.isdir(os.path.join(self.root, entry, WORKSPACE_DIRNAME)):
+                found.append(entry)
+        return found

@@ -138,35 +138,45 @@
         
     </div>
 
-    <!-- All Captured Credentials -->
-    <h2 style="color: #dc3545; border-bottom: 3px solid #dc3545; padding-bottom: 10px; margin-bottom: 25px;">🔑 All Captured Credentials</h2>
+    <!-- Credential interaction metadata (no passwords exist to show) -->
+    <h2 style="color: #dc3545; border-bottom: 3px solid #dc3545; padding-bottom: 10px; margin-bottom: 25px;">🔑 Credential Interactions</h2>
     
     <div style="background: #1a1a1a; border-radius: 10px; padding: 25px; margin-bottom: 40px;">
-        {% if all_creds %}
+        {% if interactions %}
         <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; color: #ccc;">
+            <table style="width: 100%; border-collapse: collapse;">
                 <thead>
-                    <tr style="background: #0a0a0a; text-align: left;">
-                        <th style="padding: 12px; border-bottom: 2px solid #333;">ID</th>
-                        <th style="padding: 12px; border-bottom: 2px solid #333;">Username</th>
-                        <th style="padding: 12px; border-bottom: 2px solid #333;">Note</th>
-                        <th style="padding: 12px; border-bottom: 2px solid #333;">Timestamp</th>
+                    <tr style="background: #0a0a0a; color: #888;">
+                        <th style="text-align: left; padding: 12px;">ID</th>
+                        <th style="text-align: left; padding: 12px;">Session</th>
+                        <th style="text-align: left; padding: 12px;">Scenario</th>
+                        <th style="text-align: left; padding: 12px;">Synthetic username</th>
+                        <th style="text-align: left; padding: 12px;">Valid</th>
+                        <th style="text-align: left; padding: 12px;">Event</th>
+                        <th style="text-align: left; padding: 12px;">Timestamp</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for cred in all_creds %}
-                    <tr style="border-bottom: 1px solid #222;">
-                        <td style="padding: 12px;">{{ cred.id }}</td>
-                        <td style="padding: 12px; color: #fd7e14; font-weight: bold;">{{ cred.username }}</td>
-                        <td style="padding: 12px; color: #aaa;">{{ cred.note }}</td>
-                        <td style="padding: 12px; color: #888; font-size: 0.9em;">{{ cred.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    {% for row in interactions %}
+                    <tr style="border-bottom: 1px solid #333;">
+                        <td style="padding: 12px;">{{ row.id }}</td>
+                        <td style="padding: 12px; color: #888; font-family: monospace;">{{ row.session_id[:8] if row.session_id else '-' }}</td>
+                        <td style="padding: 12px; color: #888; font-family: monospace;">{{ row.scenario_id or '-' }}</td>
+                        <td style="padding: 12px; color: #fd7e14; font-weight: bold;">{{ row.synthetic_username or '-' }}</td>
+                        <td style="padding: 12px; color: {{ '#28a745' if row.credential_valid else '#dc3545' }};">{{ 'yes' if row.credential_valid else 'no' }}</td>
+                        <td style="padding: 12px; font-family: monospace; color: #0dcaf0;">{{ row.event_type }}</td>
+                        <td style="padding: 12px; color: #888; font-size: 0.9em;">{{ row.timestamp.strftime('%Y-%m-%d %H:%M:%S') if row.timestamp else '-' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        <p style="color: #888; font-size: 0.9em; margin-top: 12px;">
+            Metadata only. No password is stored anywhere in this application, so
+            there is none to display here.
+        </p>
         {% else %}
-        <p style="color: #888; text-align: center; padding: 30px 0;">No credentials captured yet</p>
+        <p style="color: #888; text-align: center; padding: 30px 0;">No credential interactions recorded yet</p>
         {% endif %}
     </div>
 
@@ -205,23 +215,39 @@
             Workspace confinement still applies, but there is no container, process or network isolation.
         </p>
         {% endif %}
-        {% if not sandbox_auth_enabled %}
-        <p style="background: #3a2f00; border-left: 4px solid #ffc107; padding: 10px 15px; border-radius: 4px; font-size: 0.9em;">
-            <strong>Unauthenticated:</strong> set <code>SANDBOX_INSTRUCTOR_TOKEN</code> to require a token on sandbox control routes.
+        <p style="background: #0a2f0a; border-left: 4px solid #28a745; padding: 10px 15px; border-radius: 4px; font-size: 0.9em;">
+            <strong>Instructor session active.</strong> The sandbox shown below is the one
+            derived from <em>this</em> session; each learner session gets its own.
+            <form method="POST" action="{{ url_for('instructor_logout') }}" style="display:inline; margin-left:10px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" style="background:#6c757d;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;">Sign out</button>
+            </form>
         </p>
+
+        <h3 style="color: #0dcaf0;">Active Session Sandboxes ({{ sandbox_all_ids | length }})</h3>
+        {% if sandbox_all_ids %}
+        <p style="color: #aaa; font-family: monospace; font-size: 0.85em; word-break: break-all;">
+            {{ sandbox_all_ids | join(', ') }}
+        </p>
+        {% else %}
+        <p style="color: #888;">No session sandboxes exist yet.</p>
         {% endif %}
 
         <div style="display: flex; gap: 12px; flex-wrap: wrap; margin: 20px 0;">
             <form method="POST" action="{{ url_for('sandbox_ctl.create') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" style="background: #28a745; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-weight: bold; cursor: pointer;">Create Sandbox</button>
             </form>
             <form method="POST" action="{{ url_for('sandbox_ctl.file_impact') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" style="background: #dc3545; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-weight: bold; cursor: pointer;">Run File Impact Scenario</button>
             </form>
             <form method="POST" action="{{ url_for('sandbox_ctl.reset') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" style="background: #0d6efd; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-weight: bold; cursor: pointer;">Reset Sandbox</button>
             </form>
             <form method="POST" action="{{ url_for('sandbox_ctl.destroy') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" style="background: #6c757d; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-weight: bold; cursor: pointer;">Destroy Sandbox</button>
             </form>
         </div>

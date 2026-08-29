@@ -1,56 +1,60 @@
 {% extends "base_stub.html" %}
 {% block content %}
-<div class="container mt-5">
-    <div class="alert alert-warning">
-        <h4 class="alert-heading">Educational Simulation Notice</h4>
-        <p>This is a secure educational environment for demonstrating dark web marketplace risks.</p>
+<div style="max-width: 760px; margin: 0 auto; padding: 20px;">
+
+    <div style="background:#3a2f00;border-left:5px solid #ffc107;padding:15px;border-radius:6px;margin-bottom:20px;">
+        <strong>Simulation.</strong> Use only the sandbox identity issued to you.
+        Your password is checked and discarded — it is never stored, logged or displayed.
     </div>
 
     {% if product %}
-    <div class="card mb-4">
-        <div class="card-header">
-            Purchase Details
-        </div>
-        <div class="card-body">
-            <h5>{{ product.name }}</h5>
-            <p>Price: ${{ "%.2f"|format(product.price) }}</p>
-        </div>
+    <div style="background:#1a1a1a;border-radius:8px;padding:15px;margin-bottom:20px;">
+        <h5 style="margin:0 0 6px 0;">{{ product.name }}</h5>
+        <p style="margin:0;color:#aaa;">Price: ${{ "%.2f"|format(product.price) }}</p>
     </div>
     {% endif %}
 
-    <div class="card">
-        <div class="card-header">
-            Secure Login
-        </div>
-        <div class="card-body">
-            <form method="post" action="{{ url_for('phishing_login', product_id=product.id if product else None) }}">
-                <div class="mb-3">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" name="consent" required>
-                        <label class="form-check-label">I confirm this is a simulation and I will not enter real credentials.</label>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-control" name="username" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Password</label>
-                    <input type="password" class="form-control" name="password" required>
-                </div>
-                <input type="hidden" name="ref" value="{{ request.args.get('ref','') }}">
-                <button type="submit" class="btn btn-primary">Login to Continue</button>
-            </form>
-        </div>
+    {% if error %}
+    <p style="background:#3a0d0d;border-left:5px solid #dc3545;padding:12px 15px;border-radius:6px;">
+        {{ error }}
+    </p>
+    {% endif %}
+
+    <div style="background:#1a1a1a;border-radius:8px;padding:22px;">
+        <h3 style="margin-top:0;">Secure Login</h3>
+        <form method="post" action="{{ url_for('phishing_login') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="margin-bottom:14px;">
+                <label style="display:block;margin-bottom:4px;">Username</label>
+                <input type="text" name="username" autocomplete="off" required
+                       style="width:100%;padding:9px;border-radius:4px;border:1px solid #333;background:#0a0a0a;color:#ddd;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block;margin-bottom:4px;">Password</label>
+                <input type="password" name="password" autocomplete="off" required
+                       style="width:100%;padding:9px;border-radius:4px;border:1px solid #333;background:#0a0a0a;color:#ddd;">
+            </div>
+            <button type="submit" style="background:#0d6efd;color:#fff;border:none;padding:11px 22px;border-radius:6px;font-weight:bold;cursor:pointer;">
+                Login to Continue
+            </button>
+        </form>
     </div>
 
-    <div class="alert alert-info mt-4">
-        <h5>Remember:</h5>
-        <ul>
-            <li>This is an educational simulation only</li>
-            <li>Do not enter real credentials</li>
-            <li>All transactions are simulated</li>
-        </ul>
-    </div>
+    <h4 style="color:#0dcaf0;margin-top:25px;">Your sandbox identities</h4>
+    <table style="width:100%;border-collapse:collapse;">
+        <tbody>
+            {% for identity in identities %}
+            <tr style="border-bottom:1px solid #333;">
+                <td style="padding:8px;font-family:monospace;color:#0dcaf0;">{{ identity.username }}</td>
+                <td style="padding:8px;font-family:monospace;color:#fd7e14;">{{ identity.password }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p style="color:#888;font-size:0.9em;margin-top:20px;">
+        A real phishing page would look exactly like this and would keep whatever
+        you typed. This one cannot: there is nowhere in the schema to put a password.
+    </p>
 </div>
 {% endblock %}

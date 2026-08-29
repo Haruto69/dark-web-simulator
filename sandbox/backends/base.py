@@ -45,3 +45,11 @@ class SandboxBackend:
 
     def workspace_state(self, sandbox_id):
         raise NotImplementedError
+
+    def list_sandboxes(self):
+        """Return the ids of every sandbox this backend currently owns.
+
+        Used only by the instructor aggregation view. Returning ids -- not
+        session identifiers -- keeps the learner->sandbox mapping one-way.
+        """
+        raise NotImplementedError

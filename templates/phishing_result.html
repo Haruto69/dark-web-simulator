@@ -4,51 +4,57 @@
 
 <div style="max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.8;">
 
-    <h1 style="text-align: center; color: #dc3545; margin-bottom: 30px;">⚠️ YOU'VE BEEN PHISHED! ⚠️</h1>
+    <h1 style="text-align: center; color: #dc3545; margin-bottom: 30px;">⚠️ SCENARIO DEBRIEF: YOU WERE PHISHED ⚠️</h1>
 
     <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 5px solid #28a745;">
         <p style="margin: 0; color: #155724;"><strong>This was an educational simulation.</strong></p>
-        <p style="margin: 10px 0 0 0; color: #155724;"><strong>No real credentials were compromised</strong>, and all data was handled in a safe training environment. Everything is completely secure!</p>
+        <p style="margin: 10px 0 0 0; color: #155724;">
+            You used a synthetic sandbox identity, not a real one. <strong>The password you
+            typed was never stored</strong> — it was compared against the sandbox value and
+            discarded. No external authentication service was contacted at any point.
+        </p>
     </div>
 
     <h2 style="color: #dc3545; border-bottom: 2px solid #dc3545; padding-bottom: 10px;">📋 What Just Happened</h2>
-    
-    <p>You submitted your credentials to a simulated phishing page designed to look like a legitimate login form. In a real attack, your username and password would now be in the hands of cybercriminals who could:</p>
-    
-    <ul>
-        <li>Access your email, social media, and financial accounts</li>
-        <li>Steal your identity and commit fraud</li>
-        <li>Lock you out of your own accounts</li>
-        <li>Sell your credentials on the dark web</li>
-        <li>Use your account to phish your contacts</li>
-    </ul>
+
+    <p>You submitted a credential to a page that looked like a login form and was not one.
+    In a real attack the credential would now be replayed against every other service you
+    use. That replay is exactly what the previous screen demonstrated — against a synthetic
+    internal system inside your own sandbox.</p>
 
     <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: #155724;"><strong>Username submitted:</strong> <code style="background: #c3e6cb; color: #155724; padding: 4px 8px; border-radius: 4px;">{{ username }}</code></p>
+        <p style="margin: 0; color: #155724;"><strong>Synthetic identity used:</strong>
+            <code style="background: #c3e6cb; color: #155724; padding: 4px 8px; border-radius: 4px;">{{ synthetic_username }}</code></p>
+        <p style="margin: 10px 0 0 0; color: #155724;"><strong>Scenario id:</strong>
+            <code style="background: #c3e6cb; color: #155724; padding: 4px 8px; border-radius: 4px;">{{ scenario_id }}</code></p>
         {% if product %}
         <p style="margin: 10px 0 0 0; color: #155724;"><strong>Context:</strong> Attempted purchase of <em>{{ product.name }}</em> for ${{ "%.2f"|format(product.price) }}</p>
         {% endif %}
     </div>
 
-    {% if metrics %}
-    <h2 style="color: #fd7e14; border-bottom: 2px solid #fd7e14; padding-bottom: 10px;">📊 Live Phishing Statistics</h2>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
-        <div style="background: #fff; border: 2px solid #dc3545; border-radius: 8px; padding: 20px; text-align: center;">
-            <div style="font-size: 3em; font-weight: bold; color: #dc3545; line-height: 1;">{{ metrics.total_phished }}</div>
-            <div style="color: #6c757d; margin-top: 10px; font-size: 0.9em;">Total Victims</div>
-        </div>
-        <div style="background: #fff; border: 2px solid #fd7e14; border-radius: 8px; padding: 20px; text-align: center;">
-            <div style="font-size: 3em; font-weight: bold; color: #fd7e14; line-height: 1;">{{ metrics.recent_phished }}</div>
-            <div style="color: #6c757d; margin-top: 10px; font-size: 0.9em;">Last 24 Hours</div>
-        </div>
-        <div style="background: #fff; border: 2px solid #6610f2; border-radius: 8px; padding: 20px; text-align: center;">
-            <div style="font-size: 3em; font-weight: bold; color: #6610f2; line-height: 1;">{{ metrics.unique_victims }}</div>
-            <div style="color: #6c757d; margin-top: 10px; font-size: 0.9em;">Unique Users</div>
-        </div>
-    </div>
-
-    <p><strong>You are victim #{{ metrics.your_number }}</strong> in this simulation. These numbers show how easy it is to fall for phishing attacks!</p>
+    {% if events %}
+    <h2 style="color: #fd7e14; border-bottom: 2px solid #fd7e14; padding-bottom: 10px;">🗓️ Your Scenario Timeline</h2>
+    <p>Every stage you passed through, in order. This is the whole record the
+    simulator keeps about you — event types, timestamps and synthetic targets.
+    There is no credential value anywhere in it.</p>
+    <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:0.9em;">
+        <thead>
+            <tr style="background:#0a0a0a;color:#888;">
+                <th style="text-align:left;padding:8px;">Time</th>
+                <th style="text-align:left;padding:8px;">Event</th>
+                <th style="text-align:left;padding:8px;">Target</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in events %}
+            <tr style="border-bottom:1px solid #333;">
+                <td style="padding:8px;color:#888;">{{ e.timestamp.strftime('%H:%M:%S') if e.timestamp else '-' }}</td>
+                <td style="padding:8px;font-family:monospace;color:#0dcaf0;">{{ e.event_type }}</td>
+                <td style="padding:8px;color:#aaa;">{{ e.target or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
     {% endif %}
 
     <h2 style="color: #dc3545; border-bottom: 2px solid #dc3545; padding-bottom: 10px;">🚩 Red Flags You Missed</h2>
@@ -141,11 +147,7 @@
            style="display: inline-block; background: #333; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; transition: all 0.3s;">
             📚 More Security Resources
         </a>
-        <a href="{{ url_for('dashboard') }}" 
-           style="display: inline-block; background: #333; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; transition: all 0.3s;">
-            📊 View Dashboard
-        </a>
-        <a href="{{ url_for('index') }}" 
+        <a href="{{ url_for('index') }}"
            style="display: inline-block; background: #333; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; transition: all 0.3s;">
             🏠 Return to Home
         </a>
@@ -153,7 +155,7 @@
 
     <hr style="border: none; border-top: 2px solid #dee2e6; margin: 40px 0;">
 
-    <p style="text-align: center; color: #6c757d;"><strong>Remember:</strong> This simulation captured your credentials in a safe environment. In the real world, stolen credentials can lead to identity theft, financial loss, and compromised accounts. Always stay vigilant!</p>
+    <p style="text-align: center; color: #6c757d;"><strong>Remember:</strong> This simulation deliberately kept nothing you typed. In the real world, stolen credentials can lead to identity theft, financial loss, and compromised accounts. Always stay vigilant!</p>
 
     <p style="text-align: center; font-size: 0.9em; color: #6c757d; margin-top: 20px;">
         <em>Sources: IBM Security Cost of Data Breach Report 2024, Verizon Data Breach Investigations Report 2024, Deloitte Cyber Threat Report 2024</em>

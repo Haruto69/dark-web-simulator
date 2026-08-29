@@ -153,3 +153,13 @@ class DockerBackend(SandboxBackend):
 
     def workspace_state(self, sandbox_id):
         return self._exec_tool(sandbox_id, ["state"])
+
+    def list_sandboxes(self):
+        completed = self._run(
+            ["ps", "--all", "--filter", "label=dws-sandbox=1",
+             "--format", "{{.Names}}"], check=False)
+        if completed.returncode != 0:
+            return []
+        names = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+        return sorted(n[len(CONTAINER_PREFIX):] for n in names
+                      if n.startswith(CONTAINER_PREFIX))

@@ -2,35 +2,37 @@
 {% block content %}
 <section class="hero">
   <h1 class="hero-title">database.deets.onion</h1>
-  <p class="hero-sub">Unlisted endpoint for internal viewing. Displays all simulated data stored in this environment.</p>
+  <p class="hero-sub">Unlisted endpoint for internal viewing. Instructor-only view of simulated lab state. Credential values are never stored and never shown.</p>
 </section>
 
 <section class="featured">
   <div class="market-row">
     <div class="market">
-      <div class="market-head">credentials.onion <span class="sim-pill">SIM</span></div>
-      <div class="market-desc">Captured credential simulations.</div>
+      <div class="market-head">interactions.onion <span class="sim-pill">SIM</span></div>
+      <div class="market-desc">Credential-interaction metadata. No password is stored by this application, so none can be shown.</div>
       <div class="market-body">
         <table class="data-table">
           <thead>
             <tr>
               <th>ID</th>
-              <th>Username</th>
-              <th>Password</th>
-              <th>Note</th>
+              <th>Session</th>
+              <th>Scenario</th>
+              <th>Synthetic username</th>
+              <th>Valid</th>
+              <th>Event</th>
               <th>Timestamp</th>
-              <th>Simulated</th>
             </tr>
           </thead>
           <tbody>
-            {% for c in creds %}
+            {% for row in interactions %}
             <tr>
-              <td>{{ c.id }}</td>
-              <td>{{ c.username }}</td>
-              <td>{{ c.password }}</td>
-              <td>{{ c.note }}</td>
-              <td>{{ c.timestamp }}</td>
-              <td>{{ 'yes' if c.simulated else 'no' }}</td>
+              <td>{{ row.id }}</td>
+              <td>{{ row.session_id[:8] if row.session_id else '-' }}</td>
+              <td>{{ row.scenario_id or '-' }}</td>
+              <td>{{ row.synthetic_username or '-' }}</td>
+              <td>{{ 'yes' if row.credential_valid else 'no' }}</td>
+              <td>{{ row.event_type }}</td>
+              <td>{{ row.timestamp }}</td>
             </tr>
             {% endfor %}
           </tbody>

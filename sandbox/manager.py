@@ -10,21 +10,31 @@ Flask routes call this class. Docker/subprocess details stay in the backends.
 from .backends.base import validate_sandbox_id
 from .backends.docker import DockerBackend
 from .backends.local import LocalBackend
-from .errors import SandboxNotReadyError
+from .errors import SandboxError, SandboxNotReadyError
 from .events import EventCollector, EventType, make_event
 
 DEFAULT_SANDBOX_ID = "primary"
 
 
 class SandboxManager:
+    """Lifecycle owner. One manager per process, many sandboxes.
+
+    ``default_sandbox_id`` exists for library/CLI use. The Flask layer
+    constructs the manager with ``default_sandbox_id=None`` so that a route
+    which forgets to pass a session-scoped id fails loudly instead of silently
+    sharing one workspace between learners.
+    """
+
     def __init__(self, backend, recorder=None, default_sandbox_id=DEFAULT_SANDBOX_ID):
         self.backend = backend
         self.recorder = recorder or EventCollector()
-        self.default_sandbox_id = validate_sandbox_id(default_sandbox_id)
+        self.default_sandbox_id = (validate_sandbox_id(default_sandbox_id)
+                                   if default_sandbox_id is not None else None)
 
     # -- construction ------------------------------------------------------
     @classmethod
-    def autodetect(cls, local_root, recorder=None, prefer_docker=True, image=None):
+    def autodetect(cls, local_root, recorder=None, prefer_docker=True, image=None,
+                   default_sandbox_id=DEFAULT_SANDBOX_ID):
         """Pick DockerBackend when Docker is usable, else LocalBackend.
 
         The chosen backend's ``isolation_summary`` is reported to the operator
@@ -33,8 +43,21 @@ class SandboxManager:
         if prefer_docker:
             docker = DockerBackend(image=image) if image else DockerBackend()
             if docker.is_available():
-                return cls(docker, recorder=recorder)
-        return cls(LocalBackend(local_root), recorder=recorder)
+                return cls(docker, recorder=recorder,
+                           default_sandbox_id=default_sandbox_id)
+        return cls(LocalBackend(local_root), recorder=recorder,
+                   default_sandbox_id=default_sandbox_id)
+
+    # -- id resolution -----------------------------------------------------
+    def resolve_id(self, sandbox_id=None):
+        """Validate an explicit id, or fall back to the configured default."""
+        if sandbox_id is None:
+            if self.default_sandbox_id is None:
+                raise SandboxError(
+                    "a sandbox id is required (this manager has no default; "
+                    "pass the session-scoped id)")
+            sandbox_id = self.default_sandbox_id
+        return validate_sandbox_id(sandbox_id)
 
     # -- telemetry ---------------------------------------------------------
     def _emit(self, event_type, session_id=None, scenario_id=None,
@@ -46,7 +69,7 @@ class SandboxManager:
 
     # -- lifecycle ---------------------------------------------------------
     def create(self, sandbox_id=None, session_id=None):
-        sandbox_id = validate_sandbox_id(sandbox_id or self.default_sandbox_id)
+        sandbox_id = self.resolve_id(sandbox_id)
         info = self.backend.create(sandbox_id)
         self._emit(EventType.SANDBOX_CREATED, session_id=session_id,
                    target=sandbox_id,
@@ -55,7 +78,7 @@ class SandboxManager:
         return info
 
     def status(self, sandbox_id=None):
-        sandbox_id = validate_sandbox_id(sandbox_id or self.default_sandbox_id)
+        sandbox_id = self.resolve_id(sandbox_id)
         info = dict(self.backend.status(sandbox_id))
         info["isolation"] = self.backend.isolation_summary
         info["ready"] = info.get("state") == "running"
@@ -73,7 +96,7 @@ class SandboxManager:
         return info
 
     def reset(self, sandbox_id=None, session_id=None):
-        sandbox_id = validate_sandbox_id(sandbox_id or self.default_sandbox_id)
+        sandbox_id = self.resolve_id(sandbox_id)
         info = self.backend.reset(sandbox_id)
         self._emit(EventType.SANDBOX_RESET, session_id=session_id,
                    target=sandbox_id,
@@ -81,7 +104,7 @@ class SandboxManager:
         return info
 
     def destroy(self, sandbox_id=None, session_id=None):
-        sandbox_id = validate_sandbox_id(sandbox_id or self.default_sandbox_id)
+        sandbox_id = self.resolve_id(sandbox_id)
         info = self.backend.destroy(sandbox_id)
         self._emit(EventType.SANDBOX_DESTROYED, session_id=session_id,
                    target=sandbox_id, details="sandbox removed")
@@ -89,6 +112,26 @@ class SandboxManager:
 
     # -- inspection --------------------------------------------------------
     def workspace_state(self, sandbox_id=None):
-        sandbox_id = validate_sandbox_id(sandbox_id or self.default_sandbox_id)
+        sandbox_id = self.resolve_id(sandbox_id)
         self.require_ready(sandbox_id)
         return self.backend.workspace_state(sandbox_id)
+
+    def list_sandboxes(self):
+        """Instructor aggregation: every sandbox id the backend owns."""
+        try:
+            return self.backend.list_sandboxes()
+        except SandboxError:
+            return []
+
+    def ensure_ready(self, sandbox_id=None, session_id=None):
+        """Create the sandbox only if it is not already running.
+
+        Idempotent, so a learner re-entering a scenario keeps their workspace
+        instead of silently resetting it.
+        """
+        sandbox_id = self.resolve_id(sandbox_id)
+        info = self.status(sandbox_id)
+        if info["ready"]:
+            return info
+        self.create(sandbox_id, session_id=session_id)
+        return self.status(sandbox_id)

@@ -1,8 +1,67 @@
 {% extends "base_stub.html" %}
 {% block content %}
-  <h2>Phishing Simulation - Consent</h2>
-  <p><strong>WARNING:</strong> This is a training simulation. <em>Do not</em> enter any real usernames or passwords.</p>
-  <form action="{{ url_for('phishing_login') }}" method="get">
-    <button type="submit">Proceed to Simulated Login (I CONSENT)</button>
+<div style="max-width: 820px; margin: 0 auto; padding: 20px; line-height: 1.7;">
+
+  <h1 style="color:#ffc107;">Before you continue: training simulation briefing</h1>
+
+  {% if product %}
+  <p style="color:#aaa;">Scenario context: attempted purchase of <em>{{ product.name }}</em>.</p>
+  {% endif %}
+
+  <div style="background:#3a2f00;border-left:5px solid #ffc107;padding:18px;border-radius:6px;margin:20px 0;">
+    <ul style="margin:0;padding-left:20px;">
+      <li><strong>This is a training simulation.</strong> Nothing here is a real
+          marketplace, a real login page or a real payment.</li>
+      <li><strong>Only sandbox credentials may be used.</strong> The lab has issued
+          you the synthetic identities listed below.</li>
+      <li><strong>Never enter a real credential.</strong> Not your email, not your
+          university account, not anything you use elsewhere.</li>
+      <li><strong>Submitted passwords are not stored.</strong> The simulator compares
+          what you type against the synthetic value and discards it immediately.
+          There is no password column anywhere in this application.</li>
+      <li><strong>Your activity is logged as scenario telemetry</strong> — event
+          types, timestamps, the synthetic username and a valid/invalid flag —
+          so the instructor can walk the class through the attack chain.</li>
+    </ul>
+  </div>
+
+  <h2 style="color:#0dcaf0;">Your sandbox identities</h2>
+  <p style="color:#aaa;">
+    These exist only inside this simulator, only for your session, and correspond
+    to no real service. <code>{{ lab_domain }}</code> resolves nowhere.
+  </p>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:25px;">
+    <thead>
+      <tr style="background:#0a0a0a;color:#888;">
+        <th style="text-align:left;padding:8px;">Synthetic username</th>
+        <th style="text-align:left;padding:8px;">Sandbox password</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for identity in identities %}
+      <tr style="border-bottom:1px solid #333;">
+        <td style="padding:8px;font-family:monospace;color:#0dcaf0;">{{ identity.username }}</td>
+        <td style="padding:8px;font-family:monospace;color:#fd7e14;">{{ identity.password }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" action="{{ url_for('phishing_consent', product_id=product.id if product else None) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label style="display:block;margin-bottom:15px;">
+      <input type="checkbox" name="consent" value="yes" required>
+      I have read the briefing. I understand this is a simulation and I will only
+      use the sandbox identities above.
+    </label>
+    <button type="submit" style="background:#dc3545;color:#fff;border:none;padding:12px 24px;border-radius:6px;font-weight:bold;cursor:pointer;">
+      I consent — start the simulation
+    </button>
   </form>
+
+  <p style="color:#888;font-size:0.9em;margin-top:20px;">
+    Consent is recorded on the server. Skipping this page by typing a later URL
+    will simply send you back here.
+  </p>
+</div>
 {% endblock %}

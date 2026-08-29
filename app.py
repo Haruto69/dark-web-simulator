@@ -8,6 +8,14 @@ import random
 import secrets
 import uuid
 
+from sandbox import (SYNTHETIC_RESOURCES, PhishingScenario, SandboxError,
+                     ScenarioStateError, SyntheticIdentityStore,
+                     new_scenario_id, stage_index)
+from security import (check_instructor_password, init_csrf,
+                      instructor_auth_configured, login_instructor,
+                      logout_instructor, render_instructor_login,
+                      require_instructor, safe_next)
+
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
@@ -21,6 +29,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # from request data; the Docker backend uses no host directory at all.
 app.config['SANDBOX_LOCAL_ROOT'] = os.environ.get(
     "SANDBOX_LOCAL_ROOT", os.path.join(BASE_DIR, "instance", "sandbox_workspaces"))
+
+# CSRF is enforced globally on every state-changing request.
+init_csrf(app)
+
+# Secret used to derive the session-scoped synthetic lab identities. It is a
+# derivation key only: no identity or password is ever written to disk.
+IDENTITIES = SyntheticIdentityStore(
+    os.environ.get("SYNTHETIC_IDENTITY_SECRET") or app.secret_key)
 
 db = SQLAlchemy(app)
 
@@ -41,14 +57,41 @@ class DemoFile(db.Model):
     status = db.Column(db.String(50), default='available')
     remark = db.Column(db.String(256), default='')
 
-class SimulatedCredential(db.Model):
-    __tablename__ = 'simulated_credential'
+class CredentialInteraction(db.Model):
+    """Metadata about a credential submission -- never the credential itself.
+
+    This model replaces the Milestone 1 ``SimulatedCredential`` table, which
+    stored learner-submitted usernames *and passwords* in plaintext. There is
+    deliberately no password column here and there never will be: the phishing
+    scenario compares a submitted password against a derived synthetic one and
+    drops it. ``synthetic_username`` holds a recognised ``*@lab.local`` sandbox
+    identity -- not a secret -- or the ``<non-sandbox-identity>`` placeholder
+    when the learner typed something that is not one, so an address they should
+    never have entered is not retained either.
+
+    The legacy table is dropped on start-up; see :func:`drop_legacy_tables`.
+    """
+    __tablename__ = 'credential_interaction'
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(256))
-    password = db.Column(db.String(256))
-    note = db.Column(db.String(256))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    simulated = db.Column(db.Boolean, default=True)
+    session_id = db.Column(db.String(100), index=True)
+    scenario_id = db.Column(db.String(64), index=True)
+    synthetic_username = db.Column(db.String(120))
+    credential_valid = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    product_id = db.Column(db.Integer, nullable=True)
+    event_type = db.Column(db.String(64))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "scenario_id": self.scenario_id,
+            "synthetic_username": self.synthetic_username,
+            "credential_valid": bool(self.credential_valid),
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "product_id": self.product_id,
+            "event_type": self.event_type,
+        }
 
 class PhishingFunnel(db.Model):
     __tablename__ = 'phishing_funnel'
@@ -98,10 +141,16 @@ class SecurityEvent(db.Model):
 # --- Conference sandbox (instructor-only control surface) ---
 # All Docker / filesystem logic lives in the sandbox package; routes only
 # delegate. See README "Conference Sandbox Architecture".
-from sandbox_routes import create_sandbox_blueprint, sandbox_dashboard_context
+from sandbox_routes import (create_sandbox_blueprint, ensure_manager,
+                            sandbox_dashboard_context, session_sandbox_id)
 
 app.register_blueprint(create_sandbox_blueprint(
     db, SecurityEvent, app.config['SANDBOX_LOCAL_ROOT']))
+
+
+def sandbox_manager():
+    return ensure_manager(app, db, SecurityEvent,
+                          app.config['SANDBOX_LOCAL_ROOT'])
 
 # Session tracking
 @app.before_request
@@ -109,8 +158,22 @@ def ensure_session_id():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
 
+def drop_legacy_tables():
+    """Remove Milestone 1 tables that held unsafe data.
+
+    ``simulated_credential`` stored learner-submitted plaintext passwords. This
+    project is a SQLite-backed teaching demo with no production data, so the
+    migration strategy is simply to drop the table on start-up rather than to
+    carry an Alembic history. Any existing captured passwords are destroyed the
+    first time the Milestone 2 code runs -- which is the desired outcome.
+    """
+    with db.engine.begin() as connection:
+        connection.exec_driver_sql("DROP TABLE IF EXISTS simulated_credential")
+
+
 def init_db():
     db.create_all()
+    drop_legacy_tables()
     
     # Clear old data (optional - comment out if you want to keep data between restarts)
     Product.query.delete()
@@ -681,18 +744,19 @@ def ransomware_reveal():
 
 @app.route('/product/<int:product_id>')
 def product(product_id):
-    """Product page - PHISHING STAGE 1"""
+    """Product page - the phishing lure (scenario stage 1)."""
     product = Product.query.get_or_404(product_id)
-    
-    # Track Stage 1: Viewed product
-    funnel = PhishingFunnel(
+
+    # Funnel row for the instructor metrics (no credential data).
+    db.session.add(PhishingFunnel(
         session_id=session.get('session_id'),
         stage='marketplace',
-        details=f"Viewed product: {product.name}"
-    )
-    db.session.add(funnel)
+        details="Viewed product: %s" % product.name))
     db.session.commit()
-    
+
+    # Correlated scenario telemetry: PHISHING_EXPOSED, once per in-flight run.
+    start_phishing_scenario(product)
+
     return render_template("product.html", product=product)
 
 @app.route("/page/<slug>")
@@ -711,115 +775,280 @@ def page(slug):
         return render_template('404.html'), 404
     return render_template('page.html', page=page)
 
-@app.route("/phishing/consent")
+# --- Multi-stage phishing / synthetic credential-reuse scenario -------------
+#
+#   product lure -> consent -> phishing-style login -> credential validation
+#   -> sandbox-only reuse -> synthetic resource -> debrief
+#
+# The scenario stage lives in the *server-side* session, so consent and
+# credential validation cannot be skipped by requesting a later URL directly.
+# All logic lives in sandbox/scenarios/phishing.py; these routes only move the
+# state machine along and render templates.
+
+PHISHING_SESSION_KEY = "phishing_scenario"
+
+
+def phishing_scenario():
+    return PhishingScenario(sandbox_manager(), IDENTITIES)
+
+
+def phishing_state():
+    state = session.get(PHISHING_SESSION_KEY)
+    if not isinstance(state, dict):
+        state = {"scenario_id": None, "stage": "start", "product_id": None,
+                 "synthetic_username": None}
+    return state
+
+
+def save_phishing_state(state):
+    session[PHISHING_SESSION_KEY] = state
+    session.modified = True
+
+
+def start_phishing_scenario(product=None):
+    """Emit PHISHING_EXPOSED once per in-flight scenario."""
+    state = phishing_state()
+    if state["scenario_id"] and stage_index(state["stage"]) < stage_index("completed"):
+        return state
+    result = phishing_scenario().expose(
+        session["session_id"], scenario_id=new_scenario_id(),
+        lure=("product:%s" % product.id) if product else "marketplace")
+    state = {"scenario_id": result["scenario_id"], "stage": result["stage"],
+             "product_id": product.id if product else None,
+             "synthetic_username": None}
+    save_phishing_state(state)
+    return state
+
+
+def _requested_product():
+    """Resolve ``product_id`` from the query string, or None. Never trusted."""
+    raw = request.args.get("product_id")
+    if not raw or not raw.isdigit():
+        return None
+    return Product.query.get(int(raw))
+
+
+@app.route("/phishing/consent", methods=["GET", "POST"])
 def phishing_consent():
-    return render_template("phishing_consent.html")
+    """Learner-facing briefing. Consent is recorded server-side on POST."""
+    product = _requested_product()
+    state = phishing_state()
+    if not state["scenario_id"]:
+        state = start_phishing_scenario(product)
+    if product and not state.get("product_id"):
+        state["product_id"] = product.id
+        save_phishing_state(state)
+
+    if request.method == "POST":
+        if request.form.get("consent") != "yes":
+            flash("You must accept the simulation briefing to continue.", "warning")
+            return redirect(url_for("phishing_consent",
+                                    product_id=state.get("product_id")))
+        try:
+            result = phishing_scenario().grant_consent(
+                session["session_id"], state["scenario_id"], state["stage"])
+        except ScenarioStateError:
+            flash("Scenario restarted - please read the briefing again.", "warning")
+            session.pop(PHISHING_SESSION_KEY, None)
+            return redirect(url_for("phishing_consent"))
+        state["stage"] = result["stage"]
+        save_phishing_state(state)
+        return redirect(url_for("phishing_login"))
+
+    return render_template(
+        "phishing_consent.html",
+        product=(Product.query.get(state["product_id"])
+                 if state.get("product_id") else None),
+        identities=IDENTITIES.identities(session["session_id"]),
+        lab_domain=IDENTITIES.domain)
+
 
 @app.route("/phishing/login", methods=["GET", "POST"])
 def phishing_login():
-    """Login page - comes BEFORE payment, NOT tracked here"""
-    product_id = request.args.get('product_id')
-    product = None
-    if product_id:
-        product = Product.query.get(product_id)
-    
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
-        
-        # Save credentials but DON'T track stage here
-        cred = SimulatedCredential(
-            username=username[:255],
-            password=password,
-            note=f"Purchase simulation for product {product_id if product_id else 'unknown'}"
-        )
-        db.session.add(cred)
+    """Phishing-style login. Only sandbox identities can ever validate."""
+    state = phishing_state()
+    if stage_index(state["stage"]) < stage_index("consented"):
+        flash("Read and accept the simulation briefing first.", "warning")
+        return redirect(url_for("phishing_consent",
+                                product_id=request.args.get("product_id")))
+
+    product = (Product.query.get(state["product_id"])
+               if state.get("product_id") else None)
+
+    if request.method == "GET":
+        result = phishing_scenario().view_form(
+            session["session_id"], state["scenario_id"], state["stage"])
+        state["stage"] = result["stage"]
+        save_phishing_state(state)
+        # Stage tracking for the existing instructor funnel metrics. Contains
+        # no credential data.
+        db.session.add(PhishingFunnel(session_id=session["session_id"],
+                                      stage="payment",
+                                      details="Viewed phishing login form"))
         db.session.commit()
-        
-        # Redirect to payment page if product exists
-        if product:
-            return redirect(url_for('payment', product_id=product_id))
-        
-        # If no product, show result
-        total_phished = SimulatedCredential.query.count()
-        yesterday = datetime.utcnow() - timedelta(days=1)
-        recent_phished = SimulatedCredential.query.filter(
-            SimulatedCredential.timestamp >= yesterday
-        ).count()
-        unique_victims = db.session.query(SimulatedCredential.username).distinct().count()
-        
-        metrics = {
-            'total_phished': total_phished,
-            'recent_phished': recent_phished,
-            'unique_victims': unique_victims,
-            'your_number': total_phished
-        }
-        
-        return render_template("phishing_result.html",
-                             username=username,
-                             product=product,
-                             metrics=metrics)
-    
-    return render_template("phishing_login.html", product=product)
+        return render_template("phishing_login.html", product=product,
+                               identities=IDENTITIES.identities(session["session_id"]),
+                               error=None)
+
+    # POST: validate, then discard. The submitted password is never assigned to
+    # any longer-lived name, never logged and never persisted.
+    outcome = phishing_scenario().submit_credential(
+        session["session_id"], state["scenario_id"], state["stage"],
+        request.form.get("username", ""), request.form.get("password", ""))
+
+    db.session.add(CredentialInteraction(
+        session_id=session["session_id"],
+        scenario_id=state["scenario_id"],
+        synthetic_username=(outcome["synthetic_username"][:120] or None),
+        credential_valid=outcome["valid"],
+        product_id=state.get("product_id"),
+        event_type=("CREDENTIAL_VALIDATED" if outcome["valid"]
+                    else "CREDENTIAL_VALIDATION_FAILED")))
+    db.session.add(PhishingFunnel(
+        session_id=session["session_id"], stage="credentials",
+        details="Submitted a credential to the phishing form (valid=%s)"
+                % outcome["valid"]))
+    db.session.commit()
+
+    if not outcome["valid"]:
+        return render_template(
+            "phishing_login.html", product=product,
+            identities=IDENTITIES.identities(session["session_id"]),
+            error="That is not a sandbox identity issued to this session. "
+                  "Use one of the lab identities shown below."), 401
+
+    state["stage"] = outcome["stage"]
+    state["synthetic_username"] = outcome["synthetic_username"]
+    save_phishing_state(state)
+
+    # The contained "reuse" transition: the validated synthetic identity is
+    # replayed against this session's own sandbox. No destination is accepted
+    # from the request and no network call is made.
+    try:
+        sandbox_manager().ensure_ready(session_sandbox_id(),
+                                       session_id=session["session_id"])
+        result = phishing_scenario().reuse_credential(
+            session["session_id"], state["scenario_id"], state["stage"],
+            state["synthetic_username"])
+    except SandboxError:
+        flash("The sandbox is unavailable; the scenario cannot continue.", "danger")
+        return redirect(url_for("phishing_consent"))
+    state["stage"] = result["stage"]
+    save_phishing_state(state)
+    return redirect(url_for("phishing_portal"))
+
+
+@app.route("/phishing/portal")
+def phishing_portal():
+    """Synthetic internal resource reached by the reused sandbox identity."""
+    state = phishing_state()
+    if stage_index(state["stage"]) < stage_index("sandbox_login"):
+        flash("Complete the login stage first.", "warning")
+        return redirect(url_for("phishing_consent"))
+
+    # Only an allow-listed *key* is accepted -- never a URL, host or path.
+    requested = request.args.get("resource")
+    if requested not in SYNTHETIC_RESOURCES:
+        requested = None
+    try:
+        result = phishing_scenario().access_resource(
+            session["session_id"], state["scenario_id"], state["stage"], requested)
+    except ScenarioStateError:
+        flash("Scenario state is out of order; restarting.", "warning")
+        session.pop(PHISHING_SESSION_KEY, None)
+        return redirect(url_for("phishing_consent"))
+    state["stage"] = result["stage"]
+    save_phishing_state(state)
+
+    try:
+        files = sandbox_manager().workspace_state(session_sandbox_id())
+    except SandboxError:
+        files = []
+
+    return render_template("phishing_portal.html",
+                           resource=result["resource"],
+                           resources=SYNTHETIC_RESOURCES,
+                           synthetic_username=state.get("synthetic_username"),
+                           files=files,
+                           scenario_id=state["scenario_id"])
+
+
+@app.route("/phishing/debrief")
+def phishing_debrief():
+    """Educational debrief; marks the scenario complete."""
+    state = phishing_state()
+    if stage_index(state["stage"]) < stage_index("resource_accessed"):
+        flash("Finish the scenario before viewing the debrief.", "warning")
+        return redirect(url_for("phishing_consent"))
+    if stage_index(state["stage"]) < stage_index("completed"):
+        result = phishing_scenario().complete(
+            session["session_id"], state["scenario_id"], state["stage"])
+        state["stage"] = result["stage"]
+        save_phishing_state(state)
+
+    events = (SecurityEvent.query
+              .filter(SecurityEvent.scenario_id == state["scenario_id"],
+                      SecurityEvent.session_id == session["session_id"])
+              .order_by(SecurityEvent.timestamp.asc(), SecurityEvent.id.asc())
+              .all())
+    product = (Product.query.get(state["product_id"])
+               if state.get("product_id") else None)
+    return render_template("phishing_result.html",
+                           product=product,
+                           synthetic_username=state.get("synthetic_username"),
+                           scenario_id=state["scenario_id"],
+                           events=events)
+
 
 @app.route("/payment/<product_id>")
 def payment(product_id):
-    """Payment page - PHISHING STAGE 2"""
-    product = Product.query.get_or_404(product_id)
-    
-    # Track Stage 2: Reached payment page
-    funnel = PhishingFunnel(
-        session_id=session.get('session_id'),
-        stage='payment',
-        details=f"Reached payment for: {product.name}"
-    )
-    db.session.add(funnel)
-    db.session.commit()
-    
-    return render_template("payment.html", product=product)
+    """Legacy entry point.
 
-@app.route("/process_payment/<product_id>", methods=["POST"])
-def process_payment(product_id):
-    """Process payment - PHISHING STAGE 3"""
+    The old payment page existed only to funnel learners into the plaintext
+    credential capture that Milestone 2 removed. It now redirects into the
+    consent-gated scenario, so bookmarked links keep working without reviving
+    the old behaviour. ``/process_payment`` is gone entirely.
+    """
     product = Product.query.get_or_404(product_id)
-    
-    # Track Stage 3: Submitted payment
-    funnel = PhishingFunnel(
-        session_id=session.get('session_id'),
-        stage='credentials',
-        details=f"Submitted payment for: {product.name}"
-    )
-    db.session.add(funnel)
-    db.session.commit()
-    
-    # Get the username from the most recent credential submission
-    latest_cred = SimulatedCredential.query.order_by(SimulatedCredential.timestamp.desc()).first()
-    username = latest_cred.username if latest_cred else "Unknown"
-    
-    # Calculate phishing metrics
-    total_phished = SimulatedCredential.query.count()
-    yesterday = datetime.utcnow() - timedelta(days=1)
-    recent_phished = SimulatedCredential.query.filter(
-        SimulatedCredential.timestamp >= yesterday
-    ).count()
-    unique_victims = db.session.query(SimulatedCredential.username).distinct().count()
-    
-    metrics = {
-        'total_phished': total_phished,
-        'recent_phished': recent_phished,
-        'unique_victims': unique_victims,
-        'your_number': total_phished
-    }
-    
-    # Show phishing result page with metrics
-    return render_template("phishing_result.html",
-                         username=username,
-                         product=product,
-                         metrics=metrics)
+    return redirect(url_for("phishing_consent", product_id=product.id))
+
+
+# --- Instructor authentication ---------------------------------------------
+# One role, one password, held in INSTRUCTOR_PASSWORD. When it is unset,
+# instructor login is impossible and every instructor route stays closed.
+
+@app.route("/instructor/login", methods=["GET", "POST"])
+def instructor_login():
+    next_path = safe_next(request.values.get("next", ""), fallback="/dashboard")
+    if request.method == "GET":
+        return render_instructor_login(next_path=next_path)
+
+    if not instructor_auth_configured():
+        return render_instructor_login(
+            error="Instructor authentication is not configured on this "
+                  "deployment (INSTRUCTOR_PASSWORD is unset).",
+            status=503, next_path=next_path)
+
+    if not check_instructor_password(request.form.get("password", "")):
+        # Deliberately generic, and the submitted value is never echoed back.
+        return render_instructor_login(error="Incorrect password.",
+                                       status=401, next_path=next_path)
+
+    login_instructor()
+    return redirect(next_path)
+
+
+@app.route("/instructor/logout", methods=["POST"])
+def instructor_logout():
+    logout_instructor()
+    flash("Signed out of the instructor console.", "info")
+    return redirect(url_for("instructor_login"))
+
 
 # DASHBOARD WITH FUNNEL METRICS
 
 @app.route("/dashboard")
+@require_instructor
 def dashboard():
     # Phishing Funnel Metrics - TOTAL INTERACTIONS
     phish_stage1 = PhishingFunnel.query.filter(
@@ -860,9 +1089,12 @@ def dashboard():
     recent_phish = PhishingFunnel.query.order_by(PhishingFunnel.timestamp.desc()).limit(15).all()
     recent_ransom = RansomwareFunnel.query.order_by(RansomwareFunnel.timestamp.desc()).limit(15).all()
     
-    # All credentials captured
-    all_creds = SimulatedCredential.query.order_by(SimulatedCredential.timestamp.desc()).all()
-    
+    # Credential *interactions* -- metadata only. There is no password to show,
+    # because none is ever stored.
+    interactions = (CredentialInteraction.query
+                    .order_by(CredentialInteraction.timestamp.desc())
+                    .limit(50).all())
+
     metrics = {
         'phishing': {
             'stage1': phish_stage1,
@@ -889,12 +1121,13 @@ def dashboard():
                          metrics=metrics,
                          recent_phish=recent_phish,
                          recent_ransom=recent_ransom,
-                         all_creds=all_creds,
+                         interactions=interactions,
                          **sandbox_ctx)
 
 # OTHER ROUTES
 
 @app.route("/ransomware/simulate", methods=["POST"])
+@require_instructor
 def ransomware_simulate():
     files = DemoFile.query.all()
     for f in files:
@@ -905,6 +1138,7 @@ def ransomware_simulate():
     return redirect(url_for("dashboard"))
 
 @app.route("/ransomware/restore", methods=["POST"])
+@require_instructor
 def ransomware_restore():
     files = DemoFile.query.all()
     for f in files:
@@ -915,18 +1149,36 @@ def ransomware_restore():
     return redirect(url_for("dashboard"))
 
 @app.route("/api/logs")
+@require_instructor
 def api_logs():
-    creds = SimulatedCredential.query.order_by(SimulatedCredential.timestamp.desc()).limit(200).all()
-    data = [{"id": c.id, "username": c.username, "note": c.note, "ts": c.timestamp.isoformat()} for c in creds]
-    return jsonify(data)
+    """Instructor telemetry feed.
+
+    Previously this returned every captured username from every session to
+    anyone who asked. It now returns scenario telemetry only -- event metadata
+    that has never contained a credential value -- and requires the instructor
+    session.
+    """
+    limit = min(max(request.args.get("limit", 200, type=int), 1), 500)
+    rows = (SecurityEvent.query
+            .order_by(SecurityEvent.timestamp.desc(), SecurityEvent.id.desc())
+            .limit(limit).all())
+    return jsonify([row.to_dict() for row in rows])
 
 @app.route("/deets")
+@require_instructor
 def deets():
-    # This route is not linked anywhere — only accessible by typing /deets manually.
-    creds = SimulatedCredential.query.order_by(SimulatedCredential.id.desc()).all()
+    """Instructor-only lab state view.
+
+    The credential table it used to render (usernames *and* plaintext
+    passwords, across every session) no longer exists. What remains is
+    interaction metadata plus the synthetic demo dataset.
+    """
+    interactions = (CredentialInteraction.query
+                    .order_by(CredentialInteraction.id.desc()).limit(200).all())
     files = DemoFile.query.order_by(DemoFile.id.desc()).all()
     products = Product.query.order_by(Product.id.desc()).all()
-    return render_template("deets.html", creds=creds, files=files, products=products)
+    return render_template("deets.html", interactions=interactions,
+                           files=files, products=products)
 
 @app.route('/resources')
 def resources():

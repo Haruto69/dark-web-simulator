@@ -40,10 +40,11 @@ class FileImpactScenario:
         failure is recorded as SCENARIO_FAILED telemetry before re-raising.
         """
         scenario_id = scenario_id or uuid.uuid4().hex[:12]
+        sandbox_id = self.manager.resolve_id(sandbox_id)
         selected = list(targets) if targets else list(BASELINE_FILENAMES)
 
         self._emit(EventType.SCENARIO_STARTED, scenario_id, session_id,
-                   target=sandbox_id or self.manager.default_sandbox_id,
+                   target=sandbox_id,
                    details="scenario=%s; targets=%d" % (self.name, len(selected)))
 
         try:
@@ -57,7 +58,7 @@ class FileImpactScenario:
                    details="applying demo impact to %d synthetic file(s)" % len(selected))
 
         try:
-            results = self.manager.backend.run_impact(sandbox_id or self.manager.default_sandbox_id, selected)
+            results = self.manager.backend.run_impact(sandbox_id, selected)
         except SandboxError as exc:
             self._emit(EventType.SCENARIO_FAILED, scenario_id, session_id,
                        details=str(exc)[:400])

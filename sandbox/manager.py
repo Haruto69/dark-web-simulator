@@ -7,6 +7,8 @@ live in ``sandbox/scenarios`` and are handed a manager.
 Flask routes call this class. Docker/subprocess details stay in the backends.
 """
 
+import time
+
 from .backends.base import validate_sandbox_id
 from .backends.docker import DockerBackend
 from .backends.local import LocalBackend
@@ -122,6 +124,77 @@ class SandboxManager:
             return self.backend.list_sandboxes()
         except SandboxError:
             return []
+
+    def sandbox_metadata(self):
+        """Ownership-checked inventory with creation timestamps."""
+        try:
+            return self.backend.sandbox_metadata()
+        except SandboxError:
+            return []
+
+    # -- lifecycle hygiene -------------------------------------------------
+    def stale_sandboxes(self, max_age_seconds, now=None):
+        """Ids of owned sandboxes older than ``max_age_seconds``.
+
+        Pure and side-effect free, so the selection rule can be unit-tested
+        independently of any destruction. Deterministic: the result is sorted,
+        and depends only on (inventory, max_age, now).
+
+        A sandbox whose ``created_at`` is unknown is **never** selected.
+        """
+        if not isinstance(max_age_seconds, (int, float)) or max_age_seconds < 0:
+            raise SandboxError("max_age_seconds must be a non-negative number")
+        now = time.time() if now is None else now
+        stale = []
+        for row in self.sandbox_metadata():
+            created = row.get("created_at")
+            if created is None:
+                continue
+            age = now - created
+            if age >= max_age_seconds:
+                stale.append((row["sandbox_id"], age))
+        return sorted(stale)
+
+    def reap_stale(self, max_age_seconds, now=None, session_id=None, dry_run=False):
+        """Destroy owned sandboxes older than ``max_age_seconds``.
+
+        Safety properties, in order of importance:
+
+        1. Candidates come only from :meth:`sandbox_metadata`, which is
+           ownership-checked by the backend (Docker label / marker file). An
+           unrelated container or directory is never even enumerated.
+        2. Every id is re-validated against ``SANDBOX_ID_RE`` before use.
+        3. Unknown creation time is skipped, never reaped.
+        4. ``dry_run=True`` reports the selection without destroying anything.
+
+        Emits one ``SANDBOX_REAP_SCAN`` event per invocation and one
+        ``SANDBOX_REAPED`` event per sandbox actually destroyed.
+        """
+        candidates = self.stale_sandboxes(max_age_seconds, now=now)
+        self._emit(EventType.SANDBOX_REAP_SCAN, session_id=session_id,
+                   details="max_age=%.1fs; candidates=%d; dry_run=%s"
+                           % (float(max_age_seconds), len(candidates), dry_run))
+        reaped = []
+        for sandbox_id, age in candidates:
+            sandbox_id = validate_sandbox_id(sandbox_id)
+            if dry_run:
+                reaped.append({"sandbox_id": sandbox_id, "age_seconds": age,
+                               "destroyed": False})
+                continue
+            try:
+                self.backend.destroy(sandbox_id)
+            except SandboxError as exc:
+                self._emit(EventType.SANDBOX_REAP_SCAN, session_id=session_id,
+                           target=sandbox_id,
+                           details="reap failed: %s" % str(exc)[:200])
+                continue
+            self._emit(EventType.SANDBOX_REAPED, session_id=session_id,
+                       target=sandbox_id,
+                       details="stale sandbox destroyed after %.1fs (max_age=%.1fs)"
+                               % (age, float(max_age_seconds)))
+            reaped.append({"sandbox_id": sandbox_id, "age_seconds": age,
+                           "destroyed": True})
+        return reaped
 
     def ensure_ready(self, sandbox_id=None, session_id=None):
         """Create the sandbox only if it is not already running.

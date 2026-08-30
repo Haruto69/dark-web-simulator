@@ -49,7 +49,21 @@ class SandboxBackend:
     def list_sandboxes(self):
         """Return the ids of every sandbox this backend currently owns.
 
-        Used only by the instructor aggregation view. Returning ids -- not
-        session identifiers -- keeps the learner->sandbox mapping one-way.
+        Used by the instructor aggregation view and the reaper. Returning ids
+        -- not session identifiers -- keeps the learner->sandbox mapping
+        one-way.
+
+        Implementations MUST report only sandboxes this application created,
+        proven by an ownership marker (a Docker label, a marker file), never by
+        name convention alone.
+        """
+        raise NotImplementedError
+
+    def sandbox_metadata(self):
+        """``[{"sandbox_id", "created_at", "state"}]`` for owned sandboxes.
+
+        ``created_at`` is a POSIX timestamp or None. A None creation time means
+        "age unknown", and :meth:`SandboxManager.reap_stale` must therefore
+        never reap it -- unknown age fails safe.
         """
         raise NotImplementedError

@@ -49,15 +49,15 @@ def test_login_does_not_echo_the_submitted_password(client):
 
 
 def test_login_then_logout(client):
-    token = csrf_for(client)
     response = client.post("/instructor/login",
                            data={"password": INSTRUCTOR_PASSWORD,
-                                 "csrf_token": token})
+                                 "csrf_token": csrf_for(client)})
     assert response.status_code == 302
     assert client.get("/dashboard").status_code == 200
 
+    # A token minted *after* login is required: the pre-login one was rotated.
     assert client.post("/instructor/logout",
-                       data={"csrf_token": token}).status_code == 302
+                       data={"csrf_token": csrf_for(client)}).status_code == 302
     assert client.get("/dashboard").status_code == 302
 
 

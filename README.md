@@ -45,6 +45,9 @@ python app.py
 | `SIMULATOR_DATABASE_URI` | `sqlite:///simulator.db` | Event/telemetry database. |
 | `SANDBOX_LOCAL_ROOT` | `instance/sandbox_workspaces` | Scratch root for the local backend. |
 | `INSTRUCTOR_PASSWORD` | unset | **Required for instructor access.** While unset, every instructor route stays closed. |
+| `INSTRUCTOR_MAX_ATTEMPTS` | `5` | Failed logins from one address before lockout. |
+| `INSTRUCTOR_LOCKOUT_SECONDS` | `300` | Lockout duration and failure-window length. |
+| `SANDBOX_MAX_AGE_SECONDS` | `7200` | Default staleness threshold for `POST /sandbox/reap`. |
 | `SYNTHETIC_IDENTITY_SECRET` | falls back to `FLASK_SECRET_KEY` | Derivation key for the per-session sandbox identities. Set it for identities that survive a restart. |
 
 ---
@@ -125,6 +128,31 @@ system.
 A successful login stores a single boolean in the Flask session. When
 `INSTRUCTOR_PASSWORD` is unset, login always fails and every instructor route
 stays closed — the deployment fails closed, not open.
+
+**Session rotation.** On successful authentication the entire Flask session is
+cleared and a **fresh CSRF token** is minted before the instructor flag is set,
+so anything an attacker managed to fix in the session beforehand — including a
+CSRF token they had observed — is void afterwards. One value is deliberately
+carried across: `session_id`, which is a *correlation* identifier (it names the
+instructor's own sandbox and ties their telemetry together) and authenticates
+nothing. Signing out clears the session wholesale rather than popping one key.
+
+**Login throttling.** A bounded in-memory limiter locks a source address after
+`INSTRUCTOR_MAX_ATTEMPTS` failures for `INSTRUCTOR_LOCKOUT_SECONDS`; a locked
+source is rejected with HTTP 429 and a `Retry-After` header *before* the
+password is compared. Its limitations are real and deliberate:
+
+* **process-local** — multiple workers each keep their own counters, so the
+  effective limit scales with worker count; this prototype runs one process;
+* **lost on restart** — restarting the app clears all lockouts;
+* **keyed by remote address** — a classroom behind one NAT shares a bucket and
+  can lock itself out;
+* **bounded to 512 tracked keys**, so a flood of spoofed addresses cannot grow
+  memory without limit (the oldest entry is evicted);
+* it raises the cost of online guessing on a lab network and is **not** a
+  defence against a distributed attacker.
+
+This is adequate for an academic sandbox and is not claimed to be more.
 
 Protected: `/dashboard`, `/deets`, `/api/logs`, all `/sandbox/*` routes
 (including the read-only `status`, `events` and `sessions`), and the
@@ -286,11 +314,52 @@ would be a five-line rename script.
 
 | | Inside the boundary | Outside |
 | --- | --- | --- |
-| Filesystem | `/workspace` in the container | host filesystem is unreachable — no bind mounts, no volumes |
+| Filesystem | `/workspace`, a **tmpfs** in the container | host filesystem is unreachable — no bind mounts, no volumes; the rest of the root filesystem is **read-only** |
 | Network | none (`--network none`) | Internet, host services, other containers |
 | Privilege | uid 10001, all capabilities dropped, `no-new-privileges` | root, Docker socket, host PID/IPC namespaces |
 | Data | five fabricated files | no real personal, financial, or client data exists anywhere in the sandbox |
 | Lifetime | destroyed on reset | nothing survives a reset |
+
+### Measured containment
+
+Each property below is asserted by a test in `tests/test_docker_containment.py`,
+against a real container, and each was observed to hold on Docker 29.7.2
+(Linux containers). These are *controlled containment tests*: every probe is
+either a read of container configuration or a benign operation expected to
+fail. None attempts an escape or an attack, and the container has no network,
+so a network probe cannot reach a third party even in principle.
+
+| Property | Observed |
+| --- | --- |
+| Network mode | `none`; no address, no ports, no networks but `none` |
+| Root filesystem | `ReadonlyRootfs: true` |
+| Workspace | tmpfs (`/proc/mounts` shows `tmpfs … /workspace`), not a bind mount |
+| User | `10001:10001`; `os.getuid()` returns `10001` |
+| Capabilities | `CapDrop: [ALL]`, `CapAdd` empty |
+| `no-new-privileges` | present in `SecurityOpt` |
+| Privileged | `false` |
+| Host namespaces | network/PID/IPC/UTS all unshared |
+| Bind mounts / volumes | none; no mount of type `bind` |
+| Docker socket | absent from the config and from the filesystem |
+| Memory limit | 268435456 bytes (256 MiB) |
+| PID limit | 128 |
+| Ownership label | `dws-sandbox=1` |
+
+Negative probes, all of which failed as required:
+
+| Probe | Result |
+| --- | --- |
+| TCP to `1.1.1.1:53` | `OSError: [Errno 101] Network is unreachable` |
+| DNS for `example.com` | `socket.gaierror: Temporary failure in name resolution` |
+| TCP to host gateway `172.17.0.1:80` | network unreachable |
+| Write to `/etc`, `/opt/simulator`, `/` | `PermissionError` (read-only rootfs) |
+| Write to `/workspace` | **succeeds** — the one writable path, by design |
+| Raw socket (`CAP_NET_RAW`) | `PermissionError: Operation not permitted` |
+| `chown /etc/hostname` (`CAP_CHOWN`) | `PermissionError: Operation not permitted` |
+| Host filesystem via `/host`, `/mnt/c`, `/c` | none exist |
+| Scenario target `../../etc/passwd`, `/etc/passwd`, `nested/dir/f.txt` | `status: rejected` |
+| Unknown filename inside `/workspace` | `status: rejected` (not in the fixed dataset) |
+| Reading another sandbox's workspace | not visible; impacting one leaves the other at baseline |
 
 Telemetry stores only simulation metadata — event types, sandbox ids, synthetic
 filenames. No credentials and no host paths are recorded.
@@ -308,7 +377,10 @@ filenames. No credentials and no host paths are recorded.
 
 The active backend and its `isolation_summary` are always shown on the
 dashboard, and a reduced-isolation run is flagged with a warning banner, so a
-local run can never be mistaken for a contained one.
+local run can never be mistaken for a contained one. The evaluation harness
+goes further: it refuses to auto-detect, takes the backend as an explicit
+argument, and records it in every result file, so a LocalBackend measurement
+can never be reported as a container-sandbox result.
 
 ## Docker requirements
 
@@ -334,11 +406,78 @@ Instructor controls live under `/sandbox` and appear as buttons on `/dashboard`.
 | `/sandbox/destroy` | POST | Remove the sandbox entirely |
 | `/sandbox/status` | GET | Sandbox state, backend, isolation summary, file states |
 | `/sandbox/events` | GET | Telemetry in `(timestamp, id)` order (`?scenario_id=`, `?session_id=`, `?limit=`) |
-| `/sandbox/sessions` | GET | Every session sandbox the backend currently owns |
+| `/sandbox/sessions` | GET | Every session sandbox the backend owns, with `created_at` and `age_seconds` |
+| `/sandbox/reap` | POST | Destroy stale sandboxes (`max_age`, `dry_run`) |
 
 All of these require an instructor session (`INSTRUCTOR_PASSWORD`), and all POST
 routes require a CSRF token. Each route acts on the sandbox derived from the
 caller's own session; none of them accepts a sandbox id.
+
+## Sandbox lifecycle and reaping
+
+Long classroom sessions accumulate sandboxes, so `SandboxManager` can remove
+stale ones. Safety is structural rather than procedural:
+
+1. **Ownership is proven, not assumed.** Candidates come only from
+   `backend.sandbox_metadata()`, which reports a sandbox only when it carries
+   this application's ownership marker — a `dws-sandbox=1` Docker label, or a
+   `.dws-sandbox.json` marker file for the local backend — *and* its name is a
+   valid sandbox id. An unrelated container or a directory someone dropped into
+   the scratch root is never enumerated, so it can never be removed.
+2. **Ids are re-validated** against `SANDBOX_ID_RE` immediately before use.
+3. **Unknown age is never reaped.** A sandbox whose `created_at` cannot be read
+   is skipped, so a parsing failure can only ever under-delete.
+4. **Deterministic.** `stale_sandboxes(max_age, now=...)` is pure and sorted; it
+   depends only on the inventory, the threshold and the supplied clock, which is
+   what makes it testable without waiting.
+5. **`dry_run=True`** reports the selection without destroying anything.
+6. **Floor on the HTTP route.** `POST /sandbox/reap` refuses a `max_age` below
+   60 seconds, so a mistyped value cannot wipe an active class.
+
+Creation timestamps come from the runtime itself (`docker inspect .Created`)
+rather than being tracked in the Flask process, so they survive a restart.
+
+Cleanup emits telemetry like everything else: one `SANDBOX_REAP_SCAN` per
+invocation and one `SANDBOX_REAPED` per sandbox destroyed.
+
+## Evaluation harness
+
+`evaluation/` is a standalone package — **no benchmark logic lives in a Flask
+route**. `metrics.py` holds pure statistics (unit-tested against hand-computed
+values); `run_experiments.py` drives the experiments and writes raw results.
+
+```bash
+python -m evaluation.run_experiments --list
+python -m evaluation.run_experiments --backend docker --runs 20
+python -m evaluation.run_experiments --backend local --experiments A,C
+python -m evaluation.run_experiments --backend docker --experiments E --scales 10,25,50,100
+```
+
+| Experiment | Measures |
+| --- | --- |
+| A — Reproducibility | baseline correctness, expected impacted files, event sequence, reset correctness; reports success / reset-correctness / telemetry-completeness rates |
+| B — Session isolation | no cross-session filesystem changes, no cross-session events, no cross-session identity reuse, reset isolation |
+| C — Telemetry completeness | `captured_expected_events / expected_events` against the declared sequence in `sandbox/progression.py` |
+| D — Execution overhead | create / scenario / reset / destroy latency — mean, median, stdev, p95, min, max, via `time.perf_counter` |
+| E — Scaling | telemetry storage growth, event query latency and lifecycle overhead at 10/25/50/100 scenario executions |
+
+Each run writes `evaluation/results/<experiment>_<backend>_<timestamp>.{json,csv}`.
+The JSON carries full structure plus metadata (backend, UTC timestamp, run
+count, Python version, platform, Docker version, wall time); the CSV carries one
+row per raw observation. **Results are gitignored** — they are machine-specific
+and are not committed unless we deliberately decide to publish a specific set.
+
+### Research constraints this harness respects
+
+* The backend is explicit and recorded; LocalBackend numbers are never presented
+  as container-sandbox numbers.
+* Raw observations are written verbatim alongside the summaries; failures are
+  recorded in an `error` column rather than being swallowed (there is a test
+  asserting a broken backend shows up as a failed run, not a silent pass).
+* Nothing here measures a person. **No claim about educational effectiveness,
+  learner awareness or susceptibility reduction is supported by this work.** The
+  research scope is system design, containment, reproducibility, scenario
+  correctness, telemetry correctness and execution overhead.
 
 ## Synthetic files
 
@@ -364,6 +503,29 @@ time and a reset cannot leave residue behind. This is what makes the later
 experimental claims — reproducibility, isolation, reset correctness, telemetry
 completeness — measurable rather than asserted.
 
+## One telemetry model
+
+`SecurityEvent` is the single authoritative telemetry model. The Milestone 2
+`PhishingFunnel` and `RansomwareFunnel` tables — a second analytics system whose
+stage strings could drift out of step with the scenario events — are gone: their
+tables are dropped on start-up and every funnel figure on the dashboard is now
+*derived* from events by `sandbox/progression.py`. A stage count is literally a
+count of the event that defines that stage, so the two can no longer disagree.
+
+`sandbox/progression.py` is shared by the application and the evaluation
+harness, so the expected sequences scored in Experiment C are the same
+definitions the dashboard reasons about:
+
+```python
+EXPECTED_SEQUENCES["file_impact"]
+EXPECTED_SEQUENCES["credential_reuse_phishing"]
+```
+
+Every event carries `session_id`, `scenario_id`, `event_type`, `timestamp` and
+`source`, with `target`/`details` where they apply. Ordering is `(timestamp, id)`
+— total and stable, because `id` is a monotonic autoincrement. **No event ever
+carries a password**, including the authentication events.
+
 ## Telemetry event types
 
 Lifecycle and file impact: `SANDBOX_CREATED`, `SANDBOX_RESET`,
@@ -375,6 +537,15 @@ Phishing / credential reuse: `PHISHING_EXPOSED`, `CONSENT_GRANTED`,
 `PHISHING_FORM_VIEWED`, `CREDENTIAL_SUBMITTED`, `CREDENTIAL_VALIDATED`,
 `CREDENTIAL_VALIDATION_FAILED`, `SANDBOX_LOGIN_SUCCEEDED`,
 `SYNTHETIC_RESOURCE_ACCESSED`, `SCENARIO_COMPLETED`.
+
+Ransomware awareness: `RANSOMWARE_LURE_VIEWED`, `RANSOMWARE_DOWNLOAD_CLICKED`,
+`RANSOMWARE_TRIGGERED`, `RANSOMWARE_DEBRIEFED`.
+
+Lifecycle hygiene: `SANDBOX_REAP_SCAN`, `SANDBOX_REAPED`.
+
+Instructor authentication: `INSTRUCTOR_LOGIN_SUCCEEDED`,
+`INSTRUCTOR_LOGIN_FAILED`, `INSTRUCTOR_LOGGED_OUT`. These record that an
+attempt happened and nothing else — no password, no username, no source address.
 
 No event ever carries a password value.
 
@@ -393,8 +564,16 @@ python -m pytest tests -q
 
 Tests run entirely against pytest temp directories and a throwaway SQLite
 database — they never touch the developer's files or the real `simulator.db`.
-Docker integration tests skip automatically when Docker or the target image is
-unavailable.
+
+Docker integration and containment tests skip automatically when Docker or the
+target image is unavailable. To run them, build the image first:
+
+```bash
+docker build -t dark-web-sandbox-target:latest -f docker/sandbox-target/Dockerfile .
+```
+
+With the image present the whole suite runs with **no skips**; the Docker tests
+create and destroy their own short-lived containers and always clean up.
 
 ---
 

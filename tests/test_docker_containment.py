@@ -1,0 +1,315 @@
+"""Milestone 3, section 2: measured containment of the real Docker sandbox.
+
+These are *controlled containment tests*, not exploit attempts. Every probe is
+either a read of container configuration or a benign operation that is expected
+to fail; none of them attempts to escape, escalate, or attack anything. The
+container has no network, so a network probe cannot reach a third party even in
+principle.
+
+Skipped automatically when Docker or the target image is unavailable. Build it
+with::
+
+    docker build -t dark-web-sandbox-target:latest -f docker/sandbox-target/Dockerfile .
+"""
+
+import json
+import uuid
+
+import pytest
+
+from sandbox.backends.docker import (DEFAULT_IMAGE, OWNER_LABEL_KEY,
+                                     OWNER_LABEL_VALUE, DockerBackend)
+from sandbox.dataset import BASELINE_FILENAMES, SYNTHETIC_FILES
+from sandbox.errors import SandboxError
+from sandbox.manager import SandboxManager
+from sandbox.scenarios.file_impact import FileImpactScenario
+
+
+def _docker_image_ready():
+    backend = DockerBackend()
+    if not backend.is_available():
+        return False
+    try:
+        return backend._run(["image", "inspect", "--", DEFAULT_IMAGE],
+                            check=False).returncode == 0
+    except SandboxError:
+        return False
+
+
+docker_required = pytest.mark.skipif(
+    not _docker_image_ready(),
+    reason="Docker or the dark-web-sandbox-target image is unavailable")
+
+pytestmark = docker_required
+
+
+@pytest.fixture
+def backend():
+    return DockerBackend()
+
+
+@pytest.fixture
+def sandbox(backend):
+    """One disposable container, always removed afterwards."""
+    sandbox_id = "pytest-%s" % uuid.uuid4().hex[:8]
+    backend.create(sandbox_id)
+    try:
+        yield sandbox_id
+    finally:
+        backend.destroy(sandbox_id)
+
+
+def inspect(backend, sandbox_id):
+    raw = backend._run(["inspect", "--", backend._container(sandbox_id)]).stdout
+    return json.loads(raw)[0]
+
+
+def run_in(backend, sandbox_id, *argv):
+    return backend._run(["exec", "--", backend._container(sandbox_id)] + list(argv),
+                        check=False)
+
+
+# -- declared isolation properties -------------------------------------------
+
+def test_network_mode_is_none(backend, sandbox):
+    config = inspect(backend, sandbox)
+    assert config["HostConfig"]["NetworkMode"] == "none"
+    assert list(config["NetworkSettings"]["Networks"]) == ["none"]
+    # No address at all: on this Docker version the key is absent entirely
+    # for --network none, which is stronger than an empty string.
+    assert not config["NetworkSettings"].get("IPAddress")
+    assert not config["NetworkSettings"].get("Ports")
+
+
+def test_root_filesystem_is_read_only(backend, sandbox):
+    assert inspect(backend, sandbox)["HostConfig"]["ReadonlyRootfs"] is True
+
+
+def test_container_runs_as_a_non_root_user(backend, sandbox):
+    assert inspect(backend, sandbox)["Config"]["User"] == "10001:10001"
+    probe = run_in(backend, sandbox, "python", "-c", "import os;print(os.getuid())")
+    assert probe.stdout.strip() == "10001"
+
+
+def test_all_capabilities_are_dropped(backend, sandbox):
+    host = inspect(backend, sandbox)["HostConfig"]
+    assert host["CapDrop"] == ["ALL"]
+    assert not host["CapAdd"]
+
+
+def test_no_new_privileges_is_enabled(backend, sandbox):
+    assert "no-new-privileges" in inspect(backend, sandbox)["HostConfig"]["SecurityOpt"]
+
+
+def test_container_is_not_privileged(backend, sandbox):
+    assert inspect(backend, sandbox)["HostConfig"]["Privileged"] is False
+
+
+def test_host_namespaces_are_not_shared(backend, sandbox):
+    host = inspect(backend, sandbox)["HostConfig"]
+    assert host["NetworkMode"] != "host"
+    assert (host.get("PidMode") or "") != "host"
+    assert (host.get("IpcMode") or "") != "host"
+    assert (host.get("UTSMode") or "") != "host"
+
+
+def test_no_bind_mounts_or_volumes(backend, sandbox):
+    config = inspect(backend, sandbox)
+    assert not config["HostConfig"]["Binds"]
+    assert not config["HostConfig"]["VolumesFrom"]
+    # The only mount is the workspace tmpfs, which is RAM, not a host path.
+    for mount in config.get("Mounts") or []:
+        assert mount.get("Type") != "bind", "no host directory may be mounted"
+
+
+def test_the_workspace_is_a_tmpfs_not_a_host_directory(backend, sandbox):
+    tmpfs = inspect(backend, sandbox)["HostConfig"].get("Tmpfs") or {}
+    assert "/workspace" in tmpfs
+    mounts = run_in(backend, sandbox, "cat", "/proc/mounts").stdout
+    workspace_line = [line for line in mounts.splitlines()
+                      if " /workspace " in line]
+    assert workspace_line and workspace_line[0].startswith("tmpfs ")
+
+
+def test_no_docker_socket_is_exposed(backend, sandbox):
+    config = inspect(backend, sandbox)
+    serialised = json.dumps(config)
+    assert "docker.sock" not in serialised
+    probe = run_in(backend, sandbox, "python", "-c",
+                   "import os;print(os.path.exists('/var/run/docker.sock'))")
+    assert probe.stdout.strip() == "False"
+
+
+def test_memory_and_pid_limits_are_applied(backend, sandbox):
+    host = inspect(backend, sandbox)["HostConfig"]
+    assert host["Memory"] == 256 * 1024 * 1024
+    assert host["PidsLimit"] == 128
+
+
+def test_container_carries_the_ownership_label(backend, sandbox):
+    labels = inspect(backend, sandbox)["Config"]["Labels"]
+    assert labels.get(OWNER_LABEL_KEY) == OWNER_LABEL_VALUE
+
+
+# -- negative containment probes ---------------------------------------------
+
+def test_outbound_tcp_is_unreachable(backend, sandbox):
+    probe = run_in(backend, sandbox, "python", "-c",
+                   "import socket;socket.create_connection(('1.1.1.1',53),3)")
+    assert probe.returncode != 0
+    assert "unreachable" in (probe.stderr or "").lower()
+
+
+def test_dns_resolution_fails(backend, sandbox):
+    probe = run_in(backend, sandbox, "python", "-c",
+                   "import socket;socket.gethostbyname('example.com')")
+    assert probe.returncode != 0
+
+
+def test_the_host_gateway_is_unreachable(backend, sandbox):
+    probe = run_in(backend, sandbox, "python", "-c",
+                   "import socket;socket.create_connection(('172.17.0.1',80),3)")
+    assert probe.returncode != 0
+
+
+def test_writing_outside_the_workspace_fails(backend, sandbox):
+    for path in ("/etc/probe", "/opt/simulator/probe", "/probe"):
+        probe = run_in(backend, sandbox, "python", "-c",
+                       "open(%r,'w').write('x')" % path)
+        assert probe.returncode != 0, "%s must not be writable" % path
+
+
+def test_the_workspace_itself_is_writable(backend, sandbox):
+    probe = run_in(backend, sandbox, "python", "-c",
+                   "open('/workspace/.probe','w').write('x')")
+    assert probe.returncode == 0, "the scenario needs a writable workspace"
+
+
+def test_a_dropped_capability_cannot_be_used(backend, sandbox):
+    raw_socket = run_in(backend, sandbox, "python", "-c",
+                        "import socket;socket.socket(socket.AF_INET,socket.SOCK_RAW,1)")
+    assert raw_socket.returncode != 0
+    chown = run_in(backend, sandbox, "python", "-c",
+                   "import os;os.chown('/etc/hostname',10001,10001)")
+    assert chown.returncode != 0
+
+
+def test_no_host_filesystem_is_visible(backend, sandbox):
+    probe = run_in(backend, sandbox, "python", "-c",
+                   "import os;print([p for p in ('/host','/mnt/c','/c')"
+                   " if os.path.exists(p)])")
+    assert probe.stdout.strip() == "[]"
+
+
+def test_the_scenario_tool_rejects_targets_outside_the_workspace(backend, sandbox):
+    for hostile in ("../../etc/passwd", "/etc/passwd", "nested/dir/file.txt"):
+        probe = run_in(backend, sandbox, "python", "-m",
+                       "sandbox.tools.impact_tool", "impact", "--", hostile)
+        results = json.loads(probe.stdout)
+        assert results[0]["status"] == "rejected", hostile
+
+
+def test_an_unknown_filename_is_rejected_even_inside_the_workspace(backend, sandbox):
+    run_in(backend, sandbox, "python", "-c",
+           "open('/workspace/not_in_dataset.txt','w').write('x')")
+    probe = run_in(backend, sandbox, "python", "-m",
+                   "sandbox.tools.impact_tool", "impact", "--",
+                   "not_in_dataset.txt")
+    assert json.loads(probe.stdout)[0]["status"] == "rejected"
+
+
+def test_one_sandbox_cannot_see_another_sandboxes_workspace(backend):
+    first = "pytest-iso-a-%s" % uuid.uuid4().hex[:6]
+    second = "pytest-iso-b-%s" % uuid.uuid4().hex[:6]
+    backend.create(first)
+    backend.create(second)
+    try:
+        marker = "marker-%s" % uuid.uuid4().hex[:8]
+        run_in(backend, first, "python", "-c",
+               "open('/workspace/%s','w').write('x')" % marker)
+
+        listing = run_in(backend, second, "python", "-c",
+                         "import os,json;print(json.dumps(sorted(os.listdir('/workspace'))))")
+        assert marker not in json.loads(listing.stdout)
+
+        # Impacting one workspace leaves the other at baseline.
+        backend.run_impact(first, list(BASELINE_FILENAMES))
+        assert all(f["status"] == "impacted"
+                   for f in backend.workspace_state(first))
+        assert all(f["status"] == "baseline"
+                   for f in backend.workspace_state(second))
+    finally:
+        backend.destroy(first)
+        backend.destroy(second)
+
+
+# -- lifecycle correctness ---------------------------------------------------
+
+def test_reset_restores_byte_identical_baseline_content(backend, sandbox):
+    manager = SandboxManager(backend, default_sandbox_id=None)
+    FileImpactScenario(manager).run(sandbox_id=sandbox)
+    manager.reset(sandbox)
+
+    for name in BASELINE_FILENAMES:
+        probe = run_in(backend, sandbox, "python", "-c",
+                       "import sys;sys.stdout.write(open('/workspace/%s').read())" % name)
+        assert probe.stdout == SYNTHETIC_FILES[name], name
+
+
+def test_impact_renames_without_altering_content(backend, sandbox):
+    backend.run_impact(sandbox, ["finance_report.txt"])
+    probe = run_in(backend, sandbox, "python", "-c",
+                   "import sys;sys.stdout.write("
+                   "open('/workspace/finance_report.txt.demo_locked').read())")
+    assert probe.stdout == SYNTHETIC_FILES["finance_report.txt"]
+
+
+def test_destroying_a_sandbox_discards_its_state(backend):
+    sandbox_id = "pytest-gone-%s" % uuid.uuid4().hex[:6]
+    backend.create(sandbox_id)
+    backend.destroy(sandbox_id)
+    assert backend.status(sandbox_id)["state"] == "absent"
+    assert sandbox_id not in backend.list_sandboxes()
+
+
+# -- ownership and reaping ---------------------------------------------------
+
+def test_only_labelled_containers_are_enumerated(backend, sandbox):
+    metadata = {row["sandbox_id"]: row for row in backend.sandbox_metadata()}
+    assert sandbox in metadata
+    assert metadata[sandbox]["created_at"] is not None
+
+    # An unlabelled container on the same host must be invisible here.
+    foreign = "dws-not-ours-%s" % uuid.uuid4().hex[:6]
+    backend._run(["run", "--detach", "--name", foreign, "--network", "none",
+                  "--entrypoint", "sleep", DEFAULT_IMAGE, "infinity"], check=False)
+    try:
+        assert foreign not in backend.list_sandboxes()
+        assert all(not row["sandbox_id"].startswith("dws-not-ours")
+                   for row in backend.sandbox_metadata())
+    finally:
+        backend._run(["rm", "--force", "--", foreign], check=False)
+
+
+def test_reap_stale_destroys_only_old_owned_containers(backend):
+    manager = SandboxManager(backend, default_sandbox_id=None)
+    old = "pytest-reap-%s" % uuid.uuid4().hex[:6]
+    fresh = "pytest-keep-%s" % uuid.uuid4().hex[:6]
+    manager.create(old)
+    manager.create(fresh)
+    try:
+        created = manager.status(old)["created_at"]
+        assert created is not None
+
+        # Nothing is stale against a long max_age.
+        assert manager.reap_stale(86400) == []
+        assert manager.status(old)["ready"] is True
+
+        # Reap anything at least 0 seconds old, evaluated far in the future.
+        reaped = {row["sandbox_id"]
+                  for row in manager.reap_stale(0, now=created + 10_000)}
+        assert old in reaped and fresh in reaped
+        assert manager.status(old)["state"] == "absent"
+    finally:
+        backend.destroy(old)
+        backend.destroy(fresh)

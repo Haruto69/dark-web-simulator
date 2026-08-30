@@ -8,13 +8,17 @@ import random
 import secrets
 import uuid
 
-from sandbox import (SYNTHETIC_RESOURCES, PhishingScenario, SandboxError,
-                     ScenarioStateError, SyntheticIdentityStore,
+from sandbox import (SYNTHETIC_RESOURCES, EventType, PhishingScenario,
+                     SandboxError, ScenarioStateError, SyntheticIdentityStore,
                      new_scenario_id, stage_index)
+from sandbox.progression import (PHISHING_FUNNEL, RANSOMWARE_FUNNEL,
+                                 STAGE_BY_EVENT, conversion_rates,
+                                 funnel_counts)
 from security import (check_instructor_password, init_csrf,
                       instructor_auth_configured, login_instructor,
-                      logout_instructor, render_instructor_login,
-                      require_instructor, safe_next)
+                      login_throttle, logout_instructor,
+                      render_instructor_login, require_instructor, safe_next,
+                      throttle_key)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -93,21 +97,13 @@ class CredentialInteraction(db.Model):
             "event_type": self.event_type,
         }
 
-class PhishingFunnel(db.Model):
-    __tablename__ = 'phishing_funnel'
-    id = db.Column(db.Integer, primary_key=True)
-    session_id = db.Column(db.String(100))
-    stage = db.Column(db.String(50))  # 'marketplace', 'payment', 'credentials'
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    details = db.Column(db.String(500))
-
-class RansomwareFunnel(db.Model):
-    __tablename__ = 'ransomware_funnel'
-    id = db.Column(db.Integer, primary_key=True)
-    session_id = db.Column(db.String(100))
-    stage = db.Column(db.String(50))  # 'menu', 'interaction', 'triggered'
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    details = db.Column(db.String(500))
+# NOTE (Milestone 3): ``PhishingFunnel`` and ``RansomwareFunnel`` used to live
+# here. They were a second, parallel analytics system whose stage strings could
+# drift out of step with the scenario telemetry. Both are gone: their tables are
+# dropped on start-up (see ``drop_legacy_tables``) and every funnel figure the
+# dashboard shows is now derived from ``SecurityEvent`` via
+# ``sandbox/progression.py``. There is exactly one authoritative telemetry
+# model.
 
 class SecurityEvent(db.Model):
     """Structured telemetry from the conference sandbox subsystem.
@@ -152,6 +148,50 @@ def sandbox_manager():
     return ensure_manager(app, db, SecurityEvent,
                           app.config['SANDBOX_LOCAL_ROOT'])
 
+
+def record_event(event_type, scenario_id=None, source=None, target=None,
+                 details=None, session_id=None):
+    """Persist one application-level SecurityEvent.
+
+    The single write path for telemetry emitted by Flask routes (the sandbox
+    subsystem has its own recorder, which writes the same table). Every event
+    carries session_id, scenario_id, event_type, timestamp and source; target
+    and details are filled in where they apply. No caller may pass a credential
+    value -- there is none available at any call site.
+    """
+    row = SecurityEvent(
+        event_type=event_type,
+        scenario_id=scenario_id,
+        session_id=session_id if session_id is not None else session.get('session_id'),
+        timestamp=datetime.utcnow(),
+        source=source,
+        target=(str(target)[:300] if target else None),
+        details=(str(details)[:500] if details else None),
+    )
+    db.session.add(row)
+    db.session.commit()
+    return row
+
+
+# -- ransomware-awareness scenario correlation ------------------------------
+RANSOMWARE_SESSION_KEY = "ransomware_scenario_id"
+
+
+def ransomware_scenario_id(reset=False):
+    """Stable scenario id for this session's ransomware run.
+
+    Mirrors the phishing scenario's correlation model so both scenarios can be
+    reconstructed from SecurityEvent alone.
+    """
+    if reset:
+        session.pop(RANSOMWARE_SESSION_KEY, None)
+    scenario_id = session.get(RANSOMWARE_SESSION_KEY)
+    if not scenario_id:
+        scenario_id = new_scenario_id()
+        session[RANSOMWARE_SESSION_KEY] = scenario_id
+        session.modified = True
+    return scenario_id
+
 # Session tracking
 @app.before_request
 def ensure_session_id():
@@ -159,16 +199,29 @@ def ensure_session_id():
         session['session_id'] = str(uuid.uuid4())
 
 def drop_legacy_tables():
-    """Remove Milestone 1 tables that held unsafe data.
+    """Remove superseded tables on start-up.
 
-    ``simulated_credential`` stored learner-submitted plaintext passwords. This
-    project is a SQLite-backed teaching demo with no production data, so the
-    migration strategy is simply to drop the table on start-up rather than to
-    carry an Alembic history. Any existing captured passwords are destroyed the
-    first time the Milestone 2 code runs -- which is the desired outcome.
+    ``simulated_credential`` (Milestone 1) stored learner-submitted plaintext
+    passwords. ``phishing_funnel`` and ``ransomware_funnel`` (Milestone 2) were
+    a second analytics system that has been replaced by SecurityEvent-derived
+    progression.
+
+    This project is a SQLite-backed teaching demo with no production data, so
+    the migration strategy is to drop rather than to carry an Alembic history.
+    Any passwords captured by an older build are destroyed the first time this
+    code runs -- which is the desired outcome. Funnel counts recorded before
+    Milestone 3 are not carried forward; re-run the scenarios to repopulate.
     """
+    legacy_tables = (
+        # Milestone 1: learner-submitted plaintext passwords.
+        "simulated_credential",
+        # Milestone 2: parallel funnel analytics, superseded by SecurityEvent.
+        "phishing_funnel",
+        "ransomware_funnel",
+    )
     with db.engine.begin() as connection:
-        connection.exec_driver_sql("DROP TABLE IF EXISTS simulated_credential")
+        for table in legacy_tables:
+            connection.exec_driver_sql("DROP TABLE IF EXISTS %s" % table)
 
 
 def init_db():
@@ -557,15 +610,11 @@ def ransomware_menu():
 
 @app.route("/marketplace/tools")
 def marketplace_tools():
-    """Fake hacking tools marketplace - STAGE 1"""
-    # Always track when tools page is viewed
-    funnel = RansomwareFunnel(
-        session_id=session.get('session_id'),
-        stage='menu',
-        details="Viewed hacking tools marketplace"
-    )
-    db.session.add(funnel)
-    db.session.commit()
+    """Fake hacking tools marketplace - ransomware scenario stage 1."""
+    record_event(EventType.RANSOMWARE_LURE_VIEWED,
+                 scenario_id=ransomware_scenario_id(),
+                 source="scenario:ransomware_awareness",
+                 details="Viewed hacking tools marketplace")
     
     fake_tools = [
         {
@@ -638,15 +687,12 @@ def marketplace_tools():
 
 @app.route("/download/tool/<int:tool_id>")
 def download_tool(tool_id):
-    """Show fake download progress screen - STAGE 2"""
-    # Always track when download is clicked
-    funnel = RansomwareFunnel(
-        session_id=session.get('session_id'),
-        stage='interaction',
-        details=f"Clicked download for tool #{tool_id}"
-    )
-    db.session.add(funnel)
-    db.session.commit()
+    """Show fake download progress screen - ransomware scenario stage 2."""
+    record_event(EventType.RANSOMWARE_DOWNLOAD_CLICKED,
+                 scenario_id=ransomware_scenario_id(),
+                 source="scenario:ransomware_awareness",
+                 target="tool:%d" % tool_id,
+                 details="Clicked download for tool #%d" % tool_id)
     
     return render_template("ransomware_download.html", tool_id=tool_id)
 
@@ -658,14 +704,12 @@ def file_browser():
 
 @app.route("/ransomware/trigger")
 def ransomware_trigger():
-    """Trigger ransomware from file browser - STAGE 3"""
-    # Track Stage 3: Triggered ransomware
-    funnel = RansomwareFunnel(
-        session_id=session.get('session_id'),
-        stage='triggered',
-        details="Interacted with file browser - ransomware triggered"
-    )
-    db.session.add(funnel)
+    """Trigger ransomware from file browser - ransomware scenario stage 3."""
+    record_event(EventType.RANSOMWARE_TRIGGERED,
+                 scenario_id=ransomware_scenario_id(),
+                 source="scenario:ransomware_awareness",
+                 target="file_browser",
+                 details="Interacted with file browser - ransomware triggered")
     
     # Mark files as encrypted
     files = DemoFile.query.all()
@@ -687,14 +731,12 @@ def ransomware_trigger():
 
 @app.route("/ransomware/activate")
 def ransomware_activate():
-    """Trigger ransomware from hacking tools download - STAGE 3"""
-    # Track Stage 3: Triggered ransomware
-    funnel = RansomwareFunnel(
-        session_id=session.get('session_id'),
-        stage='triggered',
-        details="Downloaded fake hacking tool - ransomware triggered"
-    )
-    db.session.add(funnel)
+    """Trigger ransomware from hacking tools download - scenario stage 3."""
+    record_event(EventType.RANSOMWARE_TRIGGERED,
+                 scenario_id=ransomware_scenario_id(),
+                 source="scenario:ransomware_awareness",
+                 target="tool_download",
+                 details="Downloaded fake hacking tool - ransomware triggered")
     
     # Mark files as encrypted
     files = DemoFile.query.all()
@@ -747,14 +789,9 @@ def product(product_id):
     """Product page - the phishing lure (scenario stage 1)."""
     product = Product.query.get_or_404(product_id)
 
-    # Funnel row for the instructor metrics (no credential data).
-    db.session.add(PhishingFunnel(
-        session_id=session.get('session_id'),
-        stage='marketplace',
-        details="Viewed product: %s" % product.name))
-    db.session.commit()
-
     # Correlated scenario telemetry: PHISHING_EXPOSED, once per in-flight run.
+    # This event *is* the funnel's first stage -- there is no separate counter
+    # table any more.
     start_phishing_scenario(product)
 
     return render_template("product.html", product=product)
@@ -880,12 +917,6 @@ def phishing_login():
             session["session_id"], state["scenario_id"], state["stage"])
         state["stage"] = result["stage"]
         save_phishing_state(state)
-        # Stage tracking for the existing instructor funnel metrics. Contains
-        # no credential data.
-        db.session.add(PhishingFunnel(session_id=session["session_id"],
-                                      stage="payment",
-                                      details="Viewed phishing login form"))
-        db.session.commit()
         return render_template("phishing_login.html", product=product,
                                identities=IDENTITIES.identities(session["session_id"]),
                                error=None)
@@ -904,10 +935,6 @@ def phishing_login():
         product_id=state.get("product_id"),
         event_type=("CREDENTIAL_VALIDATED" if outcome["valid"]
                     else "CREDENTIAL_VALIDATION_FAILED")))
-    db.session.add(PhishingFunnel(
-        session_id=session["session_id"], stage="credentials",
-        details="Submitted a credential to the phishing form (valid=%s)"
-                % outcome["valid"]))
     db.session.commit()
 
     if not outcome["valid"]:
@@ -1023,6 +1050,16 @@ def instructor_login():
     if request.method == "GET":
         return render_instructor_login(next_path=next_path)
 
+    # Throttle first, so a locked-out source cannot even reach the comparison.
+    key = throttle_key()
+    retry_after = login_throttle.retry_after(key)
+    if retry_after:
+        response = render_instructor_login(
+            error="Too many failed attempts. Try again in %d second(s)."
+                  % retry_after,
+            status=429, next_path=next_path)
+        return response[0], response[1], {"Retry-After": str(retry_after)}
+
     if not instructor_auth_configured():
         return render_instructor_login(
             error="Instructor authentication is not configured on this "
@@ -1031,63 +1068,89 @@ def instructor_login():
 
     if not check_instructor_password(request.form.get("password", "")):
         # Deliberately generic, and the submitted value is never echoed back.
-        return render_instructor_login(error="Incorrect password.",
-                                       status=401, next_path=next_path)
+        locked_for = login_throttle.record_failure(key)
+        db.session.add(SecurityEvent(
+            event_type=EventType.INSTRUCTOR_LOGIN_FAILED,
+            timestamp=datetime.utcnow(), source="auth:instructor",
+            details="failed instructor login (lockout=%ds)" % locked_for))
+        db.session.commit()
+        message = "Incorrect password."
+        if locked_for:
+            message += (" Too many failed attempts; locked for %d second(s)."
+                        % locked_for)
+        return render_instructor_login(error=message, status=401,
+                                       next_path=next_path)
 
+    # Successful authentication: clear the throttle bucket, then rotate the
+    # whole session (fresh CSRF token, instructor flag re-set) inside
+    # login_instructor().
+    login_throttle.record_success(key)
     login_instructor()
+    db.session.add(SecurityEvent(
+        event_type=EventType.INSTRUCTOR_LOGIN_SUCCEEDED,
+        session_id=session.get("session_id"), timestamp=datetime.utcnow(),
+        source="auth:instructor",
+        details="instructor session established; session state rotated"))
+    db.session.commit()
     return redirect(next_path)
 
 
 @app.route("/instructor/logout", methods=["POST"])
 def instructor_logout():
+    db.session.add(SecurityEvent(
+        event_type=EventType.INSTRUCTOR_LOGGED_OUT,
+        session_id=session.get("session_id"), timestamp=datetime.utcnow(),
+        source="auth:instructor", details="instructor session cleared"))
+    db.session.commit()
     logout_instructor()
     flash("Signed out of the instructor console.", "info")
     return redirect(url_for("instructor_login"))
 
 
-# DASHBOARD WITH FUNNEL METRICS
+# DASHBOARD -- every figure below is derived from SecurityEvent
+
+
+def funnel_event_counts(funnel):
+    """Stage counts for a funnel, read straight from the event table."""
+    return {stage: SecurityEvent.query.filter(
+                SecurityEvent.event_type == event_type).count()
+            for stage, event_type in funnel}
+
+
+def recent_funnel_activity(funnel, limit=15):
+    """Recent events for a funnel, adapted to the template's stage/details shape."""
+    wanted = [event_type for _, event_type in funnel]
+    rows = (SecurityEvent.query
+            .filter(SecurityEvent.event_type.in_(wanted))
+            .order_by(SecurityEvent.timestamp.desc(), SecurityEvent.id.desc())
+            .limit(limit).all())
+    return [{"stage": STAGE_BY_EVENT.get(row.event_type, row.event_type),
+             "details": row.details or row.event_type,
+             "timestamp": row.timestamp,
+             "session_id": row.session_id,
+             "scenario_id": row.scenario_id}
+            for row in rows]
+
 
 @app.route("/dashboard")
 @require_instructor
 def dashboard():
-    # Phishing Funnel Metrics - TOTAL INTERACTIONS
-    phish_stage1 = PhishingFunnel.query.filter(
-        PhishingFunnel.stage == 'marketplace'
-    ).count()
-    
-    phish_stage2 = PhishingFunnel.query.filter(
-        PhishingFunnel.stage == 'payment'
-    ).count()
-    
-    phish_stage3 = PhishingFunnel.query.filter(
-        PhishingFunnel.stage == 'credentials'
-    ).count()
-    
-    # Ransomware Funnel Metrics - TOTAL INTERACTIONS
-    ransom_stage1 = RansomwareFunnel.query.filter(
-        RansomwareFunnel.stage == 'menu'
-    ).count()
-    
-    ransom_stage2 = RansomwareFunnel.query.filter(
-        RansomwareFunnel.stage == 'interaction'
-    ).count()
-    
-    ransom_stage3 = RansomwareFunnel.query.filter(
-        RansomwareFunnel.stage == 'triggered'
-    ).count()
-    
-    # Calculate conversion rates
-    phish_conv_1_2 = (phish_stage2 / phish_stage1 * 100) if phish_stage1 > 0 else 0
-    phish_conv_2_3 = (phish_stage3 / phish_stage2 * 100) if phish_stage2 > 0 else 0
-    phish_conv_total = (phish_stage3 / phish_stage1 * 100) if phish_stage1 > 0 else 0
-    
-    ransom_conv_1_2 = (ransom_stage2 / ransom_stage1 * 100) if ransom_stage1 > 0 else 0
-    ransom_conv_2_3 = (ransom_stage3 / ransom_stage2 * 100) if ransom_stage2 > 0 else 0
-    ransom_conv_total = (ransom_stage3 / ransom_stage1 * 100) if ransom_stage1 > 0 else 0
-    
-    # Recent activity
-    recent_phish = PhishingFunnel.query.order_by(PhishingFunnel.timestamp.desc()).limit(15).all()
-    recent_ransom = RansomwareFunnel.query.order_by(RansomwareFunnel.timestamp.desc()).limit(15).all()
+    # Funnel metrics, derived entirely from SecurityEvent. There is no second
+    # analytics table to fall out of step with the scenario telemetry: a stage
+    # count is literally a count of the event that defines that stage.
+    phish_counts = funnel_event_counts(PHISHING_FUNNEL)
+    ransom_counts = funnel_event_counts(RANSOMWARE_FUNNEL)
+    phish_conv = conversion_rates(phish_counts, PHISHING_FUNNEL)
+    ransom_conv = conversion_rates(ransom_counts, RANSOMWARE_FUNNEL)
+
+    phish_stage1, phish_stage2, phish_stage3 = (
+        phish_counts[stage] for stage, _ in PHISHING_FUNNEL)
+    ransom_stage1, ransom_stage2, ransom_stage3 = (
+        ransom_counts[stage] for stage, _ in RANSOMWARE_FUNNEL)
+
+    # Recent activity, shaped for the existing template (stage/details/timestamp).
+    recent_phish = recent_funnel_activity(PHISHING_FUNNEL)
+    recent_ransom = recent_funnel_activity(RANSOMWARE_FUNNEL)
     
     # Credential *interactions* -- metadata only. There is no password to show,
     # because none is ever stored.
@@ -1096,22 +1159,10 @@ def dashboard():
                     .limit(50).all())
 
     metrics = {
-        'phishing': {
-            'stage1': phish_stage1,
-            'stage2': phish_stage2,
-            'stage3': phish_stage3,
-            'conv_1_2': phish_conv_1_2,
-            'conv_2_3': phish_conv_2_3,
-            'conv_total': phish_conv_total
-        },
-        'ransomware': {
-            'stage1': ransom_stage1,
-            'stage2': ransom_stage2,
-            'stage3': ransom_stage3,
-            'conv_1_2': ransom_conv_1_2,
-            'conv_2_3': ransom_conv_2_3,
-            'conv_total': ransom_conv_total
-        }
+        'phishing': dict(stage1=phish_stage1, stage2=phish_stage2,
+                         stage3=phish_stage3, **phish_conv),
+        'ransomware': dict(stage1=ransom_stage1, stage2=ransom_stage2,
+                           stage3=ransom_stage3, **ransom_conv),
     }
     
     sandbox_ctx = sandbox_dashboard_context(

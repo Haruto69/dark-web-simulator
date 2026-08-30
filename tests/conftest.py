@@ -41,6 +41,11 @@ def flask_app(tmp_path_factory):
     os.environ["SIMULATOR_DATABASE_URI"] = (
         "sqlite:///" + str(root / "test.db").replace("\\", "/"))
     os.environ["SANDBOX_LOCAL_ROOT"] = str(root / "sandboxes")
+    # HTTP-level tests cover routing, auth and telemetry -- not containment.
+    # Pin the local backend so they never create containers on the developer's
+    # machine. Container behaviour is covered by tests/test_docker_*.py, which
+    # manage and clean up their own containers.
+    os.environ["SANDBOX_BACKEND"] = "local"
     os.environ["FLASK_SECRET_KEY"] = "test-only-key"
     os.environ["SYNTHETIC_IDENTITY_SECRET"] = "test-only-identity-secret"
     os.environ["INSTRUCTOR_PASSWORD"] = INSTRUCTOR_PASSWORD

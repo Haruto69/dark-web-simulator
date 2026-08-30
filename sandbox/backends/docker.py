@@ -6,10 +6,21 @@ Isolation properties enforced on every container we create:
                             no reachable ports at all. Strictly stronger than an
                             internal bridge network, and simpler.
   * ``--cap-drop ALL`` and ``--security-opt no-new-privileges``
+  * ``--read-only``      -- immutable root filesystem. The single writable path
+                            is ``/workspace``, supplied as a **tmpfs** (RAM, not
+                            a host directory), so the scenario can rename its
+                            synthetic files while everything else -- binaries,
+                            libraries, ``/etc`` -- is unwritable.
   * non-root user, memory and PID limits
   * no bind mounts, no named volumes, no Docker socket, no host networking,
-    not privileged. The workspace lives only in the container's own writable
-    layer, so destroying the container destroys all simulation state.
+    not privileged. The workspace lives only in the container's own tmpfs, so
+    destroying the container destroys all simulation state and nothing is
+    written to the host at any point.
+
+Every container carries the ``dws-sandbox=1`` label. That label is the *only*
+way this code identifies containers it owns; see :meth:`list_sandboxes` and
+:meth:`sandbox_metadata`, which are what the reaper relies on to guarantee it
+never touches an unrelated container.
 
 Reset is implemented as destroy + recreate rather than in-place repair, which
 makes the baseline reproducible by construction.
@@ -18,13 +29,15 @@ Docker is driven through ``subprocess`` with argument *lists* -- never
 ``shell=True`` -- and every invocation has a timeout.
 """
 
+import datetime
 import json
+import re
 import shutil
 import subprocess
 
 from ..dataset import BASELINE_FILENAMES
 from ..errors import (BackendUnavailableError, SandboxCommandError,
-                      SandboxNotFoundError, UnsafePathError)
+                      SandboxError, SandboxNotFoundError, UnsafePathError)
 from ..paths import normalise_target
 from .base import SandboxBackend, validate_sandbox_id
 
@@ -32,12 +45,52 @@ DEFAULT_IMAGE = "dark-web-sandbox-target:latest"
 CONTAINER_PREFIX = "dws-sandbox-"
 DEFAULT_TIMEOUT = 60
 
+#: Ownership label. Both the key and the value must match before this backend
+#: will report -- let alone remove -- a container.
+OWNER_LABEL_KEY = "dws-sandbox"
+OWNER_LABEL_VALUE = "1"
+OWNER_LABEL = "%s=%s" % (OWNER_LABEL_KEY, OWNER_LABEL_VALUE)
+
+#: Size of the tmpfs mounted at /workspace. The synthetic dataset is a few KB;
+#: this is a bound, not a target.
+WORKSPACE_TMPFS_SIZE = "16m"
+
+
+def parse_docker_time(value):
+    """Parse a Docker timestamp into a POSIX float, or return None.
+
+    Handles both the RFC3339 form from ``docker inspect`` and the
+    ``2026-08-30 12:00:00 +0000 UTC`` form from ``docker ps``. Returns None
+    rather than raising: a sandbox with an unreadable creation time is simply
+    never considered stale, which fails safe.
+    """
+    if not value:
+        return None
+    text = value.strip()
+    # docker ps: "2026-08-30 12:00:00 +0530 IST"
+    match = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{4})", text)
+    if match:
+        try:
+            stamp = datetime.datetime.strptime(
+                "%s %s" % (match.group(1), match.group(2)), "%Y-%m-%d %H:%M:%S %z")
+            return stamp.timestamp()
+        except ValueError:
+            return None
+    # docker inspect: RFC3339, with nanosecond precision Python cannot parse.
+    text = text.replace("Z", "+00:00")
+    text = re.sub(r"\.(\d{6})\d+", r".\1", text)
+    try:
+        return datetime.datetime.fromisoformat(text).timestamp()
+    except ValueError:
+        return None
+
 
 class DockerBackend(SandboxBackend):
     name = "docker"
     isolation_summary = (
         "Disposable container: --network none, all capabilities dropped, "
-        "no-new-privileges, non-root, no bind mounts, no Docker socket."
+        "no-new-privileges, read-only root filesystem, tmpfs workspace, "
+        "non-root, no bind mounts, no Docker socket."
     )
 
     def __init__(self, image=DEFAULT_IMAGE, timeout=DEFAULT_TIMEOUT,
@@ -89,26 +142,58 @@ class DockerBackend(SandboxBackend):
             "--network", "none",
             "--cap-drop", "ALL",
             "--security-opt", "no-new-privileges",
+            "--read-only",
+            # The one writable path, in RAM. Not a host directory: a tmpfs is
+            # not a bind mount and exposes nothing of the host filesystem.
+            "--tmpfs", "/workspace:rw,noexec,nosuid,uid=10001,gid=10001,size=%s"
+                       % WORKSPACE_TMPFS_SIZE,
             "--user", "10001:10001",
             "--memory", "256m",
             "--pids-limit", "128",
-            "--label", "dws-sandbox=1",
+            "--label", OWNER_LABEL,
             self.image,
         ])
         return {"sandbox_id": sandbox_id, "backend": self.name,
                 "state": "running", "container": name,
-                "workspace": "/workspace"}
+                "workspace": "/workspace",
+                "created_at": self._created_at(sandbox_id)}
+
+    def _created_at(self, sandbox_id):
+        """Container creation time as a POSIX timestamp, or None.
+
+        Read from Docker itself rather than tracked in this process, so it
+        survives a Flask restart and cannot drift.
+        """
+        completed = self._run(
+            ["inspect", "--format", "{{.Created}}", "--",
+             self._container(sandbox_id)], check=False)
+        if completed.returncode != 0:
+            return None
+        return parse_docker_time(completed.stdout.strip())
 
     def status(self, sandbox_id):
         name = self._container(sandbox_id)
         completed = self._run(
-            ["inspect", "--format", "{{.State.Status}}", "--", name], check=False)
+            ["inspect", "--format", "{{.State.Status}}\t{{.Created}}\t{{index .Config.Labels \"dws-sandbox\"}}",
+             "--", name], check=False)
         if completed.returncode != 0:
             return {"sandbox_id": sandbox_id, "backend": self.name,
-                    "state": "absent", "container": name, "workspace": None}
+                    "state": "absent", "container": name, "workspace": None,
+                    "created_at": None}
+        parts = completed.stdout.strip().split("\t")
+        state = parts[0] if parts else "unknown"
+        created = parse_docker_time(parts[1]) if len(parts) > 1 else None
+        label = parts[2] if len(parts) > 2 else ""
+        if label != OWNER_LABEL_VALUE:
+            # A container occupying our name that we did not create. Report it
+            # as absent rather than ever acting on it.
+            return {"sandbox_id": sandbox_id, "backend": self.name,
+                    "state": "absent", "container": name, "workspace": None,
+                    "created_at": None, "owned": False}
         return {"sandbox_id": sandbox_id, "backend": self.name,
-                "state": completed.stdout.strip() or "unknown",
-                "container": name, "workspace": "/workspace"}
+                "state": state or "unknown",
+                "container": name, "workspace": "/workspace",
+                "created_at": created, "owned": True}
 
     def reset(self, sandbox_id):
         self.destroy(sandbox_id)
@@ -155,11 +240,41 @@ class DockerBackend(SandboxBackend):
         return self._exec_tool(sandbox_id, ["state"])
 
     def list_sandboxes(self):
+        """Ids of containers this application owns.
+
+        Two independent conditions must both hold before a container is
+        reported: the ``dws-sandbox=1`` label (applied only by :meth:`create`)
+        *and* the ``dws-sandbox-`` name prefix with a valid sandbox id after it.
+        Anything else on the host is invisible to this method, which is what
+        makes reaping safe.
+        """
+        return [row["sandbox_id"] for row in self.sandbox_metadata()]
+
+    def sandbox_metadata(self):
+        """``[{"sandbox_id", "created_at", "state"}]`` for owned containers."""
         completed = self._run(
-            ["ps", "--all", "--filter", "label=dws-sandbox=1",
-             "--format", "{{.Names}}"], check=False)
+            ["ps", "--all", "--filter", "label=" + OWNER_LABEL,
+             "--format", "{{.Names}}\t{{.CreatedAt}}\t{{.State}}"], check=False)
         if completed.returncode != 0:
             return []
-        names = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
-        return sorted(n[len(CONTAINER_PREFIX):] for n in names
-                      if n.startswith(CONTAINER_PREFIX))
+        rows = []
+        for line in completed.stdout.splitlines():
+            parts = line.strip().split("\t")
+            if not parts or not parts[0]:
+                continue
+            name = parts[0]
+            if not name.startswith(CONTAINER_PREFIX):
+                continue
+            candidate = name[len(CONTAINER_PREFIX):]
+            try:
+                sandbox_id = validate_sandbox_id(candidate)
+            except SandboxError:
+                # A labelled container whose name we cannot parse is left
+                # strictly alone.
+                continue
+            rows.append({
+                "sandbox_id": sandbox_id,
+                "created_at": parse_docker_time(parts[1]) if len(parts) > 1 else None,
+                "state": parts[2] if len(parts) > 2 else "unknown",
+            })
+        return sorted(rows, key=lambda r: r["sandbox_id"])

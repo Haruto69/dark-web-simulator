@@ -18,14 +18,25 @@ Milestone 2 changes:
 * CSRF is enforced application-wide by :func:`security.init_csrf`.
 """
 
+import os
+import time
+
 from flask import (Blueprint, current_app, flash, jsonify, redirect, request,
                    session, url_for)
 
 from sandbox import (EventType, FileImpactScenario, SandboxError,
                      SandboxManager, SandboxNotReadyError,
                      sandbox_id_for_session)
+from sandbox.backends.docker import DockerBackend
+from sandbox.backends.local import LocalBackend
 from sandbox.dataset import BASELINE_FILENAMES
 from security import is_instructor, require_instructor, wants_json
+
+#: Default staleness threshold for ``POST /sandbox/reap`` (2 hours), and a
+#: floor beneath which the route refuses to operate so a mistyped value cannot
+#: wipe every sandbox in an active class.
+DEFAULT_MAX_AGE_SECONDS = 7200
+MIN_REAP_AGE_SECONDS = 60
 
 
 def make_recorder(db, SecurityEvent):
@@ -52,13 +63,34 @@ def ensure_manager(app, db, SecurityEvent, local_root):
     ``default_sandbox_id=None`` is deliberate: any caller that forgets to pass
     a session-scoped id gets a ``SandboxError`` instead of quietly sharing one
     workspace across learners.
+
+    ``SANDBOX_BACKEND`` selects the backend: ``auto`` (default, prefer Docker),
+    ``docker`` (fail rather than silently degrade) or ``local``. Being able to
+    pin the backend matters for honest measurement -- and lets the HTTP test
+    suite exercise routing without creating containers.
     """
     manager = getattr(app, "_sandbox_manager", None)
-    if manager is None:
+    if manager is not None:
+        return manager
+
+    recorder = make_recorder(db, SecurityEvent)
+    choice = (os.environ.get("SANDBOX_BACKEND", "auto") or "auto").strip().lower()
+    if choice == "local":
+        manager = SandboxManager(LocalBackend(local_root), recorder=recorder,
+                                 default_sandbox_id=None)
+    elif choice == "docker":
+        backend = DockerBackend()
+        if not backend.is_available():
+            raise SandboxError(
+                "SANDBOX_BACKEND=docker was requested but Docker is "
+                "unavailable; refusing to fall back to the local backend")
+        manager = SandboxManager(backend, recorder=recorder,
+                                 default_sandbox_id=None)
+    else:
         manager = SandboxManager.autodetect(
-            local_root, recorder=make_recorder(db, SecurityEvent),
-            default_sandbox_id=None)
-        app._sandbox_manager = manager
+            local_root, recorder=recorder, default_sandbox_id=None)
+
+    app._sandbox_manager = manager
     return manager
 
 
@@ -142,6 +174,43 @@ def create_sandbox_blueprint(db, SecurityEvent, local_root):
                                % result["impacted"],
                        category="success")
 
+    @bp.post("/reap")
+    @require_instructor
+    def reap():
+        """Destroy stale sandboxes belonging to this application.
+
+        ``max_age`` is bounded and numeric; ``dry_run`` reports the selection
+        without destroying anything. The reaper only ever considers sandboxes
+        carrying this application's ownership marker -- an unrelated container
+        or directory on the same host is never enumerated, let alone removed.
+        """
+        manager = get_manager()
+        default_age = current_app.config.get("SANDBOX_MAX_AGE_SECONDS",
+                                             DEFAULT_MAX_AGE_SECONDS)
+        supplied = request.form.get("max_age")
+        if supplied is None and request.is_json:
+            supplied = (request.get_json(silent=True) or {}).get("max_age")
+        try:
+            max_age = float(default_age if supplied in (None, "") else supplied)
+        except (TypeError, ValueError):
+            return respond({"ok": False, "error": "max_age must be a number"}, 400,
+                           "Invalid max_age.", "danger")
+        if max_age < MIN_REAP_AGE_SECONDS:
+            return respond({"ok": False,
+                            "error": "max_age must be at least %d seconds"
+                                     % MIN_REAP_AGE_SECONDS}, 400,
+                           "max_age is too small.", "danger")
+        dry_run = str(request.form.get("dry_run", "")).lower() in ("1", "true", "yes")
+        try:
+            reaped = manager.reap_stale(max_age, session_id=sid(), dry_run=dry_run)
+        except SandboxError as exc:
+            return respond({"ok": False, "error": str(exc)}, 500,
+                           "Reap failed: %s" % exc, "danger")
+        return respond({"ok": True, "max_age": max_age, "dry_run": dry_run,
+                        "count": len(reaped), "reaped": reaped},
+                       message="Reaped %d stale sandbox(es)." % len(reaped),
+                       category="info")
+
     # -- read-only views (instructor-only: they describe lab state) --------
     @bp.get("/status")
     @require_instructor
@@ -162,12 +231,16 @@ def create_sandbox_blueprint(db, SecurityEvent, local_root):
     def sessions():
         """Aggregate view: one row per sandbox the backend currently owns."""
         manager = get_manager()
+        now = time.time()
         rows = []
-        for sandbox_id in manager.list_sandboxes():
-            info = manager.status(sandbox_id)
-            rows.append({"sandbox_id": sandbox_id, "state": info.get("state"),
-                         "ready": info.get("ready")})
-        return jsonify({"ok": True, "count": len(rows), "sandboxes": rows})
+        for row in manager.sandbox_metadata():
+            created = row.get("created_at")
+            rows.append({"sandbox_id": row["sandbox_id"],
+                         "state": row.get("state"),
+                         "created_at": created,
+                         "age_seconds": (now - created) if created else None})
+        return jsonify({"ok": True, "count": len(rows), "sandboxes": rows,
+                        "backend": manager.backend.name})
 
     @bp.get("/events")
     @require_instructor

@@ -33,6 +33,10 @@ instance/
 # Sandbox scratch workspaces (local backend)
 instance/sandbox_workspaces/
 
+# Experimental results are machine-specific: keep raw runs out of the
+# repository until we deliberately decide to publish a specific set.
+evaluation/results/
+
 # Pytest
 .pytest_cache/
 

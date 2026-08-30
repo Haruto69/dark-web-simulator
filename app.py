@@ -2,18 +2,19 @@
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
 import os
 import random
 import secrets
 import uuid
 
+import sqlalchemy
+
 from sandbox import (SYNTHETIC_RESOURCES, EventType, PhishingScenario,
                      SandboxError, ScenarioStateError, SyntheticIdentityStore,
                      new_scenario_id, stage_index)
 from sandbox.progression import (PHISHING_FUNNEL, RANSOMWARE_FUNNEL,
-                                 STAGE_BY_EVENT, conversion_rates,
-                                 funnel_counts)
+                                 STAGE_BY_EVENT, conversion_rates)
+from sandbox.timeutil import utcnow
 from security import (check_instructor_password, init_csrf,
                       instructor_auth_configured, login_instructor,
                       login_throttle, logout_instructor,
@@ -73,7 +74,8 @@ class CredentialInteraction(db.Model):
     when the learner typed something that is not one, so an address they should
     never have entered is not retained either.
 
-    The legacy table is dropped on start-up; see :func:`drop_legacy_tables`.
+    The Milestone 1 table is not created by any current model; a leftover
+    one is removed by ``python manage.py drop-legacy``.
     """
     __tablename__ = 'credential_interaction'
     id = db.Column(db.Integer, primary_key=True)
@@ -81,7 +83,7 @@ class CredentialInteraction(db.Model):
     scenario_id = db.Column(db.String(64), index=True)
     synthetic_username = db.Column(db.String(120))
     credential_valid = db.Column(db.Boolean, default=False)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    timestamp = db.Column(db.DateTime, default=utcnow, index=True)
     product_id = db.Column(db.Integer, nullable=True)
     event_type = db.Column(db.String(64))
 
@@ -99,11 +101,11 @@ class CredentialInteraction(db.Model):
 
 # NOTE (Milestone 3): ``PhishingFunnel`` and ``RansomwareFunnel`` used to live
 # here. They were a second, parallel analytics system whose stage strings could
-# drift out of step with the scenario telemetry. Both are gone: their tables are
-# dropped on start-up (see ``drop_legacy_tables``) and every funnel figure the
-# dashboard shows is now derived from ``SecurityEvent`` via
-# ``sandbox/progression.py``. There is exactly one authoritative telemetry
-# model.
+# drift out of step with the scenario telemetry. Both models are gone, so their
+# tables are never created; a database left over from an older build is cleaned
+# with ``python manage.py drop-legacy``. Every funnel figure the dashboard shows
+# is derived from ``SecurityEvent`` via ``sandbox/progression.py``. There is
+# exactly one authoritative telemetry model.
 
 class SecurityEvent(db.Model):
     """Structured telemetry from the conference sandbox subsystem.
@@ -117,7 +119,7 @@ class SecurityEvent(db.Model):
     scenario_id = db.Column(db.String(64), index=True)
     session_id = db.Column(db.String(100), index=True)
     event_type = db.Column(db.String(64), nullable=False, index=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    timestamp = db.Column(db.DateTime, default=utcnow, index=True)
     source = db.Column(db.String(120))
     target = db.Column(db.String(300))
     details = db.Column(db.String(500))
@@ -163,7 +165,7 @@ def record_event(event_type, scenario_id=None, source=None, target=None,
         event_type=event_type,
         scenario_id=scenario_id,
         session_id=session_id if session_id is not None else session.get('session_id'),
-        timestamp=datetime.utcnow(),
+        timestamp=utcnow(),
         source=source,
         target=(str(target)[:300] if target else None),
         details=(str(details)[:500] if details else None),
@@ -198,40 +200,59 @@ def ensure_session_id():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
 
+#: Tables from superseded milestones. ``simulated_credential`` (Milestone 1)
+#: stored learner-submitted plaintext passwords; ``phishing_funnel`` and
+#: ``ransomware_funnel`` (Milestone 2) were a parallel analytics system replaced
+#: by SecurityEvent-derived progression. No current model creates any of them,
+#: so a database created by this build never contains one.
+LEGACY_TABLES = (
+    "simulated_credential",
+    "phishing_funnel",
+    "ransomware_funnel",
+)
+
+
 def drop_legacy_tables():
-    """Remove superseded tables on start-up.
+    """Drop the superseded tables. **Explicit, never automatic.**
 
-    ``simulated_credential`` (Milestone 1) stored learner-submitted plaintext
-    passwords. ``phishing_funnel`` and ``ransomware_funnel`` (Milestone 2) were
-    a second analytics system that has been replaced by SecurityEvent-derived
-    progression.
+    Until Milestone 4 this ran on every import, so simply starting the app
+    silently executed DROP TABLE against the configured database -- including
+    one an instructor had pointed at a captured classroom run. Destroying data
+    is now something an operator asks for by name:
 
-    This project is a SQLite-backed teaching demo with no production data, so
-    the migration strategy is to drop rather than to carry an Alembic history.
-    Any passwords captured by an older build are destroyed the first time this
-    code runs -- which is the desired outcome. Funnel counts recorded before
-    Milestone 3 are not carried forward; re-run the scenarios to repopulate.
+        python manage.py drop-legacy
+
+    This project is a SQLite-backed teaching demo, so it deliberately does not
+    carry an Alembic history; the development reset commands in ``manage.py``
+    are the whole migration story. Returns the tables actually dropped.
     """
-    legacy_tables = (
-        # Milestone 1: learner-submitted plaintext passwords.
-        "simulated_credential",
-        # Milestone 2: parallel funnel analytics, superseded by SecurityEvent.
-        "phishing_funnel",
-        "ransomware_funnel",
-    )
+    inspector = sqlalchemy.inspect(db.engine)
+    present = [t for t in LEGACY_TABLES if t in inspector.get_table_names()]
     with db.engine.begin() as connection:
-        for table in legacy_tables:
+        for table in present:
             connection.exec_driver_sql("DROP TABLE IF EXISTS %s" % table)
+    return present
 
 
-def init_db():
+def init_db(force_reseed=False):
+    """Create the schema and seed the demo content.
+
+    Idempotent by default: the marketplace products and the ransomware demo
+    rows are written only when their tables are empty, so restarting the app
+    no longer deletes whatever a classroom session recorded. Pass
+    ``force_reseed=True`` (``python manage.py reset-demo``) to replace them
+    deliberately.
+    """
     db.create_all()
-    drop_legacy_tables()
-    
-    # Clear old data (optional - comment out if you want to keep data between restarts)
-    Product.query.delete()
-    DemoFile.query.delete()
-    
+
+    already_seeded = bool(Product.query.first()) and bool(DemoFile.query.first())
+    if already_seeded and not force_reseed:
+        return False
+
+    if force_reseed:
+        Product.query.delete()
+        DemoFile.query.delete()
+
     # Initialize demo files for ransomware simulation
     files = [
         DemoFile(name="employee_list.csv"),
@@ -352,10 +373,14 @@ def init_db():
     
     for product in products:
         db.session.add(product)
-    
+
     db.session.commit()
+    return True
+
 
 with app.app_context():
+    # Creating missing tables and seeding empty ones is safe and non-destructive.
+    # Dropping anything is not, and is reserved for ``manage.py``.
     init_db()
 
 @app.route("/")
@@ -715,7 +740,7 @@ def ransomware_trigger():
     files = DemoFile.query.all()
     for f in files:
         f.status = "encrypted"
-        f.remark = f"Encrypted by LockBit Simulator - {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
+        f.remark = f"Encrypted by LockBit Simulator - {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
     
     db.session.commit()
     
@@ -742,7 +767,7 @@ def ransomware_activate():
     files = DemoFile.query.all()
     for f in files:
         f.status = "encrypted"
-        f.remark = f"Encrypted by WannaCry Simulator - {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
+        f.remark = f"Encrypted by WannaCry Simulator - {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
     
     db.session.commit()
     
@@ -771,15 +796,28 @@ def ransomware_screen():
 
 @app.route("/ransomware/reveal")
 def ransomware_reveal():
-    """Educational reveal page"""
-    # Restore files
+    """Educational reveal - the ransomware scenario's final stage.
+
+    This is the debrief, so it emits ``RANSOMWARE_DEBRIEFED``. Until Milestone 4
+    that event type was declared but never produced, which left the scenario's
+    telemetry sequence permanently incomplete against its specification.
+    """
+    # Restore the demo rows. No real file is touched here: ``status`` and
+    # ``remark`` are columns in the DemoFile table, nothing more.
     files = DemoFile.query.all()
     for f in files:
         f.status = "available"
         f.remark = "Restored after simulation"
-    
+
     db.session.commit()
-    
+
+    record_event(EventType.RANSOMWARE_DEBRIEFED,
+                 scenario_id=ransomware_scenario_id(),
+                 source="scenario:ransomware_awareness",
+                 target="education",
+                 details="learner reached the educational debrief; "
+                         "%d demo row(s) restored" % len(files))
+
     return render_template("ransomware_education.html")
 
 # PHISHING ROUTES
@@ -787,7 +825,7 @@ def ransomware_reveal():
 @app.route('/product/<int:product_id>')
 def product(product_id):
     """Product page - the phishing lure (scenario stage 1)."""
-    product = Product.query.get_or_404(product_id)
+    product = db.get_or_404(Product, product_id)
 
     # Correlated scenario telemetry: PHISHING_EXPOSED, once per in-flight run.
     # This event *is* the funnel's first stage -- there is no separate counter
@@ -862,7 +900,7 @@ def _requested_product():
     raw = request.args.get("product_id")
     if not raw or not raw.isdigit():
         return None
-    return Product.query.get(int(raw))
+    return db.session.get(Product, int(raw))
 
 
 @app.route("/phishing/consent", methods=["GET", "POST"])
@@ -894,7 +932,7 @@ def phishing_consent():
 
     return render_template(
         "phishing_consent.html",
-        product=(Product.query.get(state["product_id"])
+        product=(db.session.get(Product, state["product_id"])
                  if state.get("product_id") else None),
         identities=IDENTITIES.identities(session["session_id"]),
         lab_domain=IDENTITIES.domain)
@@ -909,7 +947,7 @@ def phishing_login():
         return redirect(url_for("phishing_consent",
                                 product_id=request.args.get("product_id")))
 
-    product = (Product.query.get(state["product_id"])
+    product = (db.session.get(Product, state["product_id"])
                if state.get("product_id") else None)
 
     if request.method == "GET":
@@ -1018,7 +1056,7 @@ def phishing_debrief():
                       SecurityEvent.session_id == session["session_id"])
               .order_by(SecurityEvent.timestamp.asc(), SecurityEvent.id.asc())
               .all())
-    product = (Product.query.get(state["product_id"])
+    product = (db.session.get(Product, state["product_id"])
                if state.get("product_id") else None)
     return render_template("phishing_result.html",
                            product=product,
@@ -1036,7 +1074,7 @@ def payment(product_id):
     consent-gated scenario, so bookmarked links keep working without reviving
     the old behaviour. ``/process_payment`` is gone entirely.
     """
-    product = Product.query.get_or_404(product_id)
+    product = db.get_or_404(Product, product_id)
     return redirect(url_for("phishing_consent", product_id=product.id))
 
 
@@ -1071,7 +1109,7 @@ def instructor_login():
         locked_for = login_throttle.record_failure(key)
         db.session.add(SecurityEvent(
             event_type=EventType.INSTRUCTOR_LOGIN_FAILED,
-            timestamp=datetime.utcnow(), source="auth:instructor",
+            timestamp=utcnow(), source="auth:instructor",
             details="failed instructor login (lockout=%ds)" % locked_for))
         db.session.commit()
         message = "Incorrect password."
@@ -1088,7 +1126,7 @@ def instructor_login():
     login_instructor()
     db.session.add(SecurityEvent(
         event_type=EventType.INSTRUCTOR_LOGIN_SUCCEEDED,
-        session_id=session.get("session_id"), timestamp=datetime.utcnow(),
+        session_id=session.get("session_id"), timestamp=utcnow(),
         source="auth:instructor",
         details="instructor session established; session state rotated"))
     db.session.commit()
@@ -1099,7 +1137,7 @@ def instructor_login():
 def instructor_logout():
     db.session.add(SecurityEvent(
         event_type=EventType.INSTRUCTOR_LOGGED_OUT,
-        session_id=session.get("session_id"), timestamp=datetime.utcnow(),
+        session_id=session.get("session_id"), timestamp=utcnow(),
         source="auth:instructor", details="instructor session cleared"))
     db.session.commit()
     logout_instructor()

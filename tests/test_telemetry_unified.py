@@ -63,10 +63,18 @@ def test_ransomware_routes_emit_correlated_security_events(client, other_client)
     client.get("/download/tool/1")
     client.get("/ransomware/activate")
 
+    # Scope to *this* client's run. The events table is shared across the test
+    # session, so filtering only by source would also pick up ransomware events
+    # emitted by other tests and make the correlation assertions below
+    # accidentally depend on test ordering.
+    with client.session_transaction() as flask_session:
+        own_session_id = flask_session["session_id"]
+
     instructor = login_instructor(other_client)
     events = instructor.get("/sandbox/events?limit=500").get_json()["events"]
     ransomware = [e for e in events
-                  if e["source"] == "scenario:ransomware_awareness"]
+                  if e["source"] == "scenario:ransomware_awareness"
+                  and e["session_id"] == own_session_id]
     assert ransomware
 
     types = [e["event_type"] for e in ransomware]

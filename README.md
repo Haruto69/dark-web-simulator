@@ -84,13 +84,33 @@ from every session at `/api/logs` with no authentication. All of that is gone:
 | `/payment/<id>` | redirects into the consent-gated scenario |
 | `/phishing/login` — captured and stored anything typed | validates a synthetic identity, stores no password |
 
-### Migration
+### Migration and development database commands
 
-This is a SQLite-backed teaching demo with no production data, so the migration
-is a drop rather than an Alembic history: `drop_legacy_tables()` issues
-`DROP TABLE IF EXISTS simulated_credential` on every start-up. Any passwords
-captured by an older build are destroyed the first time this code runs. To start
-completely clean, delete `instance/simulator.db` and restart.
+This is a SQLite-backed teaching demo with no production data, so there is no
+Alembic history: superseded tables are dropped outright. **Dropping is explicit,
+never automatic.** Until Milestone 4, importing `app` ran `DROP TABLE` and
+deleted every product and demo-file row, so simply starting the server destroyed
+whatever a classroom session had recorded. Start-up now only creates missing
+tables and seeds *empty* ones; anything destructive is a named command:
+
+```bash
+python manage.py status
+python manage.py init
+python manage.py reset-demo
+python manage.py drop-legacy
+python manage.py reset-all
+```
+
+`status` prints the schema and row counts; `init` creates missing tables and
+seeds only empty ones; `reset-demo` replaces the marketplace and demo-file rows;
+`drop-legacy` drops the superseded Milestone 1/2 tables; `reset-all` drops every
+table and rebuilds. Each destructive command names the database it is about to
+change and asks for confirmation; pass `--yes` in a script.
+
+No current model creates `simulated_credential`, `phishing_funnel` or
+`ransomware_funnel`, so a database created by this build never contains one.
+`drop-legacy` exists for databases left over from an older build, where it
+destroys any plaintext passwords an early prototype captured.
 
 ## Per-session sandbox isolation
 
@@ -478,6 +498,113 @@ and are not committed unless we deliberately decide to publish a specific set.
   learner awareness or susceptibility reduction is supported by this work.** The
   research scope is system design, containment, reproducibility, scenario
   correctness, telemetry correctness and execution overhead.
+
+## Formal evaluation (Milestone 4)
+
+`run_experiments.py` above is the exploratory harness. The measurements reported
+in the paper come from `evaluation/formal_run.py`, which adds an independent
+correctness oracle, a recorded machine profile, warm-up discipline and a
+concurrency experiment.
+
+```bash
+docker build -t dark-web-sandbox-target:latest -f docker/sandbox-target/Dockerfile .
+python -m evaluation.formal_run --dry-run
+python -m evaluation.formal_run
+```
+
+`--dry-run` writes the profile and the containment results only; the second form
+runs the full A–F suite.
+
+### The oracle is independent of the implementation
+
+`evaluation/specifications.py` declares each evaluated scenario's expected
+observable event sequence as **frozen literal strings**. It imports nothing from
+`sandbox/` — not `EventType`, not `EXPECTED_SEQUENCES` — and a test enforces
+that. `sandbox/progression.py` keeps its own definitions for the dashboard and
+the learner debrief, but the experimental oracle is specified separately, so an
+experiment cannot grade the implementation against itself: if production
+telemetry drifts, the frozen specification does not follow it and the run
+reports a mismatch.
+
+Each specification declares `required` (ordered), `repeatable`, `optional` and
+`forbidden` event types. `evaluate()` returns a verdict naming every failure
+mode separately — missing event, unexpected event, wrong order, wrong
+`scenario_id`, wrong `session_id`, incomplete fields, non-monotonic timestamps —
+and `tests/test_specifications.py` proves the oracle catches each of them.
+
+### Measurement methodology
+
+| Discipline | What is done |
+| --- | --- |
+| Backend | `DockerBackend` only. `require_docker_backend()` aborts the run if Docker is unreachable or the image is missing. There is **no fallback path to `LocalBackend`**. |
+| Prebuilt image | The target image is built beforehand; its image id (and repo digest where one exists) is recorded. Build time is never inside a measured interval. |
+| Warm-up | `--warmup` complete lifecycles (create, scenario, reset, destroy) run first and are **discarded**. This absorbs Docker Desktop's first-container costs. The discarded observations are still written to `metadata.json`, so the size of what was excluded stays visible. |
+| Clock | `time.perf_counter` throughout — monotonic, highest resolution, unaffected by wall-clock adjustment. |
+| Setup vs execution | Creation, scenario execution, reset and destroy are timed as four separate intervals and reported separately. No aggregate is presented as scenario cost. |
+| Raw data | Every observation is written, not only aggregates. Failures appear as failed trials in an `error` column; nothing is downgraded to a warning. |
+| Cleanup | Every sandbox is destroyed in a `finally` block, including after a failure, and the run ends with a sweep that reports any surviving labelled container. |
+
+### Recorded experiment profile
+
+`metadata.json` records OS, OS release and version, machine, CPU count, host and
+Docker-VM memory, Python version and implementation, Docker Desktop client
+version, Docker engine version, engine OS, the target image identifier and
+digest, the git commit SHA and whether the tree was dirty, the specification
+version, and the experiment timestamp. A field the machine will not report is
+recorded as `null` rather than guessed.
+
+### Experiments
+
+| Experiment | Size | Measures |
+| --- | --- | --- |
+| A — Reproducibility | 30 runs | identical baseline (by content digest), expected file set, expected scenario result, exact event sequence, content unchanged by the rename-only impact, reset returns the exact baseline, no stale sandbox remains |
+| B — Session isolation | 30 trials × 3 simultaneous sandboxes | filesystem, telemetry, `scenario_id`, `session_id`, synthetic-identity and reset isolation; every violation recorded explicitly |
+| C — Telemetry correctness | 30 runs per scenario | completeness, exact-sequence rate, event precision, correlation and ordering correctness against the frozen specification; raw observed sequences retained |
+| D — Performance | 50 measured runs after warm-up | create / scenario / reset / destroy separately: mean, median, stdev, min, max, p95, plus every raw observation |
+| E — Scaling | 10, 25, 50, 100 | cumulative events, SQLite database size, ordered-query latency, scenario-filtered query latency, lifecycle latency, bytes per event |
+| F — Concurrency | 1, 2, 4, 8 concurrent sandboxes | completion success rate, isolation violations, creation and scenario latency, total batch time. Deliberately bounded to safe workstation limits — **this is not a stress or denial-of-service test** |
+
+### Containment re-validation
+
+`evaluation/containment.py` runs the measured containment checks and emits a
+record per check instead of an assertion, so results are exportable.
+`containment.json` and `containment.csv` carry `check`, `category`,
+`description`, `passed`, `expected` and `observed` for network-none, read-only
+rootfs, tmpfs workspace, noexec/nosuid flags, non-root uid, dropped
+capabilities, no-new-privileges, no privileged mode, no host mounts, no Docker
+socket, memory and PID limits, blocked network probe, blocked DNS probe, blocked
+rootfs write, blocked capability use, no visible host filesystem, blocked
+invalid target, blocked unknown filename, and cross-sandbox isolation.
+
+### Result layout
+
+```
+evaluation/results/formal/
+    metadata.json        profile, configuration, warm-up, cleanup
+    containment.json     containment checks + summary
+    containment.csv      one row per check
+    reproducibility.csv  experiment A raw observations
+    isolation.csv        experiment B raw observations
+    telemetry.csv        experiment C raw observations
+    performance.csv      experiment D raw observations
+    scaling.csv          experiment E raw observations
+    concurrency.csv      experiment F raw observations
+    summary.json         every experiment's aggregate results
+```
+
+`evaluation/results/` is gitignored; formal results are not committed unless we
+deliberately decide to publish a specific set.
+
+### Scope of the conclusions these results support
+
+Every measurement was taken on **one Windows 11 workstation running Docker
+Desktop's Linux VM**. The results describe that configuration and generalise to
+no other operating system or deployment. They record that the declared Docker
+isolation options were applied and that a set of benign probes failed as
+expected; they are not a security audit and are not evidence of production-grade
+containment. Nothing here measures a person: no claim about educational
+effectiveness, phishing susceptibility or learner awareness follows from any
+number this suite produces.
 
 ## Synthetic files
 

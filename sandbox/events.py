@@ -1,6 +1,6 @@
 """Structured telemetry event types emitted by the sandbox subsystem."""
 
-from datetime import datetime
+from .timeutil import utcnow
 
 
 class EventType:
@@ -63,9 +63,9 @@ def make_event(event_type, scenario_id=None, session_id=None, source=None,
         "source": source,
         "target": target,
         "details": details,
-        # Naive UTC, matching the existing funnel tables' `datetime.utcnow`
-        # default so all timestamps in the SQLite schema are comparable.
-        "timestamp": timestamp or datetime.utcnow(),
+        # Naive UTC (see sandbox/timeutil.py) so every timestamp in the
+        # SQLite schema is directly comparable.
+        "timestamp": timestamp or utcnow(),
     }
 
 

@@ -274,16 +274,24 @@
         // Auto-reveal after 20 seconds
         setTimeout(() => {
             if (confirm('This looks really scary... Do you want to learn what just happened?')) {
-                window.location.href = "{{ url_for('ransomware_reveal') }}";
+                handleReveal();
             }
         }, 20000);
         
         function handleReveal() {
-            window.location.href = "{{ url_for('ransomware_reveal') }}";
+            // The debrief restores this session's run state, so it is a
+            // CSRF-protected POST rather than a link.
+            document.getElementById('ransomwareRevealForm').submit();
         }
         
         // Prevent right-click (adds to realism)
         document.addEventListener('contextmenu', event => event.preventDefault());
     </script>
+<!-- State-changing, so it is a POST carrying this session's CSRF token.
+     A GET can no longer trigger the simulation. -->
+<form id="ransomwareRevealForm" method="post" action="{{ url_for('ransomware_reveal') }}"
+      style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
 </body>
 </html>

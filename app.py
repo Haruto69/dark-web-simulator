@@ -14,6 +14,10 @@ from sandbox import (SYNTHETIC_RESOURCES, EventType, PhishingScenario,
                      new_scenario_id, stage_index)
 from sandbox.progression import (PHISHING_FUNNEL, RANSOMWARE_FUNNEL,
                                  STAGE_BY_EVENT, conversion_rates)
+from sandbox.ransomware_state import (BASELINE_REMARK, RESTORED_REMARK,
+                                      STATE_BASELINE, STATE_IMPACTED,
+                                      file_rows, impact_remark,
+                                      normalise_variant)
 from sandbox.timeutil import utcnow
 from security import (check_instructor_password, init_csrf,
                       instructor_auth_configured, login_instructor,
@@ -56,11 +60,46 @@ class Product(db.Model):
     image = db.Column(db.String(256))
 
 class DemoFile(db.Model):
+    """The synthetic filename **catalogue** -- baseline data, never run state.
+
+    Milestone 4.1: this table used to carry ``status``/``remark`` columns that
+    the ransomware routes rewrote in place. Because the table is global, one
+    learner's click changed what every other learner saw. Those columns are
+    gone. What a given learner currently sees is derived per request from
+    their own :class:`RansomwareRunState` row (see
+    ``sandbox/ransomware_state.py``); the catalogue itself is read-only at
+    runtime and is written only by the seeding path.
+    """
     __tablename__ = 'demo_file'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256))
-    status = db.Column(db.String(50), default='available')
-    remark = db.Column(db.String(256), default='')
+
+
+class RansomwareRunState(db.Model):
+    """One learner session's ransomware-awareness run state.
+
+    Scoped by ``session_id`` (server-issued, held in the signed cookie) and
+    correlated to ``scenario_id``. No route accepts either value from request
+    data, so no request can select or mutate another learner's run.
+    """
+    __tablename__ = 'ransomware_run_state'
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), unique=True, index=True,
+                           nullable=False)
+    scenario_id = db.Column(db.String(64), index=True)
+    state = db.Column(db.String(32), default=STATE_BASELINE, nullable=False)
+    variant = db.Column(db.String(32), default="browser")
+    remark = db.Column(db.String(256), default=BASELINE_REMARK)
+    updated_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    def to_dict(self):
+        return {
+            "session_id": self.session_id,
+            "scenario_id": self.scenario_id,
+            "state": self.state,
+            "variant": self.variant,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
 
 class CredentialInteraction(db.Model):
     """Metadata about a credential submission -- never the credential itself.
@@ -193,6 +232,64 @@ def ransomware_scenario_id(reset=False):
         session[RANSOMWARE_SESSION_KEY] = scenario_id
         session.modified = True
     return scenario_id
+
+# -- ransomware run state, scoped to one learner session --------------------
+
+def _catalogue_names():
+    """The baseline synthetic filenames, in a stable order."""
+    return [row.name for row in DemoFile.query.order_by(DemoFile.id.asc()).all()]
+
+
+def ransomware_run(create=False):
+    """This session's run-state row, or ``None``.
+
+    The lookup key is ``session['session_id']`` -- server-issued and never
+    read from request data -- so there is no parameter with which one learner
+    could address another learner's run.
+    """
+    session_id = session.get("session_id")
+    if not session_id:
+        return None
+    run = RansomwareRunState.query.filter_by(session_id=session_id).first()
+    if run is None and create:
+        run = RansomwareRunState(session_id=session_id,
+                                 scenario_id=ransomware_scenario_id(),
+                                 state=STATE_BASELINE,
+                                 remark=BASELINE_REMARK,
+                                 updated_at=utcnow())
+        db.session.add(run)
+        db.session.commit()
+    return run
+
+
+def set_ransomware_state(state, variant="browser", remark=None):
+    """Move *this session's* run to ``state``. Touches no other session.
+
+    The "impact" is a status string on this session's own row: no file is
+    read, written, renamed or encrypted anywhere by this call.
+    """
+    run = ransomware_run(create=True)
+    if run is None:
+        return None
+    run.state = state
+    run.variant = normalise_variant(variant)
+    run.scenario_id = ransomware_scenario_id()
+    if remark is None:
+        remark = (impact_remark(run.variant) if state == STATE_IMPACTED
+                  else RESTORED_REMARK)
+    run.remark = remark[:256]
+    run.updated_at = utcnow()
+    db.session.commit()
+    return run
+
+
+def ransomware_files():
+    """The catalogue projected through *this session's* state (plain dicts)."""
+    run = ransomware_run()
+    if run is None:
+        return file_rows(_catalogue_names())
+    return file_rows(_catalogue_names(), run.state, run.remark)
+
 
 # Session tracking
 @app.before_request
@@ -723,27 +820,26 @@ def download_tool(tool_id):
 
 @app.route("/files/browser")
 def file_browser():
-    """File browser - separate from ransomware funnel"""
-    files = DemoFile.query.all()
-    return render_template("file_browser.html", files=files)
+    """File browser - read-only view of *this session's* catalogue state."""
+    return render_template("file_browser.html", files=ransomware_files())
 
-@app.route("/ransomware/trigger")
+@app.route("/ransomware/trigger", methods=["POST"])
 def ransomware_trigger():
-    """Trigger ransomware from file browser - ransomware scenario stage 3."""
+    """Trigger ransomware from file browser - ransomware scenario stage 3.
+
+    POST because it changes state: it therefore inherits the application-wide
+    CSRF check in ``security.init_csrf``. The state it changes belongs to the
+    calling session alone.
+    """
     record_event(EventType.RANSOMWARE_TRIGGERED,
                  scenario_id=ransomware_scenario_id(),
                  source="scenario:ransomware_awareness",
                  target="file_browser",
                  details="Interacted with file browser - ransomware triggered")
-    
-    # Mark files as encrypted
-    files = DemoFile.query.all()
-    for f in files:
-        f.status = "encrypted"
-        f.remark = f"Encrypted by LockBit Simulator - {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
-    
-    db.session.commit()
-    
+
+    set_ransomware_state(STATE_IMPACTED, variant="browser")
+    files = ransomware_files()
+
     # Generate fake Bitcoin address
     bitcoin_address = "1" + ''.join(random.choices('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', k=33))
     ransom_amount = random.choice([0.5, 1.0, 1.5, 2.0])
@@ -754,23 +850,22 @@ def ransomware_trigger():
                          encrypted_files=files,
                          source='browser')
 
-@app.route("/ransomware/activate")
+@app.route("/ransomware/activate", methods=["POST"])
 def ransomware_activate():
-    """Trigger ransomware from hacking tools download - scenario stage 3."""
+    """Trigger ransomware from hacking tools download - scenario stage 3.
+
+    State-changing, therefore POST and therefore CSRF-protected. Scoped to the
+    calling session's own run.
+    """
     record_event(EventType.RANSOMWARE_TRIGGERED,
                  scenario_id=ransomware_scenario_id(),
                  source="scenario:ransomware_awareness",
                  target="tool_download",
                  details="Downloaded fake hacking tool - ransomware triggered")
-    
-    # Mark files as encrypted
-    files = DemoFile.query.all()
-    for f in files:
-        f.status = "encrypted"
-        f.remark = f"Encrypted by WannaCry Simulator - {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
-    
-    db.session.commit()
-    
+
+    set_ransomware_state(STATE_IMPACTED, variant="download")
+    files = ransomware_files()
+
     # Generate fake Bitcoin address
     bitcoin_address = "1" + ''.join(random.choices('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', k=33))
     ransom_amount = random.choice([1.0, 1.5, 2.0, 2.5])
@@ -783,8 +878,8 @@ def ransomware_activate():
 
 @app.route("/ransomware/screen")
 def ransomware_screen():
-    """Direct access to ransomware screen"""
-    files = DemoFile.query.all()
+    """Direct access to the ransom screen. Read-only: GET never mutates."""
+    files = ransomware_files()
     bitcoin_address = "1" + ''.join(random.choices('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', k=33))
     ransom_amount = random.choice([1.0, 1.5, 2.0, 2.5])
     
@@ -794,7 +889,7 @@ def ransomware_screen():
                          encrypted_files=files,
                          source='direct')
 
-@app.route("/ransomware/reveal")
+@app.route("/ransomware/reveal", methods=["POST"])
 def ransomware_reveal():
     """Educational reveal - the ransomware scenario's final stage.
 
@@ -802,21 +897,19 @@ def ransomware_reveal():
     that event type was declared but never produced, which left the scenario's
     telemetry sequence permanently incomplete against its specification.
     """
-    # Restore the demo rows. No real file is touched here: ``status`` and
-    # ``remark`` are columns in the DemoFile table, nothing more.
-    files = DemoFile.query.all()
-    for f in files:
-        f.status = "available"
-        f.remark = "Restored after simulation"
-
-    db.session.commit()
+    # Restore *this session's* run. No real file is touched here, and no other
+    # learner's state is read or written: ``state`` is a string on this
+    # session's own RansomwareRunState row.
+    set_ransomware_state(STATE_BASELINE, remark=RESTORED_REMARK)
+    files = ransomware_files()
 
     record_event(EventType.RANSOMWARE_DEBRIEFED,
                  scenario_id=ransomware_scenario_id(),
                  source="scenario:ransomware_awareness",
                  target="education",
                  details="learner reached the educational debrief; "
-                         "%d demo row(s) restored" % len(files))
+                         "%d catalogue entry/entries restored for this "
+                         "session" % len(files))
 
     return render_template("ransomware_education.html")
 
@@ -1218,23 +1311,22 @@ def dashboard():
 @app.route("/ransomware/simulate", methods=["POST"])
 @require_instructor
 def ransomware_simulate():
-    files = DemoFile.query.all()
-    for f in files:
-        f.status = "encrypted"
-        f.remark = "Marked encrypted for demo. No real file operations performed."
-    db.session.commit()
-    flash("Ransomware simulation executed on demo items (NO REAL FILES TOUCHED).", "info")
+    """Instructor demonstration -- scoped to the instructor's own session.
+
+    It used to flip the global catalogue, which changed what every learner in
+    the room saw mid-exercise.
+    """
+    set_ransomware_state(STATE_IMPACTED, variant="instructor")
+    flash("Ransomware simulation executed on your own demo view "
+          "(NO REAL FILES TOUCHED, no other session affected).", "info")
     return redirect(url_for("dashboard"))
 
 @app.route("/ransomware/restore", methods=["POST"])
 @require_instructor
 def ransomware_restore():
-    files = DemoFile.query.all()
-    for f in files:
-        f.status = "available"
-        f.remark = "Restored in simulation."
-    db.session.commit()
-    flash("Demo files restored (simulation).", "success")
+    """Restore the instructor's own demo view. No other session is altered."""
+    set_ransomware_state(STATE_BASELINE, remark="Restored in simulation.")
+    flash("Your demo files restored (simulation).", "success")
     return redirect(url_for("dashboard"))
 
 @app.route("/api/logs")
@@ -1264,10 +1356,14 @@ def deets():
     """
     interactions = (CredentialInteraction.query
                     .order_by(CredentialInteraction.id.desc()).limit(200).all())
-    files = DemoFile.query.order_by(DemoFile.id.desc()).all()
+    files = list(reversed(ransomware_files()))
+    # Instructors may *aggregate* run state; learners never see another row.
+    runs = (RansomwareRunState.query
+            .order_by(RansomwareRunState.updated_at.desc()).limit(200).all())
     products = Product.query.order_by(Product.id.desc()).all()
     return render_template("deets.html", interactions=interactions,
-                           files=files, products=products)
+                           files=files, products=products,
+                           ransomware_runs=[r.to_dict() for r in runs])
 
 @app.route('/resources')
 def resources():

@@ -15,7 +15,7 @@ import sqlalchemy
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from conftest import csrf_for
+from conftest import csrf_for, ransomware_post
 from sandbox import EventType
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -121,12 +121,13 @@ def test_every_destructive_manage_command_is_confirmation_gated():
 # -- the declared-but-never-emitted event now fires --------------------------
 
 def test_the_ransomware_debrief_emits_its_declared_event(client):
-    for path in ("/marketplace/tools", "/download/tool/1", "/ransomware/activate"):
+    for path in ("/marketplace/tools", "/download/tool/1"):
         assert client.get(path).status_code == 200
+    assert ransomware_post(client, "/ransomware/activate").status_code == 200
     with client.session_transaction() as flask_session:
         scenario_id = flask_session["ransomware_scenario_id"]
 
-    assert client.get("/ransomware/reveal").status_code == 200
+    assert ransomware_post(client, "/ransomware/reveal").status_code == 200
 
     import app as app_module
     with app_module.app.app_context():
@@ -147,9 +148,10 @@ def test_the_ransomware_debrief_emits_its_declared_event(client):
 def test_the_debrief_matches_the_frozen_specification(client):
     from evaluation.specifications import evaluate
 
-    for path in ("/marketplace/tools", "/download/tool/1",
-                 "/ransomware/activate", "/ransomware/reveal"):
+    for path in ("/marketplace/tools", "/download/tool/1"):
         assert client.get(path).status_code == 200
+    for path in ("/ransomware/activate", "/ransomware/reveal"):
+        assert ransomware_post(client, path).status_code == 200
     with client.session_transaction() as flask_session:
         scenario_id = flask_session["ransomware_scenario_id"]
         session_id = flask_session["session_id"]
@@ -219,9 +221,10 @@ def test_the_shared_clock_returns_naive_utc():
 
 def test_the_application_emits_no_deprecation_warnings_during_a_scenario(client,
                                                                         recwarn):
-    for path in ("/marketplace/tools", "/download/tool/1",
-                 "/ransomware/activate", "/ransomware/reveal"):
+    for path in ("/marketplace/tools", "/download/tool/1"):
         client.get(path)
+    for path in ("/ransomware/activate", "/ransomware/reveal"):
+        ransomware_post(client, path)
     deprecations = [w for w in recwarn
                     if issubclass(w.category, DeprecationWarning)
                     and "utcnow" in str(w.message)]

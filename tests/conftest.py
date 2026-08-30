@@ -87,6 +87,14 @@ def login_instructor(client):
     return client
 
 
+def ransomware_post(client, path):
+    """POST a state-changing ransomware route with this client's CSRF token.
+
+    Milestone 4.1 made these routes POST-only; a GET can no longer mutate.
+    """
+    return client.post(path, data={"csrf_token": csrf_for(client)})
+
+
 @pytest.fixture
 def instructor(client):
     return login_instructor(client)

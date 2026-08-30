@@ -193,6 +193,34 @@ handler is protected by default instead of by remembering a decorator.
 * GET/HEAD/OPTIONS stay read-only and require nothing.
 * A token minted for one session does not authorise another.
 
+Milestone 4.1 closed the last gap in that model: the ransomware-awareness
+routes that change state -- `/ransomware/trigger`, `/ransomware/activate`,
+`/ransomware/reveal`, `/ransomware/simulate`, `/ransomware/restore` -- were
+`GET` handlers and therefore outside the CSRF check. All five are `POST`-only
+now (a `GET` returns 405), and the templates submit hidden CSRF-carrying forms
+instead of following links.
+
+## Ransomware run state is per session
+
+The ransomware scenario used to rewrite the global `demo_file` rows, so one
+learner's click changed what every other learner saw and one learner's debrief
+restored the whole room. `DemoFile` is now a **baseline catalogue** (`id`,
+`name`) that no request mutates; a learner's run state lives in
+`ransomware_run_state`, keyed by the server-issued `session_id` and correlated
+to the run's `scenario_id` (`sandbox/ransomware_state.py`). The file browser
+projects the catalogue through the caller's own row per request. No route
+accepts a session, scenario or sandbox id from request data, so no parameter
+addresses another learner's run; instructors aggregate the rows on `/deets`.
+
+## Sanitised failures
+
+Backend exceptions are never rendered verbatim (`sandbox/sanitize.py`). An
+instructor-facing failure carries a stable generic message plus an opaque
+`error_ref`; SCENARIO_FAILED telemetry records the exception's *class* and that
+reference, never its message. The scrubbed diagnostic (host paths, argv,
+container stderr and traceback framing removed) goes to the application log
+only.
+
 ## Synthetic credential model
 
 Sandbox identities are **derived, never stored** (`sandbox/identity.py`):

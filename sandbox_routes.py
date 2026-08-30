@@ -30,6 +30,7 @@ from sandbox import (EventType, FileImpactScenario, SandboxError,
 from sandbox.backends.docker import DockerBackend
 from sandbox.backends.local import LocalBackend
 from sandbox.dataset import BASELINE_FILENAMES
+from sandbox.sanitize import sanitized_failure
 from security import is_instructor, require_instructor, wants_json
 
 #: Default staleness threshold for ``POST /sandbox/reap`` (2 hours), and a
@@ -116,6 +117,21 @@ def create_sandbox_blueprint(db, SecurityEvent, local_root):
             flash(message, category)
         return redirect(url_for("dashboard"))
 
+    def fail(exc, status, context, category="danger"):
+        """Turn a backend exception into a *sanitised* response.
+
+        Milestone 4.1: these handlers used to return ``str(exc)``, which can
+        carry Docker daemon internals, a subprocess argv, container stderr or
+        a host path straight into an instructor-visible JSON body. The caller
+        now gets a stable generic message plus a correlation reference; the
+        scrubbed diagnostic goes to the application log only.
+        """
+        reference, message, _detail = sanitized_failure(
+            exc, logger=current_app.logger, context=context)
+        return respond({"ok": False, "error": message, "error_ref": reference,
+                        "context": context}, status,
+                       "%s (reference %s)" % (context, reference), category)
+
     # -- lifecycle ---------------------------------------------------------
     @bp.post("/create")
     @require_instructor
@@ -124,8 +140,7 @@ def create_sandbox_blueprint(db, SecurityEvent, local_root):
         try:
             info = manager.create(session_sandbox_id(), session_id=sid())
         except SandboxError as exc:
-            return respond({"ok": False, "error": str(exc)}, 500,
-                           "Sandbox creation failed: %s" % exc, "danger")
+            return fail(exc, 500, "sandbox creation failed")
         return respond({"ok": True, "sandbox": info},
                        message="Sandbox created (backend: %s)." % info["backend"],
                        category="success")
@@ -137,8 +152,7 @@ def create_sandbox_blueprint(db, SecurityEvent, local_root):
         try:
             info = manager.reset(session_sandbox_id(), session_id=sid())
         except SandboxError as exc:
-            return respond({"ok": False, "error": str(exc)}, 500,
-                           "Sandbox reset failed: %s" % exc, "danger")
+            return fail(exc, 500, "sandbox reset failed")
         return respond({"ok": True, "sandbox": info},
                        message="Sandbox reset to synthetic baseline.",
                        category="success")
@@ -164,11 +178,10 @@ def create_sandbox_blueprint(db, SecurityEvent, local_root):
             result = scenario.run(sandbox_id=session_sandbox_id(),
                                   session_id=sid(), targets=targets)
         except SandboxNotReadyError as exc:
-            return respond({"ok": False, "error": str(exc)}, 409,
-                           "No sandbox running - create one first.", "warning")
+            return fail(exc, 409, "no sandbox running - create one first",
+                        "warning")
         except SandboxError as exc:
-            return respond({"ok": False, "error": str(exc)}, 500,
-                           "Scenario failed: %s" % exc, "danger")
+            return fail(exc, 500, "scenario failed")
         return respond({"ok": True, "result": result},
                        message="File-impact scenario complete (%d file(s) impacted)."
                                % result["impacted"],
@@ -204,8 +217,7 @@ def create_sandbox_blueprint(db, SecurityEvent, local_root):
         try:
             reaped = manager.reap_stale(max_age, session_id=sid(), dry_run=dry_run)
         except SandboxError as exc:
-            return respond({"ok": False, "error": str(exc)}, 500,
-                           "Reap failed: %s" % exc, "danger")
+            return fail(exc, 500, "reap failed")
         return respond({"ok": True, "max_age": max_age, "dry_run": dry_run,
                         "count": len(reaped), "reaped": reaped},
                        message="Reaped %d stale sandbox(es)." % len(reaped),

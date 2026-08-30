@@ -13,6 +13,7 @@ from ..dataset import BASELINE_FILENAMES
 from ..errors import SandboxError, SandboxNotReadyError
 from ..events import EventType, make_event
 from ..paths import sandbox_path
+from ..sanitize import error_reference, telemetry_detail
 
 SCENARIO_NAME = "file_impact"
 
@@ -50,8 +51,12 @@ class FileImpactScenario:
         try:
             self.manager.require_ready(sandbox_id)
         except SandboxNotReadyError as exc:
+            # Never persist the exception *message*: a backend failure can
+            # carry host paths, argv or container stderr, and SCENARIO_FAILED
+            # rows are exported by instructors. The class name plus a
+            # correlation reference is all telemetry keeps.
             self._emit(EventType.SCENARIO_FAILED, scenario_id, session_id,
-                       details=str(exc)[:400])
+                       details=telemetry_detail(exc, error_reference()))
             raise
 
         self._emit(EventType.FILE_IMPACT_STARTED, scenario_id, session_id,
@@ -61,7 +66,7 @@ class FileImpactScenario:
             results = self.manager.backend.run_impact(sandbox_id, selected)
         except SandboxError as exc:
             self._emit(EventType.SCENARIO_FAILED, scenario_id, session_id,
-                       details=str(exc)[:400])
+                       details=telemetry_detail(exc, error_reference()))
             raise
 
         impacted = 0

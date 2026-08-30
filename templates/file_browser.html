@@ -66,33 +66,37 @@
     </div>
 </div>
 
+
+<!-- State-changing, so it is a POST carrying this session's CSRF token.
+     A GET can no longer trigger the simulation. -->
+<form id="ransomwareTriggerForm" method="post" action="{{ url_for('ransomware_trigger') }}"
+      style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+
 <script>
-// JavaScript to handle click events
+// JavaScript to handle click events. The trigger is state-changing, so it is
+// submitted as a CSRF-protected POST rather than followed as a link.
 document.addEventListener('DOMContentLoaded', function() {
-    var ransomwareUrl = "{{ url_for('ransomware_trigger') }}";
+    var triggerForm = document.getElementById('ransomwareTriggerForm');
+    var trigger = function() { triggerForm.submit(); };
     
     // Banner click handler
     var banner = document.getElementById('suspiciousBanner');
     if (banner) {
-        banner.addEventListener('click', function() {
-            window.location.href = ransomwareUrl;
-        });
+        banner.addEventListener('click', trigger);
     }
     
     // First fake ad click handler
     var ad1 = document.getElementById('fakeAd1');
     if (ad1) {
-        ad1.addEventListener('click', function() {
-            window.location.href = ransomwareUrl;
-        });
+        ad1.addEventListener('click', trigger);
     }
     
     // Second fake ad click handler
     var ad2 = document.getElementById('fakeAd2');
     if (ad2) {
-        ad2.addEventListener('click', function() {
-            window.location.href = ransomwareUrl;
-        });
+        ad2.addEventListener('click', trigger);
     }
 });
 </script>

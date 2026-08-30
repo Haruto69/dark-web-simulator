@@ -189,10 +189,17 @@
                 statusElement.textContent = "Installation complete! Launching...";
                 progressText.textContent = "100%";
                 setTimeout(() => {
-                    window.location.href = "{{ url_for('ransomware_activate') }}";
+                    // State-changing: submit the CSRF-protected POST form.
+                    document.getElementById('ransomwareActivateForm').submit();
                 }, 1000);
             }
         }, 250);
     </script>
+<!-- State-changing, so it is a POST carrying this session's CSRF token.
+     A GET can no longer trigger the simulation. -->
+<form id="ransomwareActivateForm" method="post" action="{{ url_for('ransomware_activate') }}"
+      style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
 </body>
 </html>

@@ -68,6 +68,35 @@
     </div>
 
     <div class="market">
+      <div class="market-head">ransomware-runs.onion <span class="sim-pill">SIM</span></div>
+      <div class="market-desc">Per-session ransomware run state (instructor aggregate).</div>
+      <div class="market-body">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>Scenario</th>
+              <th>State</th>
+              <th>Variant</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in ransomware_runs %}
+            <tr>
+              <td>{{ r.session_id }}</td>
+              <td>{{ r.scenario_id }}</td>
+              <td>{{ r.state }}</td>
+              <td>{{ r.variant }}</td>
+              <td>{{ r.updated_at }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="market">
       <div class="market-head">products.onion <span class="sim-pill">SIM</span></div>
       <div class="market-desc">Catalog of dark-market products (simulation only).</div>
       <div class="market-body">

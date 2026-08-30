@@ -3,7 +3,7 @@
 import pytest
 import sqlalchemy
 
-from conftest import csrf_for, login_instructor
+from conftest import csrf_for, login_instructor, ransomware_post
 from sandbox import EventType
 from sandbox.progression import (EXPECTED_SEQUENCES, PHISHING_FUNNEL,
                                  RANSOMWARE_FUNNEL, completeness,
@@ -61,7 +61,7 @@ def test_scenario_events_carry_the_required_fields(client, other_client):
 def test_ransomware_routes_emit_correlated_security_events(client, other_client):
     client.get("/marketplace/tools")
     client.get("/download/tool/1")
-    client.get("/ransomware/activate")
+    ransomware_post(client, "/ransomware/activate")
 
     # Scope to *this* client's run. The events table is shared across the test
     # session, so filtering only by source would also pick up ransomware events

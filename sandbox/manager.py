@@ -14,6 +14,7 @@ from .backends.docker import DockerBackend
 from .backends.local import LocalBackend
 from .errors import SandboxError, SandboxNotReadyError
 from .events import EventCollector, EventType, make_event
+from .sanitize import error_reference, telemetry_detail
 
 DEFAULT_SANDBOX_ID = "primary"
 
@@ -186,7 +187,8 @@ class SandboxManager:
             except SandboxError as exc:
                 self._emit(EventType.SANDBOX_REAP_SCAN, session_id=session_id,
                            target=sandbox_id,
-                           details="reap failed: %s" % str(exc)[:200])
+                           details="reap failed: %s"
+                                   % telemetry_detail(exc, error_reference()))
                 continue
             self._emit(EventType.SANDBOX_REAPED, session_id=session_id,
                        target=sandbox_id,

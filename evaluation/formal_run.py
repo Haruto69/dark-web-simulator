@@ -55,6 +55,7 @@ import argparse
 import csv
 import json
 import os
+import re
 
 import sys
 import time
@@ -505,19 +506,37 @@ def _run_phishing_telemetry(backend, index):
                               session_id, error="%s: %s" % (type(exc).__name__, exc))
 
 
+#: Matches the hidden CSRF field the ransomware templates render.
+_CSRF_RE = re.compile(rb'name="csrf_token" value="([^"]+)"')
+
+
+def _csrf_token(client):
+    """Scrape this client's CSRF token from a rendered page, as a browser has it."""
+    page = client.get("/files/browser")
+    match = _CSRF_RE.search(page.data)
+    if not match:
+        raise RuntimeError("no CSRF token rendered on /files/browser")
+    return match.group(1).decode()
+
+
 def _run_ransomware_telemetry(flask_client_factory, index):
     """Drive the ransomware-awareness scenario through its real HTTP routes.
 
-    This scenario is application-level only: it marks rows in the DemoFile table
-    and touches no sandbox and no real file. Its telemetry therefore has to be
+    This scenario is application-level only: it marks this session's own
+    RansomwareRunState row and touches no sandbox and no real file. Its telemetry therefore has to be
     collected through the Flask routes that emit it.
     """
     session_id = None
     try:
         client, module = flask_client_factory()
-        for path in ("/marketplace/tools", "/download/tool/1",
-                     "/ransomware/activate", "/ransomware/reveal"):
+        for path in ("/marketplace/tools", "/download/tool/1"):
             response = client.get(path)
+            if response.status_code != 200:
+                raise RuntimeError("%s returned %d" % (path, response.status_code))
+        # Milestone 4.1: the two stages that change state are POSTs and carry
+        # this client's CSRF token, exactly as the browser forms do.
+        for path in ("/ransomware/activate", "/ransomware/reveal"):
+            response = client.post(path, data={"csrf_token": _csrf_token(client)})
             if response.status_code != 200:
                 raise RuntimeError("%s returned %d" % (path, response.status_code))
         with client.session_transaction() as flask_session:

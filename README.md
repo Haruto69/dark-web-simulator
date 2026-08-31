@@ -1,6 +1,52 @@
-# Dark Web Risk Simulator (Demo)
+# RewindSec
 
-A training simulation tool for understanding dark web risks.
+**Learning from the Path Not Taken: Deterministic Counterfactual Replay for Human-Centric Cybersecurity Training**
+
+RewindSec is a deterministic, isolated cybersecurity-training platform. It is built
+around a single learning loop:
+
+```
+decision
+  -> technical consequence
+  -> exact-state rewind
+  -> alternative decision
+  -> outcome comparison
+  -> self-explanation
+  -> transfer evaluation
+```
+
+A learner makes a decision, experiences its real technical consequence inside a
+disposable isolated environment, is rewound to the exact prior state, takes the
+alternative path, compares the two outcomes side by side, explains the difference
+in their own words, and is then evaluated on whether that understanding transfers
+to a new situation.
+
+## System shape
+
+- **Flask remains the host-side application and controller.** Scenario routing,
+  session state, telemetry, instructor views and all decision logic stay in the
+  host process.
+- **Docker containers are disposable isolated consequence environments.** They
+  exist to make a consequence real and observable, and are destroyed afterwards.
+  Nothing persistent or privileged lives inside them.
+- **The validated sandbox baseline remains preserved by the
+  `v0.1.0-sandbox-baseline` tag** (commit `472ebd2`), which is the fully tested and
+  formally evaluated pre-redesign state.
+- **The `rewindsec-redesign` branch will evolve this application into RewindSec.**
+  Work proceeds incrementally from the validated foundation rather than from a
+  rewrite.
+
+## Inherited foundation
+
+The current codebase contains the validated sandbox foundation inherited from the
+previous prototype: per-session container isolation, the measured containment and
+reproducibility evaluation harness, the synthetic-identity and credential-privacy
+model, sanitised failure handling, and the single telemetry model. That foundation
+is documented in full below and is retained deliberately — the redesign builds the
+counterfactual-replay loop on top of it, and does not discard it.
+
+Sections below this point describe the current, pre-redesign behaviour of the
+system as it stands today.
 
 ## Setup Instructions
 
@@ -330,7 +376,7 @@ Instructors can inspect an ordered, filtered timeline:
 
 # Conference Sandbox Architecture
 
-> *Dark Web Risk Sandbox: A Container-Isolated Multi-Stage Cybersecurity Simulation Environment*
+> *RewindSec sandbox: a container-isolated multi-stage cybersecurity simulation environment*
 
 ## What the sandbox does
 

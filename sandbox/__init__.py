@@ -1,4 +1,4 @@
-"""Conference sandbox subsystem for the Dark Web Risk Simulator.
+"""Conference sandbox subsystem for RewindSec.
 
 Educational simulation only. Nothing in this package encrypts data, propagates,
 persists, escalates privilege, evades detection or contacts external systems.

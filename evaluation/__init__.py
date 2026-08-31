@@ -1,4 +1,4 @@
-"""Reproducible evaluation harness for the Dark Web Risk Sandbox.
+"""Reproducible evaluation harness for the RewindSec sandbox.
 
 Deliberately outside the Flask application: no benchmark logic lives in a route
 handler, so measurements cannot be perturbed by request handling, and the

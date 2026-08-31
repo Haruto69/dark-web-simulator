@@ -1,4 +1,4 @@
-"""Controlled synthetic experiments for the Dark Web Risk Sandbox.
+"""Controlled synthetic experiments for the RewindSec sandbox.
 
 Run from the repository root::
 
@@ -511,7 +511,7 @@ EXPERIMENTS = {
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Controlled experiments for the Dark Web Risk Sandbox")
+        description="Controlled experiments for the RewindSec sandbox")
     parser.add_argument("--backend", choices=("docker", "local"), default="docker",
                         help="Backend under test. Never auto-detected: the "
                              "choice is recorded in every result file.")

@@ -1,4 +1,4 @@
-# Disposable target container for the Dark Web Risk Sandbox.
+# Disposable target container for the RewindSec sandbox.
 #
 # Contains ONLY: a Python runtime, the simulator's sandbox package, and a
 # synthetic workspace. No networking tools, no real data, no malware.

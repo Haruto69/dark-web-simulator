@@ -26,7 +26,12 @@ ENV PYTHONPATH=/opt/simulator \
 
 USER 10001:10001
 
-# Seed the deterministic synthetic baseline, then idle. The container performs
-# no autonomous activity; every action is driven by an explicit `docker exec`
-# from the Flask scenario controller.
-CMD ["sh", "-c", "python -m sandbox.tools.seed > /dev/null && exec sleep infinity"]
+# Start idle and do nothing else. The container performs no autonomous
+# activity whatsoever; every action -- including seeding the deterministic
+# synthetic baseline -- is driven by an explicit `docker exec` from the host.
+#
+# Seeding deliberately does NOT happen here: `docker run --detach` returns as
+# soon as the container is running, so a CMD-driven seed would run
+# asynchronously and let a caller observe a half-written workspace. The host
+# seeds synchronously in DockerBackend.create() instead.
+CMD ["sleep", "infinity"]

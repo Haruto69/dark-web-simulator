@@ -272,6 +272,124 @@ def test_destroying_a_sandbox_discards_its_state(backend):
     assert sandbox_id not in backend.list_sandboxes()
 
 
+# -- readiness under rapid lifecycle churn -----------------------------------
+#
+# Regression cover for a real race seen on a slower Windows/Docker Desktop
+# host: the image CMD used to seed the workspace *after* `docker run --detach`
+# had already reported the container running, so an immediate read could catch
+# a baseline file that existed but was still zero bytes. create() now seeds
+# synchronously, so every read below must see the exact baseline.
+
+RAPID_ITERATIONS = 5
+STRESS_ITERATIONS = 8
+
+
+def read_workspace(backend, sandbox_id):
+    """Contents of every baseline filename, read in one exec (None if absent)."""
+    script = (
+        "import json,os,sys;"
+        "d='/workspace';"
+        "names=%r;"
+        "sys.stdout.write(json.dumps({n: (open(os.path.join(d,n),encoding='utf-8')"
+        ".read() if os.path.isfile(os.path.join(d,n)) else None) for n in names}))"
+        % (list(BASELINE_FILENAMES),))
+    probe = run_in(backend, sandbox_id, "python", "-c", script)
+    assert probe.returncode == 0, probe.stderr
+    return json.loads(probe.stdout)
+
+
+def assert_exact_baseline(contents, context):
+    for name in BASELINE_FILENAMES:
+        assert contents[name] is not None, "%s: %s is missing" % (context, name)
+        assert contents[name] != "", "%s: %s is empty (partial seed)" % (context, name)
+        assert contents[name] == SYNTHETIC_FILES[name], (
+            "%s: %s does not match the baseline" % (context, name))
+
+
+def test_create_returns_only_after_the_full_baseline_is_present(backend, sandbox):
+    assert_exact_baseline(read_workspace(backend, sandbox), "after create")
+    assert all(f["status"] == "baseline" for f in backend.workspace_state(sandbox))
+
+
+def test_rapid_create_then_read_never_sees_a_partial_baseline(backend):
+    for attempt in range(RAPID_ITERATIONS):
+        sandbox_id = "pytest-rapid-%s" % uuid.uuid4().hex[:8]
+        backend.create(sandbox_id)
+        try:
+            assert_exact_baseline(read_workspace(backend, sandbox_id),
+                                  "rapid create #%d" % attempt)
+        finally:
+            backend.destroy(sandbox_id)
+
+
+def test_reset_returns_only_after_exact_baseline_restoration(backend, sandbox):
+    manager = SandboxManager(backend, default_sandbox_id=None)
+    FileImpactScenario(manager).run(sandbox_id=sandbox)
+    manager.reset(sandbox)
+    assert_exact_baseline(read_workspace(backend, sandbox), "after reset")
+
+
+def test_rapid_impact_reset_read_never_sees_a_partial_baseline(backend, sandbox):
+    manager = SandboxManager(backend, default_sandbox_id=None)
+    for attempt in range(RAPID_ITERATIONS):
+        FileImpactScenario(manager).run(sandbox_id=sandbox)
+        manager.reset(sandbox)
+        assert_exact_baseline(read_workspace(backend, sandbox),
+                              "impact/reset cycle #%d" % attempt)
+
+
+def test_repeated_lifecycle_stress_does_not_reproduce_the_race(backend):
+    """Full create -> impact -> reset -> read cycles, back to back."""
+    manager = SandboxManager(backend, default_sandbox_id=None)
+    for attempt in range(STRESS_ITERATIONS):
+        sandbox_id = "pytest-stress-%s" % uuid.uuid4().hex[:8]
+        manager.create(sandbox_id)
+        try:
+            assert_exact_baseline(read_workspace(backend, sandbox_id),
+                                  "stress create #%d" % attempt)
+            FileImpactScenario(manager).run(sandbox_id=sandbox_id)
+            manager.reset(sandbox_id)
+            assert_exact_baseline(read_workspace(backend, sandbox_id),
+                                  "stress reset #%d" % attempt)
+        finally:
+            manager.destroy(sandbox_id)
+
+
+def test_a_ready_sandbox_reports_baseline_state_immediately(backend):
+    """workspace_state() straight after create() must never report 'missing'."""
+    for _ in range(RAPID_ITERATIONS):
+        sandbox_id = "pytest-state-%s" % uuid.uuid4().hex[:8]
+        backend.create(sandbox_id)
+        try:
+            state = backend.workspace_state(sandbox_id)
+            assert {row["status"] for row in state} == {"baseline"}
+        finally:
+            backend.destroy(sandbox_id)
+
+
+def test_the_container_seeds_nothing_on_its_own(backend):
+    """The image must idle: an unseeded container has an empty workspace.
+
+    Proves the readiness guarantee comes from create()'s synchronous seed and
+    not from a lucky race with a background CMD.
+    """
+    name = "dws-sandbox-pytest-idle-%s" % uuid.uuid4().hex[:6]
+    backend._run(["run", "--detach", "--name", name, "--network", "none",
+                  "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                  "--read-only", "--tmpfs",
+                  "/workspace:rw,noexec,nosuid,uid=10001,gid=10001,size=16m",
+                  "--user", "10001:10001", DEFAULT_IMAGE], check=False)
+    try:
+        for _ in range(3):
+            listing = backend._run(
+                ["exec", "--", name, "python", "-c",
+                 "import os,json;print(json.dumps(sorted(os.listdir('/workspace'))))"],
+                check=False)
+            assert json.loads(listing.stdout) == []
+    finally:
+        backend._run(["rm", "--force", "--", name], check=False)
+
+
 # -- ownership and reaping ---------------------------------------------------
 
 def test_only_labelled_containers_are_enumerated(backend, sandbox):

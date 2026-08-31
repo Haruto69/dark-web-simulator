@@ -25,6 +25,11 @@ never touches an unrelated container.
 Reset is implemented as destroy + recreate rather than in-place repair, which
 makes the baseline reproducible by construction.
 
+Lifecycle readiness is *synchronous and content-verified*: :meth:`create` seeds
+the workspace itself with a blocking ``docker exec`` and confirms the seeded
+digests against the host-side baseline before returning, so neither create nor
+reset can hand back a container whose workspace is still being written.
+
 Docker is driven through ``subprocess`` with argument *lists* -- never
 ``shell=True`` -- and every invocation has a timeout.
 """
@@ -35,7 +40,7 @@ import re
 import shutil
 import subprocess
 
-from ..dataset import BASELINE_FILENAMES
+from ..dataset import BASELINE_DIGESTS, BASELINE_FILENAMES
 from ..errors import (BackendUnavailableError, SandboxCommandError,
                       SandboxError, SandboxNotFoundError, UnsafePathError)
 from ..paths import normalise_target
@@ -133,7 +138,50 @@ class DockerBackend(SandboxBackend):
         except (BackendUnavailableError, SandboxCommandError):
             return False
 
+    def _seed(self, sandbox_id):
+        """Seed the workspace synchronously and prove it matches the baseline.
+
+        ``docker exec`` blocks until the seed process exits, and the seed tool
+        verifies its own writes by read-back, so this method returns only once
+        the workspace holds the complete baseline. The digests it reports are
+        then re-checked here against :data:`BASELINE_DIGESTS`, computed
+        independently on the host: the readiness decision never depends on
+        timing, only on content.
+        """
+        completed = self._run(
+            ["exec", "--", self._container(sandbox_id),
+             "python", "-m", "sandbox.tools.seed"], check=False)
+        if completed.returncode != 0:
+            raise SandboxCommandError(
+                "workspace seeding failed (exit %d): %s"
+                % (completed.returncode, completed.stderr.strip()[:400]))
+        try:
+            payload = json.loads(completed.stdout)
+        except ValueError as exc:
+            raise SandboxCommandError(
+                "workspace seeding returned non-JSON output") from exc
+        digests = payload.get("digests") if isinstance(payload, dict) else None
+        if digests != dict(BASELINE_DIGESTS):
+            raise SandboxCommandError(
+                "workspace baseline verification failed: the seeded workspace "
+                "is not byte-identical to the synthetic baseline")
+        return payload
+
     def create(self, sandbox_id):
+        """Create a container and return only once it is fully ready.
+
+        Readiness means: the container is running *and* its workspace holds the
+        complete, byte-identical synthetic baseline. Seeding happens here, via
+        a blocking ``docker exec``, rather than in the image ``CMD`` -- ``docker
+        run --detach`` reports "running" the instant the process starts, which
+        would otherwise let a caller read a baseline file that exists but is
+        still empty. No sleeping or polling is involved; the guarantee is a
+        content check, not a timing one.
+
+        If seeding or verification fails the half-built container is destroyed
+        and :class:`SandboxCommandError` is raised. A partially seeded sandbox
+        is never returned.
+        """
         name = self._container(sandbox_id)
         self.destroy(sandbox_id)
         self._run([
@@ -153,6 +201,12 @@ class DockerBackend(SandboxBackend):
             "--label", OWNER_LABEL,
             self.image,
         ])
+        try:
+            self._seed(sandbox_id)
+        except BaseException:
+            # Never hand back a sandbox whose contents we cannot vouch for.
+            self.destroy(sandbox_id)
+            raise
         return {"sandbox_id": sandbox_id, "backend": self.name,
                 "state": "running", "container": name,
                 "workspace": "/workspace",
@@ -196,6 +250,11 @@ class DockerBackend(SandboxBackend):
                 "created_at": created, "owned": True}
 
     def reset(self, sandbox_id):
+        """Destroy and recreate, returning only once the baseline is restored.
+
+        Inherits :meth:`create`'s readiness guarantee: an immediate read after
+        reset() returns always observes the complete baseline content.
+        """
         self.destroy(sandbox_id)
         return self.create(sandbox_id)
 

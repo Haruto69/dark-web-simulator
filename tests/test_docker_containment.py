@@ -21,6 +21,7 @@ from sandbox.backends.docker import (DEFAULT_IMAGE, OWNER_LABEL_KEY,
                                      OWNER_LABEL_VALUE, DockerBackend)
 from sandbox.dataset import BASELINE_FILENAMES, SYNTHETIC_FILES
 from sandbox.errors import SandboxError
+from sandbox.impact_core import demo_state_text
 from sandbox.manager import SandboxManager
 from sandbox.scenarios.file_impact import FileImpactScenario
 
@@ -238,6 +239,15 @@ def test_one_sandbox_cannot_see_another_sandboxes_workspace(backend):
                    for f in backend.workspace_state(first))
         assert all(f["status"] == "baseline"
                    for f in backend.workspace_state(second))
+
+        # Content-level non-interference: the untouched sandbox still holds the
+        # exact synthetic plaintext, and none of the demo state leaked into it.
+        for name in BASELINE_FILENAMES:
+            probe = run_in(backend, second, "python", "-c",
+                           "import sys;sys.stdout.write("
+                           "open('/workspace/%s').read())" % name)
+            assert probe.stdout == SYNTHETIC_FILES[name], name
+            assert "DWS-DEMO-STATE" not in probe.stdout
     finally:
         backend.destroy(first)
         backend.destroy(second)
@@ -256,12 +266,75 @@ def test_reset_restores_byte_identical_baseline_content(backend, sandbox):
         assert probe.stdout == SYNTHETIC_FILES[name], name
 
 
-def test_impact_renames_without_altering_content(backend, sandbox):
+def test_impact_replaces_content_inside_the_container(backend, sandbox):
+    """The synthetic plaintext is gone; the fixed demo state is in its place."""
     backend.run_impact(sandbox, ["finance_report.txt"])
     probe = run_in(backend, sandbox, "python", "-c",
                    "import sys;sys.stdout.write("
                    "open('/workspace/finance_report.txt.demo_locked').read())")
-    assert probe.stdout == SYNTHETIC_FILES["finance_report.txt"]
+    assert probe.stdout == demo_state_text("finance_report.txt")
+    assert probe.stdout != SYNTHETIC_FILES["finance_report.txt"]
+
+    # The original name is gone, and the plaintext is nowhere in the workspace.
+    listing = run_in(backend, sandbox, "python", "-c",
+                     "import os,json;print(json.dumps(sorted(os.listdir('/workspace'))))")
+    entries = json.loads(listing.stdout)
+    assert "finance_report.txt" not in entries
+    assert "finance_report.txt.demo_locked" in entries
+    assert not any(e.endswith(".demo_staging") for e in entries)
+
+    blob = run_in(backend, sandbox, "python", "-c",
+                  "import os,sys;d='/workspace';"
+                  "sys.stdout.write(''.join("
+                  "open(os.path.join(d,n),encoding='utf-8',errors='replace').read()"
+                  " for n in sorted(os.listdir(d))"
+                  " if os.path.isfile(os.path.join(d,n))))").stdout
+    assert "1,240,000" not in blob
+    assert "QUARTERLY FINANCE REPORT" not in blob
+
+
+def test_every_baseline_file_is_content_impacted_in_the_container(backend, sandbox):
+    backend.run_impact(sandbox, list(BASELINE_FILENAMES))
+    for name in BASELINE_FILENAMES:
+        probe = run_in(backend, sandbox, "python", "-c",
+                       "import sys;sys.stdout.write("
+                       "open('/workspace/%s.demo_locked').read())" % name)
+        assert probe.stdout == demo_state_text(name), name
+        assert probe.stdout != SYNTHETIC_FILES[name], name
+        assert probe.stdout.strip(), name
+
+
+def test_the_digest_gate_refuses_a_modified_file_in_the_container(backend, sandbox):
+    """An allow-listed name holding non-baseline bytes is refused untouched."""
+    run_in(backend, sandbox, "python", "-c",
+           "open('/workspace/project_notes.txt','w').write('locally modified\\n')")
+    probe = run_in(backend, sandbox, "python", "-m",
+                   "sandbox.tools.impact_tool", "impact", "--",
+                   "project_notes.txt")
+    assert json.loads(probe.stdout)[0]["status"] == "rejected"
+
+    still = run_in(backend, sandbox, "python", "-c",
+                   "import sys;sys.stdout.write(open('/workspace/project_notes.txt').read())")
+    assert still.stdout == "locally modified\n"
+    exists = run_in(backend, sandbox, "python", "-c",
+                    "import os;print(os.path.exists("
+                    "'/workspace/project_notes.txt.demo_locked'))")
+    assert exists.stdout.strip() == "False"
+
+
+def test_a_symlink_under_a_baseline_name_is_not_followed_in_the_container(
+        backend, sandbox):
+    run_in(backend, sandbox, "python", "-c",
+           "import os;os.remove('/workspace/client_database.csv');"
+           "os.symlink('/etc/hostname','/workspace/client_database.csv')")
+    probe = run_in(backend, sandbox, "python", "-m",
+                   "sandbox.tools.impact_tool", "impact", "--",
+                   "client_database.csv")
+    assert json.loads(probe.stdout)[0]["status"] == "rejected"
+    # /etc is read-only anyway; assert the link target is intact regardless.
+    target = run_in(backend, sandbox, "python", "-c",
+                    "import sys;sys.stdout.write(open('/etc/hostname').read())")
+    assert "DWS-DEMO-STATE" not in target.stdout
 
 
 def test_destroying_a_sandbox_discards_its_state(backend):

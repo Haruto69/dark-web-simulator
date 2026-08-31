@@ -359,18 +359,44 @@ This project contains **no real malware and no ransomware capability**. The
 
 ```
 finance_report.txt  →  finance_report.txt.demo_locked
+
+    DWS-DEMO-STATE
+    original_filename=finance_report.txt
+    original_sha256=<the known baseline digest>
+    simulation_only=true
 ```
 
-It **renames** a file. Contents are never read for transformation, never
-encrypted, and never altered — the rename is losslessly reversible, and the
-tests assert byte-for-byte content equality after impact.
+It replaces a synthetic file's contents with that fixed four-line placeholder
+and renames it. The placeholder is a constant of the *filename* — it contains
+no byte of the file it replaced — so the impacted workspace is exactly as
+reproducible as the baseline. There is no decrypt, unlock, or restore
+operation, and none is needed: `reset` destroys the container, recreates it,
+and re-seeds the verified baseline.
+
+Two gates must **both** pass before a single byte is written:
+
+1. the filename is exactly one of the five synthetic names, and
+2. the file's current SHA-256 is exactly the known baseline digest.
+
+The second gate is what makes the code non-generalisable. A file under an
+allow-listed name whose bytes are *not* the known synthetic content is refused
+and left untouched, so the only bytes this code will ever discard are bytes it
+can prove the simulator itself wrote. Pointed at real data, it does nothing.
 
 Constraints enforced in code, not just by convention:
 
 - **No cryptography of any kind.** No keys, ciphers, or keying material.
+- **No reverse operation.** There is no unlock/decrypt/restore path in the
+  emulator or its in-container CLI; reset is the only restoration.
 - **Fixed allow-list of targets.** Only the five synthetic filenames are
   operable. There is no user-supplied filesystem root and no request parameter
   that can widen the list.
+- **Baseline-digest gate.** Known name plus unknown content is refused.
+- **No symlink following.** A link occupying an allow-listed name is rejected,
+  never written through.
+- **Transactional writes.** The placeholder is staged, fsync'd and verified,
+  then atomically installed; the original is removed only afterwards, so a
+  failure can never leave a truncated or empty file.
 - **No directory walking.** Directories are never enumerated, so recursion over
   arbitrary trees is not merely blocked — it is not implemented.
 - **Traversal rejected.** `..`, absolute paths, nested paths, backslashes,
@@ -381,7 +407,7 @@ Constraints enforced in code, not just by convention:
 - **No network egress.** The container runs with `--network none`.
 
 The code is not deployable as an offensive tool; stripped of its guard rails it
-would be a five-line rename script.
+would be a script that overwrites five known files with a constant.
 
 ## Threat / safety boundary
 
@@ -610,7 +636,7 @@ recorded as `null` rather than guessed.
 
 | Experiment | Size | Measures |
 | --- | --- | --- |
-| A — Reproducibility | 30 runs | identical baseline (by content digest), expected file set, expected scenario result, exact event sequence, content unchanged by the rename-only impact, reset returns the exact baseline, no stale sandbox remains |
+| A — Reproducibility | 30 runs | identical baseline (by content digest), expected file set, expected scenario result, exact event sequence, every impacted file holds the expected fixed demo placeholder and no baseline plaintext survives in the workspace, reset returns the exact baseline, no stale sandbox remains |
 | B — Session isolation | 30 trials × 3 simultaneous sandboxes | filesystem, telemetry, `scenario_id`, `session_id`, synthetic-identity and reset isolation; every violation recorded explicitly |
 | C — Telemetry correctness | 30 runs per scenario | completeness, exact-sequence rate, event precision, correlation and ordering correctness against the frozen specification; raw observed sequences retained |
 | D — Performance | 50 measured runs after warm-up | create / scenario / reset / destroy separately: mean, median, stdev, min, max, p95, plus every raw observation |
@@ -849,7 +875,8 @@ Example:
 
 ```
 FILE_IMPACT  target=/workspace/finance_report.txt
-             details="renamed to finance_report.txt.demo_locked (contents unchanged)"
+             details="contents replaced with fixed demo state and renamed to
+                      finance_report.txt.demo_locked"
 ```
 
 ## Tests

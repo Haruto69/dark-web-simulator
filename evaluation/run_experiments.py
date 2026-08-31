@@ -77,8 +77,10 @@ def eval_sandbox_id(tag):
 def workspace_signature(manager, sandbox_id):
     """Deterministic signature of the workspace: (name, status) pairs.
 
-    Filename-level rather than byte-level, because the file-impact emulator only
-    ever renames -- content equality is asserted separately by the test suite.
+    Filename-level rather than byte-level. The byte-level expectation -- the
+    baseline before the impact, the fixed demo placeholder after it -- is
+    checked by Experiment A in ``formal_run`` and by the test suite; this
+    signature exists to compare *workspace shape* across runs.
     """
     return tuple(sorted((f["name"], f["status"], f["present_as"] or "")
                         for f in manager.workspace_state(sandbox_id)))

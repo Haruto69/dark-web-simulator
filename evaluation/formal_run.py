@@ -133,10 +133,58 @@ def baseline_digests():
             for name, text in SYNTHETIC_FILES.items()}
 
 
+#: The impacted representation, declared here as a literal template rather than
+#: imported from the production emulator module. The oracle must state
+#: independently what it expects to find; importing the producer's own
+#: formatter would make Experiment A check the implementation against itself.
+DEMO_STATE_TEMPLATE = ("DWS-DEMO-STATE\n"
+                       "original_filename=%s\n"
+                       "original_sha256=%s\n"
+                       "simulation_only=true\n")
+
+
 def impacted_digests():
-    """Expected digests after the demo impact: same content, renamed files."""
-    return {name + IMPACT_SUFFIX: digest
-            for name, digest in baseline_digests().items()}
+    """Expected digests after the demo impact.
+
+    The demo impact is no longer rename-only: each synthetic file is renamed
+    *and* its content replaced by a fixed placeholder that depends only on the
+    filename and the file's own baseline digest. Both are known here from the
+    dataset definition, so the post-impact workspace is fully predictable and
+    is checked by content rather than by the labels the implementation reports
+    about itself.
+    """
+    import hashlib
+    expected = {}
+    for name, digest in baseline_digests().items():
+        placeholder = (DEMO_STATE_TEMPLATE % (name, digest)).encode("utf-8")
+        expected[name + IMPACT_SUFFIX] = hashlib.sha256(placeholder).hexdigest()
+    return expected
+
+
+def plaintext_absent(backend, sandbox_id):
+    """True when no baseline plaintext marker survives anywhere in /workspace.
+
+    Read from inside the container, over every file present, so the claim
+    "the original synthetic content is no longer in the workspace" is measured
+    rather than asserted.
+    """
+    markers = sorted({text.splitlines()[1] for text in SYNTHETIC_FILES.values()
+                      if len(text.splitlines()) > 1})
+    script = (
+        "import json,os,sys\n"
+        "blob=''\n"
+        "for n in sorted(os.listdir('/workspace')):\n"
+        "    p=os.path.join('/workspace',n)\n"
+        "    if os.path.isfile(p):\n"
+        "        blob+=open(p,encoding='utf-8',errors='replace').read()\n"
+        "print(json.dumps([m for m in %r if m in blob]))\n" % (markers,))
+    completed = backend._run(
+        ["exec", "--", backend._container(sandbox_id), "python", "-c", script],
+        check=False)
+    try:
+        return json.loads(completed.stdout) == []
+    except ValueError:
+        return False
 
 
 def scenario_events(collector, scenario_id):
@@ -220,8 +268,10 @@ def experiment_a(backend, runs):
             row["impacted_file_set_correct"] = (
                 sorted(after) == sorted(expected_impacted))
 
-            # 3. rename-only: content is byte-identical after the impact
-            row["content_unchanged_by_rename"] = after == expected_impacted
+            # 3. content impact: every impacted file holds the fixed demo
+            #    state, and no baseline plaintext survives in the workspace
+            row["content_impact_correct"] = after == expected_impacted
+            row["plaintext_absent"] = plaintext_absent(backend, sandbox_id)
 
             # 4. event sequence, judged by the independent oracle
             verdict = specifications.evaluate(
@@ -259,7 +309,8 @@ def experiment_a(backend, runs):
             row.get(flag) for flag in (
                 "baseline_identical", "baseline_file_set_correct",
                 "scenario_result_correct", "impacted_file_set_correct",
-                "content_unchanged_by_rename", "event_sequence_correct",
+                "content_impact_correct", "plaintext_absent",
+                "event_sequence_correct",
                 "reset_exact_baseline", "destroyed", "no_stale_sandbox"))
         rows.append(row)
 
@@ -268,7 +319,8 @@ def experiment_a(backend, runs):
         "baseline_correctness_rate": aggregate_flags(rows, "baseline_identical"),
         "expected_file_set_rate": aggregate_flags(rows, "baseline_file_set_correct"),
         "scenario_result_rate": aggregate_flags(rows, "scenario_result_correct"),
-        "rename_only_content_rate": aggregate_flags(rows, "content_unchanged_by_rename"),
+        "content_impact_rate": aggregate_flags(rows, "content_impact_correct"),
+        "plaintext_absent_rate": aggregate_flags(rows, "plaintext_absent"),
         "reset_correctness_rate": aggregate_flags(rows, "reset_exact_baseline"),
         "telemetry_completeness_rate": aggregate_flags(rows, "telemetry_complete"),
         "mean_telemetry_completeness": mean_ratio(rows, "telemetry_completeness"),
@@ -279,7 +331,8 @@ def experiment_a(backend, runs):
     fields = ["run", "sandbox_id", "session_id", "scenario_id",
               "baseline_identical", "baseline_file_set_correct",
               "impacted_count", "expected_impacted", "scenario_result_correct",
-              "impacted_file_set_correct", "content_unchanged_by_rename",
+              "impacted_file_set_correct", "content_impact_correct",
+              "plaintext_absent",
               "event_sequence_correct", "telemetry_completeness",
               "telemetry_complete", "events_ordered", "missing_events",
               "unexpected_events", "observed_sequence", "reset_exact_baseline",

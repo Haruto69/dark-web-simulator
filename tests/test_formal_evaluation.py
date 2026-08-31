@@ -8,8 +8,10 @@ silently corrupt every number in the paper.
 """
 
 import csv
+import hashlib
 import json
 import os
+import pathlib
 import sys
 
 import pytest
@@ -21,7 +23,8 @@ from evaluation.environment import FormalRunError
 from evaluation.specifications import SPECIFICATION_VERSION
 from sandbox.backends.base import validate_sandbox_id
 from sandbox.backends.docker import DEFAULT_IMAGE
-from sandbox.dataset import BASELINE_FILENAMES
+from sandbox import impact_core
+from sandbox.dataset import BASELINE_FILENAMES, SYNTHETIC_FILES
 from sandbox.paths import IMPACT_SUFFIX
 
 
@@ -113,9 +116,36 @@ def test_expected_digests_describe_the_declared_dataset():
     assert sorted(baseline) == sorted(BASELINE_FILENAMES)
     impacted = formal_run.impacted_digests()
     assert sorted(impacted) == sorted(n + IMPACT_SUFFIX for n in BASELINE_FILENAMES)
-    # Rename-only: every impacted file keeps its baseline digest.
+    # Content impact: an impacted file no longer carries its baseline digest,
+    # it carries the digest of the fixed demo placeholder.
     for name, digest in baseline.items():
-        assert impacted[name + IMPACT_SUFFIX] == digest
+        assert impacted[name + IMPACT_SUFFIX] != digest
+        expected = hashlib.sha256(
+            (formal_run.DEMO_STATE_TEMPLATE % (name, digest)).encode("utf-8")
+        ).hexdigest()
+        assert impacted[name + IMPACT_SUFFIX] == expected
+
+
+def test_the_oracle_declares_the_impacted_representation_independently():
+    """The expectation must not be imported from the code being judged."""
+    source = pathlib.Path(formal_run.__file__).read_text(encoding="utf-8")
+    assert "impact_core" not in source, (
+        "Experiment A must state its own expectation, not import the "
+        "producer's formatter")
+    for name in BASELINE_FILENAMES:
+        rendered = formal_run.DEMO_STATE_TEMPLATE % (
+            name, formal_run.baseline_digests()[name])
+        # It nevertheless describes the same artefact the production code writes.
+        assert rendered == impact_core.demo_state_text(name)
+
+
+def test_the_oracle_expects_no_baseline_plaintext_after_impact():
+    for name in BASELINE_FILENAMES:
+        rendered = formal_run.DEMO_STATE_TEMPLATE % (
+            name, formal_run.baseline_digests()[name])
+        for line in SYNTHETIC_FILES[name].splitlines():
+            if len(line.strip()) > 12:
+                assert line not in rendered
 
 
 def test_the_declared_default_sizes_meet_the_protocol_minimums():

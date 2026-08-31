@@ -17,6 +17,15 @@ class UnsafePathError(SandboxError):
     """A requested target escaped or violated the workspace policy."""
 
 
+class BaselineMismatchError(SandboxError):
+    """A target is an allow-listed name but no longer holds baseline content.
+
+    The second of the two gates in ``sandbox/impact_core.py``. Raised *instead*
+    of touching the file, so the emulator can only ever discard bytes it can
+    prove the simulator itself wrote.
+    """
+
+
 class BackendUnavailableError(SandboxError):
     """The selected backend cannot operate (e.g. Docker not installed)."""
 

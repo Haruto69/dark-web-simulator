@@ -3,8 +3,13 @@
 The scenario validates the sandbox, asks the backend to apply the constrained
 demo impact to allow-listed synthetic files, and emits structured telemetry for
 every step. It contains no filesystem logic of its own; see
-``sandbox/impact_core.py`` for what the "impact" actually is (a reversible
-rename) and ``sandbox/paths.py`` for the target policy.
+``sandbox/impact_core.py`` for what the "impact" actually is (the synthetic
+content is replaced by a fixed placeholder record and the file is renamed) and
+``sandbox/paths.py`` for the target policy.
+
+Telemetry carries only safe metadata -- the synthetic filename, the status, and
+a fixed description of the demo impact type. No file content, before or after,
+is ever emitted.
 """
 
 import uuid
@@ -21,9 +26,10 @@ SCENARIO_NAME = "file_impact"
 class FileImpactScenario:
     name = SCENARIO_NAME
     description = (
-        "Ransomware-style file impact, emulated by reversibly renaming "
-        "allow-listed synthetic files inside a disposable sandbox. "
-        "No encryption, no propagation, no persistence."
+        "Ransomware-style file impact, emulated by replacing allow-listed "
+        "synthetic files with a fixed demo placeholder and renaming them, "
+        "inside a disposable sandbox. No encryption, no propagation, no "
+        "persistence; the baseline returns only by resetting the sandbox."
     )
 
     def __init__(self, manager):

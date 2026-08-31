@@ -23,18 +23,16 @@ def main(argv=None):
     sub.add_parser("state")
     impact = sub.add_parser("impact")
     impact.add_argument("targets", nargs="*")
-    restore = sub.add_parser("restore")
-    restore.add_argument("targets", nargs="*")
 
     args = parser.parse_args(argv)
 
+    # No restore/unlock subcommand exists, by design: the demo impact has no
+    # reverse operation. The baseline comes back only by destroying and
+    # recreating the sandbox, which re-seeds it from sandbox/dataset.py.
     if args.command == "state":
         payload = impact_core.workspace_state(SANDBOX_WORKSPACE)
-    elif args.command == "impact":
-        payload = impact_core.run_file_impact(SANDBOX_WORKSPACE, args.targets)
     else:
-        payload = [impact_core.restore_one(SANDBOX_WORKSPACE, t)
-                   for t in args.targets]
+        payload = impact_core.run_file_impact(SANDBOX_WORKSPACE, args.targets)
 
     json.dump(payload, sys.stdout)
     return 0

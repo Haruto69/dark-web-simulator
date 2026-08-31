@@ -37,7 +37,11 @@ streams and nothing else.
 #: Bumped by hand whenever a frozen specification is deliberately changed.
 #: Recorded in every formal result file so a number can always be traced back to
 #: the oracle version that produced it.
-SPECIFICATION_VERSION = "2026-08-30.2"
+#: 2026-08-31.1 -- the file-impact scenario's expected filesystem semantics
+#: changed from rename-only to content replacement by a fixed demo placeholder.
+#: The telemetry sequence below is unchanged; the version moves because results
+#: produced under the previous semantics are not comparable to new ones.
+SPECIFICATION_VERSION = "2026-08-31.1"
 
 
 #: Raw interaction telemetry that scoring **ignores**.
@@ -102,8 +106,10 @@ FILE_IMPACT = ScenarioSpecification(
     repeatable=("FILE_IMPACT",),
     optional=("FILE_IMPACT_REJECTED",),
     forbidden=("SCENARIO_FAILED",),
-    description="Disposable sandbox applies the reversible demo file impact to "
-                "the fixed synthetic dataset.",
+    description="Disposable sandbox applies the constrained demo file impact "
+                "to the fixed synthetic dataset: allow-listed files whose "
+                "content still matches the known baseline are replaced by a "
+                "fixed placeholder record and renamed.",
 )
 
 CREDENTIAL_REUSE_PHISHING = ScenarioSpecification(

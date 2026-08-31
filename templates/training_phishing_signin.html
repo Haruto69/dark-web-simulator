@@ -1,0 +1,40 @@
+{% extends "training_base.html" %}
+{% block title %}{{ org.name }} — account verification{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <p class="rs-meta">{{ org.lure_host }}/verify/session</p>
+  <h1>{{ org.name }}</h1>
+  <p class="rs-lead">Account verification. Sign in to confirm your access
+  before it is suspended.</p>
+
+  {% if role == 'counterfactual' %}
+  <p class="rs-meta">Rewind branch — this is the alternative decision being
+  carried out. The comparison runs once this sign-in completes.</p>
+  {% endif %}
+
+  {% if error %}<p class="rs-error" role="alert">{{ error }}</p>{% endif %}
+
+  <form method="post" action="{{ action }}"
+        autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="rs-field">
+      <label for="username">Account address</label>
+      <input type="text" id="username" name="username" autocomplete="off"
+             spellcheck="false" required>
+    </div>
+    <div class="rs-field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password"
+             autocomplete="new-password" required>
+    </div>
+    <button class="rs-btn" type="submit">Verify account</button>
+  </form>
+
+  <div class="rs-note warn">
+    <p><strong>Lab reminder.</strong> This exercise only accepts the synthetic
+    lab identity issued to your session. Your password is compared and
+    discarded — it is never stored, logged or shown. Never type a real
+    password into any exercise.</p>
+  </div>
+</section>
+{% endblock %}

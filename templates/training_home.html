@@ -1,0 +1,36 @@
+{% extends "training_base.html" %}
+{% block title %}RewindSec Training{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>RewindSec</h1>
+  <p class="rs-lead">Cybersecurity decision training. You make a decision, see
+  what it actually caused, then rewind and take a different path from exactly
+  the same starting point.</p>
+</section>
+
+<h2>Available modules</h2>
+<ul class="rs-modules">
+  <li class="rs-module">
+    <span class="rs-tag">Available</span>
+    <h3><a href="{{ url_for('training.phishing_brief') }}">Phishing &amp; Credential Compromise</a></h3>
+    <p>An urgent message arrives about your account. Decide how to respond,
+    then compare your decision against one you did not take.</p>
+    <p><a class="rs-btn" href="{{ url_for('training.phishing_brief') }}">Open module</a></p>
+  </li>
+  <li class="rs-module{{ '' if ransomware_available else ' soon' }}">
+    <span class="rs-tag">{{ 'Available' if ransomware_available else 'Unavailable here' }}</span>
+    {% if ransomware_available %}
+    <h3><a href="{{ url_for('training.ransomware_brief') }}">Ransomware Incident Response</a></h3>
+    <p>A document on your workstation is suddenly gone. Decide how to respond,
+    then compare your response against one you did not take. Runs inside the
+    contained sandbox.</p>
+    <p><a class="rs-btn" href="{{ url_for('training.ransomware_brief') }}">Open module</a></p>
+    {% else %}
+    <h3>Ransomware Incident Response</h3>
+    <p>{{ ransomware_reason }}</p>
+    <p class="rs-meta">This module runs only inside the contained Docker
+    sandbox. It is not offered on a reduced-isolation fallback.</p>
+    {% endif %}
+  </li>
+</ul>
+{% endblock %}

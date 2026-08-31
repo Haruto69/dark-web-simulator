@@ -36,6 +36,24 @@ to a new situation.
   Work proceeds incrementally from the validated foundation rather than from a
   rewrite.
 
+## End-to-end scenarios
+
+**RewindSec now has two end-to-end scenarios**, both running the complete loop
+in the browser at `/training` — decision, real consequence, verified rewind,
+alternative decision, side-by-side comparison — on the R1 runtime and the R2
+persistence and telemetry.
+
+- **Phishing & Credential Compromise** — inbox, synthetic sign-in, in-memory
+  consequence state. See [`docs/phishing-scenario.md`](docs/phishing-scenario.md).
+- **Ransomware Incident Response** — a synthetic workstation whose consequence
+  environment is the real contained sandbox. The learner starts after exactly
+  one synthetic document is already impacted, and both branches run from that
+  same verified starting point. It requires the contained Docker backend and
+  reports itself unavailable rather than falling back to reduced isolation. See
+  [`docs/ransomware-scenario.md`](docs/ransomware-scenario.md).
+
+The legacy marketplace, `/ransomware/*` and `/phishing/*` flows are unchanged.
+
 ## Inherited foundation
 
 The current codebase contains the validated sandbox foundation inherited from the

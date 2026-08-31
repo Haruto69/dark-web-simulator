@@ -1,0 +1,79 @@
+{% extends "training_base.html" %}
+{% block title %}Workstation — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>Your workstation</h1>
+  <p class="rs-alert" role="alert">Unusual file activity detected. One document
+  is no longer available.</p>
+
+  <div class="rs-table-scroll">
+    <table class="rs-files">
+      <thead>
+        <tr><th scope="col">Document</th><th scope="col">Status</th></tr>
+      </thead>
+      <tbody>
+        {% for file in files %}
+        <tr class="{{ 'impacted' if file.impacted }}">
+          <td><code>{{ file.name }}</code></td>
+          <td>{{ file.status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <ul class="rs-outcomes">
+    {% for line in state_lines %}
+    <li class="{{ 'notable' if line.notable }}">{{ line.text }}</li>
+    {% endfor %}
+  </ul>
+  <p class="rs-meta">This list is read from the sandbox workspace itself, not
+  from a stored description of it.</p>
+</section>
+
+<section class="rs-card">
+  <h2>What do you do next?</h2>
+  {% if error %}<p class="rs-error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('training.ransomware_decision') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <fieldset>
+      <legend>Your response</legend>
+      {% for choice in choices %}
+      <label class="rs-choice" for="choice-{{ choice.choice_id }}">
+        <input type="radio" id="choice-{{ choice.choice_id }}" name="choice_id"
+               value="{{ choice.choice_id }}" required>
+        <strong>{{ choice.label }}</strong>
+        <span class="rs-choice-desc">{{ choice.description }}</span>
+      </label>
+      {% endfor %}
+    </fieldset>
+
+    <div class="rs-field">
+      <label for="confidence">How confident are you in that response?</label>
+      <input type="range" id="confidence" name="confidence" min="0" max="100"
+             step="1" value="50" aria-describedby="confidence-scale">
+      <div class="rs-scale" id="confidence-scale">
+        <span>0 — not at all</span><span>100 — certain</span>
+      </div>
+      <p class="rs-meta">Confidence:
+        <output id="confidence-readout" for="confidence">50</output>%</p>
+    </div>
+
+    <button class="rs-btn" type="submit">Submit response</button>
+  </form>
+</section>
+
+<script>
+  // Live readout only. The submitted value is still validated server-side as
+  // an integer 0..100; nothing here is trusted.
+  (function () {
+    var slider = document.getElementById('confidence');
+    var readout = document.getElementById('confidence-readout');
+    if (!slider || !readout) { return; }
+    var show = function () { readout.textContent = slider.value; };
+    slider.addEventListener('input', show);
+    show();
+  })();
+</script>
+{% endblock %}

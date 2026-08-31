@@ -1,0 +1,53 @@
+{% extends "training_base.html" %}
+{% block title %}Ransomware Incident Response — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>Ransomware Incident Response</h1>
+  <p class="rs-lead">Before you start, four things about how this works.</p>
+
+  <ul>
+    <li>You are looking at a synthetic workstation holding {{ files_total }}
+      invented documents. Nothing on it is real, and nothing outside the
+      sandbox is touched.</li>
+    <li>The exercise begins at the moment something has already gone wrong:
+      one document is no longer available.</li>
+    <li>Your response is carried out for real inside a disposable container,
+      and you will see the state it produced.</li>
+    <li>Afterwards the workstation is returned to exactly the same starting
+      point, a different response is carried out, and the two are compared.</li>
+  </ul>
+
+  {% if available %}
+  <div class="rs-note">
+    <h2>Where this runs</h2>
+    <p class="rs-meta">{{ isolation }}</p>
+    <p>There is no encryption anywhere in this exercise, no key, no ransom and
+    nothing to pay. A document being "impacted" means its synthetic contents
+    are replaced by a fixed placeholder record inside the container. Resetting
+    the sandbox is the only way back, and that is what the rewind does.</p>
+  </div>
+
+  <form method="post" action="{{ url_for('training.ransomware_start') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="rs-actions">
+      <button class="rs-btn" type="submit">{% if started %}Start again{% else %}Start the scenario{% endif %}</button>
+      {% if started %}
+      <a class="rs-btn secondary" href="{{ url_for('training.ransomware_workstation') }}">Continue where I left off</a>
+      {% endif %}
+    </div>
+    <p class="rs-meta">Starting builds a fresh contained sandbox for your
+    session. Starting again discards the current one.</p>
+  </form>
+  {% else %}
+  <div class="rs-note warn">
+    <p><strong>This module is currently unavailable.</strong> {{ reason }}</p>
+    <p>It runs only inside the contained Docker sandbox and is never run in a
+    reduced-isolation fallback, so it is shown as unavailable rather than
+    offered on weaker containment.</p>
+  </div>
+  <div class="rs-actions">
+    <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Training home</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

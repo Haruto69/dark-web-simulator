@@ -12,6 +12,14 @@ loop:
     /training/phishing/outcome     what the chosen path produced, then rewind
     /training/phishing/result      the executed side-by-side comparison
 
+Milestone R4 adds the second scenario alongside it, on the same loop but with
+the real contained sandbox as its consequence environment:
+
+    /training/ransomware               safety briefing and availability
+    /training/ransomware/workstation   the observed workstation and the decision
+    /training/ransomware/outcome       the factual consequence, then rewind
+    /training/ransomware/result        the executed side-by-side comparison
+
 Design rules this module holds to:
 
 **The runtime does the work.** The comparison is produced by
@@ -49,7 +57,17 @@ from scenario_adapters import (CREDENTIAL_CHOICE_ID, PHISHING_DECISION_ID,
                                PHISHING_SCENARIO, PhishingConsequenceAdapter,
                                describe_difference, describe_state,
                                label_for_choice)
-from scenario_adapters.phishing import PHISHING_CHOICE_IDS
+from scenario_adapters.phishing import (PHISHING_CHOICE_IDS,
+                                        PHISHING_SCENARIO_KEY)
+from scenario_adapters.presentation import RANSOMWARE_VOCABULARY
+from scenario_adapters.ransomware import (IMPACT_PROGRESSION,
+                                          RANSOMWARE_CHOICE_IDS,
+                                          RANSOMWARE_SCENARIO_KEY,
+                                          RANSOMWARE_DECISION_ID,
+                                          RANSOMWARE_SCENARIO,
+                                          REQUIRED_BACKEND,
+                                          RansomwareConsequenceAdapter)
+from training.snapshots import StateSnapshot
 from training_service import TrainingExecutionError, TrainingPersistenceError
 
 import json
@@ -57,6 +75,15 @@ import json
 #: Server-side session key holding the current attempt. Everything the flow
 #: needs is here; nothing addressable is put in a URL.
 STATE_KEY = "rewindsec_training"
+
+#: The same, for the R4 ransomware module. A separate key so the two modules
+#: keep independent progress within one browser session.
+RANSOMWARE_STATE_KEY = "rewindsec_training_ransomware"
+
+#: The fixed synthetic file universe the workstation view renders, in the
+#: scenario's deterministic order. Read from the scenario module, never from a
+#: directory listing.
+RANSOMWARE_FILES = IMPACT_PROGRESSION
 
 #: Upper bound on a measured decision latency (one hour). Latency is learner
 #: *interaction metadata*, not a security control: it is measured server-side
@@ -196,19 +223,27 @@ def _choices():
     return decision.choices
 
 
-def create_training_blueprint(db, TrainingExecution, identities, service):
+def create_training_blueprint(db, TrainingExecution, identities, service,
+                              sandbox_manager=None, sandbox_id_for_session=None):
     """Build the learner blueprint.
 
     Dependencies are injected exactly as ``sandbox_routes`` does, so ``app.py``
     stays the only module that knows how the database, the model, the synthetic
     identity store and the training service are wired together.
+
+    ``sandbox_manager`` and ``sandbox_id_for_session`` are callables supplied by
+    ``app.py`` for the R4 ransomware module. Both are optional: with neither,
+    the ransomware module reports itself unavailable rather than half-working.
+    The sandbox id is always *derived server-side from the session*; there is no
+    parameter, form field or query string anywhere in this blueprint through
+    which a learner could name a sandbox.
     """
     bp = Blueprint("training", __name__, url_prefix="/training")
 
     def _session_id():
         return session.get("session_id")
 
-    def _execution_for_session():
+    def _execution_for_session(state_key=STATE_KEY):
         """This session's current execution row, or ``None``.
 
         Ownership is enforced two ways: the ``execution_id`` is read from the
@@ -216,8 +251,8 @@ def create_training_blueprint(db, TrainingExecution, identities, service):
         the loaded row's ``session_id`` must still match. One learner therefore
         has no address with which to name another learner's result.
         """
-        state = _state()
-        if not state or not state.get("execution_id"):
+        state = session.get(state_key)
+        if not isinstance(state, dict) or not state.get("execution_id"):
             return None
         row = (TrainingExecution.query
                .filter_by(execution_id=state["execution_id"]).first())
@@ -229,7 +264,13 @@ def create_training_blueprint(db, TrainingExecution, identities, service):
     @bp.route("")
     @bp.route("/")
     def home():
-        return render_template("training_home.html")
+        # The ransomware module is listed as available only when the contained
+        # backend really is usable, so the home page never offers a module that
+        # would have to run somewhere less isolated.
+        available, reason = _containment_status()
+        return render_template("training_home.html",
+                               ransomware_available=available,
+                               ransomware_reason=reason)
 
     # -- briefing -----------------------------------------------------------
     @bp.route("/phishing")
@@ -297,7 +338,7 @@ def create_training_blueprint(db, TrainingExecution, identities, service):
         return render_template(
             "training_phishing_outcome.html", org=ORG,
             evidence=BRANCH_EVIDENCE[factual],
-            factual_label=label_for_choice(factual),
+            factual_label=label_for_choice(PHISHING_SCENARIO_KEY, factual),
             alternatives=[c for c in _choices() if c.choice_id != factual],
             error=message), status
 
@@ -439,7 +480,7 @@ def create_training_blueprint(db, TrainingExecution, identities, service):
         return render_template(
             "training_phishing_outcome.html", org=ORG,
             evidence=BRANCH_EVIDENCE[choice_id],
-            factual_label=label_for_choice(choice_id),
+            factual_label=label_for_choice(PHISHING_SCENARIO_KEY, choice_id),
             alternatives=alternatives, error=None)
 
     @bp.route("/phishing/rewind", methods=["POST"])
@@ -503,13 +544,370 @@ def create_training_blueprint(db, TrainingExecution, identities, service):
         return render_template(
             "training_phishing_result.html",
             row=row,
-            factual_label=label_for_choice(row.factual_choice_id),
+            factual_label=label_for_choice(row.scenario_key,
+                                           row.factual_choice_id),
             counterfactual_label=label_for_choice(
-                row.counterfactual_choice_id),
+                row.scenario_key, row.counterfactual_choice_id),
             factual_lines=describe_state(factual_state, SYNTHETIC_RESOURCES),
             counterfactual_lines=describe_state(counterfactual_state,
                                                 SYNTHETIC_RESOURCES),
             difference_lines=describe_difference(difference,
                                                  SYNTHETIC_RESOURCES))
+
+    # ======================================================================
+    # Ransomware Incident Response (milestone R4)
+    #
+    # Same counterfactual loop as the phishing module, but the consequence
+    # environment is the real disposable sandbox rather than an in-memory
+    # state machine. Three properties are enforced here rather than assumed:
+    #
+    #   * the module runs only on the contained backend (no silent fallback);
+    #   * every state the learner is shown is derived from the actual
+    #     workspace, never inferred from the choice they submitted;
+    #   * the factual consequence shown before the rewind must be the same
+    #     state the authoritative paired execution later produces.
+    # ======================================================================
+    def _rw_state():
+        state = session.get(RANSOMWARE_STATE_KEY)
+        return state if isinstance(state, dict) else None
+
+    def _rw_save(state):
+        session[RANSOMWARE_STATE_KEY] = state
+        session.modified = True
+        return state
+
+    def _rw_blank_state():
+        return {
+            "attempt_id": uuid.uuid4().hex,
+            "baseline_digest": None,
+            "baseline_state_json": None,
+            "factual_choice": None,
+            "factual_confidence": None,
+            "factual_response_ms": None,
+            "preview_digest": None,
+            "preview_state_json": None,
+            "decision_shown_ms": None,
+            "rewind_shown_ms": None,
+            "execution_id": None,
+        }
+
+    def _rw_choices():
+        return RANSOMWARE_SCENARIO.decision(RANSOMWARE_DECISION_ID).choices
+
+    # -- availability ------------------------------------------------------
+    def _containment_status():
+        """``(available, reason)`` for the contained backend this module needs.
+
+        The learner scenario is published only when a real container can be
+        created. Anything else -- no manager wired, a non-contained backend, no
+        Docker daemon, no target image -- is reported as unavailable. It is
+        never downgraded to the local backend, because a workspace-confinement
+        run is not the same claim as a contained one.
+        """
+        if sandbox_manager is None or sandbox_id_for_session is None:
+            return False, "This installation has no sandbox configured."
+        try:
+            backend = sandbox_manager().backend
+        except Exception:  # noqa: BLE001 -- unavailable is a display state
+            return False, "The sandbox could not be reached."
+        if getattr(backend, "name", None) != REQUIRED_BACKEND:
+            return False, (
+                "This module requires the contained Docker sandbox. The "
+                "active backend provides workspace confinement only, so the "
+                "scenario is not offered here.")
+        try:
+            if not backend.is_available():
+                return False, "Docker is not available on this machine."
+            if not backend.image_available():
+                return False, "The contained sandbox image has not been built."
+        except Exception:  # noqa: BLE001
+            return False, "The contained sandbox could not be verified."
+        return True, None
+
+    def _unavailable(reason, status=503):
+        return render_template("training_ransomware_unavailable.html",
+                               reason=reason), status
+
+    def _adapter():
+        """A fresh adapter bound to *this session's* sandbox.
+
+        The sandbox id is derived from the server-side session id; it is not a
+        route parameter and cannot be supplied by a learner.
+        """
+        return RansomwareConsequenceAdapter(
+            sandbox_manager(), sandbox_id_for_session(),
+            session_id=_session_id())
+
+    def _capture(adapter, label):
+        return StateSnapshot.capture(adapter.capture_state(), label=label)
+
+    def _rw_files(state):
+        """Ordered file rows for the workstation and result views.
+
+        Built from a captured state, never from a separate file list and never
+        from the submitted choice, so the UI cannot drift from what the
+        sandbox actually holds.
+        """
+        files = (state or {}).get("files") or {}
+        impacted = set(files.get("impacted") or ())
+        rows = []
+        for name in RANSOMWARE_FILES:
+            if name in impacted:
+                rows.append({"name": name, "impacted": True,
+                             "status": "No longer available"})
+            elif name in (files.get("available") or ()):
+                rows.append({"name": name, "impacted": False,
+                             "status": "Available"})
+        return rows
+
+    # -- briefing ----------------------------------------------------------
+    @bp.route("/ransomware")
+    def ransomware_brief():
+        available, reason = _containment_status()
+        return render_template(
+            "training_ransomware_brief.html",
+            available=available, reason=reason,
+            started=bool(_rw_state()),
+            files_total=len(RANSOMWARE_FILES),
+            isolation=(sandbox_manager().backend.isolation_summary
+                       if available else None))
+
+    @bp.route("/ransomware/start", methods=["POST"])
+    def ransomware_start():
+        """Establish S0 and begin (or deliberately restart) an attempt.
+
+        S0 is: a freshly reseeded pristine workspace with exactly one
+        predetermined synthetic file impacted. Nothing passive can reach this
+        route, so no GET, refresh or prefetch ever resets a learner's sandbox.
+        """
+        available, reason = _containment_status()
+        if not available:
+            return _unavailable(reason)
+        try:
+            adapter = _adapter()
+            adapter.prepare()
+            baseline = _capture(adapter, "baseline")
+        except Exception:  # noqa: BLE001 -- no learner-visible internals
+            return _unavailable(
+                "The contained sandbox could not be prepared. Try again in a "
+                "moment.")
+        state = _rw_blank_state()
+        state["baseline_digest"] = baseline.digest
+        state["baseline_state_json"] = baseline.canonical_json
+        _rw_save(state)
+        return redirect(url_for("training.ransomware_workstation"))
+
+    # -- the workstation and the decision ----------------------------------
+    @bp.route("/ransomware/workstation")
+    def ransomware_workstation():
+        state = _rw_state()
+        if state is None or not state.get("baseline_digest"):
+            return redirect(url_for("training.ransomware_brief"))
+        if state.get("execution_id"):
+            return redirect(url_for("training.ransomware_result"))
+        if state.get("factual_choice"):
+            return redirect(url_for("training.ransomware_outcome"))
+        available, reason = _containment_status()
+        if not available:
+            return _unavailable(reason)
+
+        # Re-observe the live workspace and prove it is still exactly the S0
+        # the baseline digest was taken from. Capturing is a pure observation,
+        # so a refresh changes nothing; a mismatch fails closed rather than
+        # letting a decision be applied to a silently different state.
+        try:
+            observed = _capture(_adapter(), "baseline")
+        except Exception:  # noqa: BLE001
+            return _unavailable("The workstation state could not be read.")
+        if observed.digest != state["baseline_digest"]:
+            return _unavailable(
+                "The workstation is no longer in the state this exercise "
+                "started from. Start the scenario again.", status=409)
+
+        # Server-side start of the latency measurement, refreshed each time
+        # the decision is actually displayed.
+        state["decision_shown_ms"] = _now_ms()
+        _rw_save(state)
+        return render_template(
+            "training_ransomware_workstation.html",
+            files=_rw_files(observed.state), choices=_rw_choices(),
+            state_lines=describe_state(observed.state,
+                                       vocabulary=RANSOMWARE_VOCABULARY),
+            error=None)
+
+    def _workstation_error(state, message, status):
+        observed = json.loads(state.get("baseline_state_json") or "{}")
+        return render_template(
+            "training_ransomware_workstation.html",
+            files=_rw_files(observed), choices=_rw_choices(),
+            state_lines=describe_state(observed,
+                                       vocabulary=RANSOMWARE_VOCABULARY),
+            error=message), status
+
+    @bp.route("/ransomware/decision", methods=["POST"])
+    def ransomware_decision():
+        state = _rw_state()
+        if state is None or not state.get("baseline_digest"):
+            return redirect(url_for("training.ransomware_brief"))
+        if state.get("execution_id"):
+            return redirect(url_for("training.ransomware_result"))
+        if state.get("factual_choice"):
+            # Already decided: a resubmission shows the outcome that was
+            # produced, rather than applying a second impact.
+            return redirect(url_for("training.ransomware_outcome"))
+        available, reason = _containment_status()
+        if not available:
+            return _unavailable(reason)
+
+        choice_id = (request.form.get("choice_id") or "").strip()
+        confidence = _parse_confidence(request.form.get("confidence"))
+        if choice_id not in RANSOMWARE_CHOICE_IDS or confidence is None:
+            return _workstation_error(
+                state, "Choose one response and set a confidence between 0 "
+                       "and 100.", 400)
+
+        # The learner's decision latency ends here, before any sandbox work:
+        # container time is never counted as thinking time.
+        response_ms = _elapsed_ms(state.get("decision_shown_ms"))
+
+        # The factual preview: the same adapter, the same action key and the
+        # same S0 the authoritative run will use. It re-establishes S0 first
+        # and proves the digest, so the response is applied to the state the
+        # learner was actually shown.
+        choice = RANSOMWARE_SCENARIO.decision(
+            RANSOMWARE_DECISION_ID).choice(choice_id)
+        try:
+            adapter = _adapter()
+            adapter.prepare()
+            baseline = _capture(adapter, "baseline")
+            if baseline.digest != state["baseline_digest"]:
+                return _unavailable(
+                    "The workstation could not be returned to the state this "
+                    "exercise started from. Start the scenario again.",
+                    status=409)
+            adapter.apply(choice.action_key)
+            preview = _capture(adapter, "factual")
+        except Exception:  # noqa: BLE001
+            return _unavailable(
+                "Your response could not be carried out in the contained "
+                "sandbox. Start the scenario again.")
+
+        state["factual_choice"] = choice_id
+        state["factual_confidence"] = confidence
+        state["factual_response_ms"] = response_ms
+        state["preview_digest"] = preview.digest
+        state["preview_state_json"] = preview.canonical_json
+        _rw_save(state)
+        return redirect(url_for("training.ransomware_outcome"))
+
+    # -- the factual consequence, and the rewind ---------------------------
+    def _rw_outcome_context(state, error=None):
+        preview = json.loads(state.get("preview_state_json") or "{}")
+        factual = state["factual_choice"]
+        return {
+            "files": _rw_files(preview),
+            "state_lines": describe_state(preview,
+                                          vocabulary=RANSOMWARE_VOCABULARY),
+            "factual_label": label_for_choice(RANSOMWARE_SCENARIO_KEY,
+                                              factual),
+            "alternatives": [c for c in _rw_choices()
+                             if c.choice_id != factual],
+            "error": error,
+        }
+
+    @bp.route("/ransomware/outcome")
+    def ransomware_outcome():
+        state = _rw_state()
+        if state is None or not state.get("factual_choice"):
+            return redirect(url_for("training.ransomware_brief"))
+        if state.get("execution_id"):
+            return redirect(url_for("training.ransomware_result"))
+        # Rendered from the stored preview snapshot. Nothing is executed here,
+        # so a refresh re-reads a captured state instead of impacting a file.
+        state["rewind_shown_ms"] = _now_ms()
+        _rw_save(state)
+        return render_template("training_ransomware_outcome.html",
+                               **_rw_outcome_context(state))
+
+    @bp.route("/ransomware/rewind", methods=["POST"])
+    def ransomware_rewind():
+        state = _rw_state()
+        if state is None or not state.get("factual_choice"):
+            return redirect(url_for("training.ransomware_brief"))
+        # Idempotency: once this attempt has an execution, a resubmission goes
+        # to it rather than running a second experiment.
+        if state.get("execution_id"):
+            return redirect(url_for("training.ransomware_result"))
+        available, reason = _containment_status()
+        if not available:
+            return _unavailable(reason)
+
+        factual = state["factual_choice"]
+        alternative = (request.form.get("choice_id") or "").strip()
+        confidence = _parse_confidence(request.form.get("confidence"))
+        if (alternative not in RANSOMWARE_CHOICE_IDS or alternative == factual
+                or confidence is None):
+            return render_template(
+                "training_ransomware_outcome.html",
+                **_rw_outcome_context(
+                    state, "Pick a different response from the one you made, "
+                           "and set a confidence between 0 and 100.")), 400
+
+        try:
+            execution_id, _pair = service().run_pair(
+                RANSOMWARE_SCENARIO, _adapter(), RANSOMWARE_DECISION_ID,
+                factual_choice_id=factual,
+                counterfactual_choice_id=alternative,
+                session_id=_session_id(),
+                factual_confidence=state.get("factual_confidence"),
+                counterfactual_confidence=confidence,
+                factual_response_ms=state.get("factual_response_ms"),
+                counterfactual_response_ms=_elapsed_ms(
+                    state.get("rewind_shown_ms")),
+                # Fails closed inside the service: the recorded comparison may
+                # not claim the learner experienced a factual outcome different
+                # from the authoritative one.
+                expected_baseline_digest=state.get("baseline_digest"),
+                expected_factual_digest=state.get("preview_digest"))
+        except (TrainingExecutionError, TrainingPersistenceError):
+            return render_template(
+                "training_ransomware_outcome.html",
+                **_rw_outcome_context(
+                    state, "The comparison could not be executed. Start the "
+                           "scenario again.")), 500
+
+        state["execution_id"] = execution_id
+        _rw_save(state)
+        return redirect(url_for("training.ransomware_result"))
+
+    # -- the comparison ----------------------------------------------------
+    @bp.route("/ransomware/result")
+    def ransomware_result():
+        row = _execution_for_session(RANSOMWARE_STATE_KEY)
+        if row is None:
+            return redirect(url_for("training.ransomware_brief"))
+        if row.status != TrainingExecution.STATUS_COMPLETED:
+            abort(409)
+
+        # Rendered entirely from the persisted execution: the live sandbox can
+        # only hold one state at a time, and the comparison needs both.
+        factual_state = json.loads(row.factual_state_json or "{}")
+        counterfactual_state = json.loads(row.counterfactual_state_json or "{}")
+        difference = json.loads(row.difference_json or "{}")
+        return render_template(
+            "training_ransomware_result.html",
+            row=row,
+            factual_label=label_for_choice(row.scenario_key,
+                                           row.factual_choice_id),
+            counterfactual_label=label_for_choice(row.scenario_key,
+                                                  row.counterfactual_choice_id),
+            factual_files=_rw_files(factual_state),
+            counterfactual_files=_rw_files(counterfactual_state),
+            factual_lines=describe_state(factual_state,
+                                         vocabulary=RANSOMWARE_VOCABULARY),
+            counterfactual_lines=describe_state(
+                counterfactual_state, vocabulary=RANSOMWARE_VOCABULARY),
+            difference_lines=describe_difference(
+                difference, vocabulary=RANSOMWARE_VOCABULARY))
 
     return bp

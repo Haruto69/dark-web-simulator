@@ -342,8 +342,14 @@ def sandbox_manager():
 # --- RewindSec counterfactual training (Milestone R2) ---
 # The service owns execution identity, result persistence and lifecycle
 # telemetry; the pure runtime in ``training/`` stays free of Flask, SQLAlchemy
-# and the sandbox. R2 adds no learner-facing route: future scenario routes call
-# ``training_service().run_pair(...)``.
+# and the sandbox.
+#
+# Milestone R3 adds the first learner-facing flow on top of it: the
+# ``/training`` blueprint in ``training_routes.py``, whose phishing scenario
+# definition and consequence adapter live in the application-level
+# ``scenario_adapters`` package (never under ``training/``, which must stay
+# framework-independent). R4 adds the ransomware module on the same loop, with
+# the contained Docker sandbox as its consequence environment.
 
 def training_service():
     """The configured TrainingService for this app. One per process.
@@ -359,6 +365,19 @@ def training_service():
                                   logger=app.logger)
         app._training_service = service
     return service
+
+
+# The learner-facing RewindSec flow. Registered after ``training_service`` is
+# defined and given it as a callable, so the blueprint never imports ``app``.
+from training_routes import create_training_blueprint  # noqa: E402
+
+app.register_blueprint(create_training_blueprint(
+    db, TrainingExecution, IDENTITIES, training_service,
+    # Milestone R4: the ransomware module's consequence environment is the real
+    # disposable sandbox. It is handed the manager factory and the *derived*
+    # session->sandbox id function, never a sandbox id from a request.
+    sandbox_manager=sandbox_manager,
+    sandbox_id_for_session=session_sandbox_id))
 
 
 def record_event(event_type, scenario_id=None, source=None, target=None,

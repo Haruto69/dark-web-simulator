@@ -138,6 +138,20 @@ class DockerBackend(SandboxBackend):
         except (BackendUnavailableError, SandboxCommandError):
             return False
 
+    def image_available(self):
+        """True when the configured target image is present locally.
+
+        A read-only ``docker image inspect``. The learner-facing R4 scenario
+        needs to distinguish "Docker is not running" from "the contained target
+        image was never built", and must refuse to run in either case rather
+        than degrade to a non-contained backend.
+        """
+        try:
+            return self._run(["image", "inspect", "--", self.image],
+                             check=False).returncode == 0
+        except (BackendUnavailableError, SandboxCommandError):
+            return False
+
     def _seed(self, sandbox_id):
         """Seed the workspace synchronously and prove it matches the baseline.
 

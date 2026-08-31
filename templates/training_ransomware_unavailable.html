@@ -1,0 +1,20 @@
+{% extends "training_base.html" %}
+{% block title %}Module unavailable — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>Ransomware Incident Response is unavailable</h1>
+  <p class="rs-lead">{{ reason }}</p>
+  <div class="rs-note warn">
+    <p><strong>Why it is not simply run anyway.</strong> This module carries out
+    real file operations on a synthetic dataset. It runs only inside the
+    contained sandbox — a disposable container with no network, no host
+    filesystem and a read-only root. A reduced-isolation fallback would not be
+    the same exercise, so the module reports itself unavailable instead of
+    quietly running somewhere less contained.</p>
+  </div>
+  <div class="rs-actions">
+    <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Training home</a>
+    <a class="rs-btn secondary" href="{{ url_for('training.phishing_brief') }}">Open the phishing module</a>
+  </div>
+</section>
+{% endblock %}

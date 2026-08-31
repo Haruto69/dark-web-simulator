@@ -97,6 +97,31 @@ class TrainingExecutionError(RuntimeError):
             % (execution_id, failure_type, error_ref))
 
 
+class StagedExecutionMismatchError(RuntimeError):
+    """A staged browser interaction did not match the authoritative execution.
+
+    R4 shows the learner their factual consequence *before* the rewind, by
+    running the same adapter through a deterministic preview. The paired
+    execution afterwards is the authoritative record, so the two must agree: if
+    the digest the learner was actually shown differs from the one the
+    authoritative factual branch produced, the comparison would be claiming the
+    learner experienced something they did not.
+
+    Raised inside :meth:`TrainingService.run_pair`, which therefore records the
+    execution as ``failed`` -- never as ``completed`` -- and re-raises it as a
+    :class:`TrainingExecutionError` with this class name as the failure type.
+    """
+
+    def __init__(self, what, expected_digest, observed_digest):
+        self.what = what
+        self.expected_digest = expected_digest
+        self.observed_digest = observed_digest
+        super().__init__(
+            "staged %s digest %s does not match the authoritative execution's "
+            "%s; refusing to complete the comparison"
+            % (what, expected_digest, observed_digest))
+
+
 class TrainingPersistenceError(RuntimeError):
     """The experiment ran but its result could not be stored.
 
@@ -273,11 +298,19 @@ class TrainingService:
         self.db.session.commit()
         return row, reference
 
+    # -- staged-interaction integrity --------------------------------------
+    @staticmethod
+    def _check_staged(expected, observed, what):
+        """Fail closed when a staged digest disagrees with the real run."""
+        if expected is not None and expected != observed:
+            raise StagedExecutionMismatchError(what, expected, observed)
+
     # -- public API --------------------------------------------------------
     def run_pair(self, scenario, adapter, decision_id, factual_choice_id,
                  counterfactual_choice_id, session_id,
                  factual_confidence=None, counterfactual_confidence=None,
-                 factual_response_ms=None, counterfactual_response_ms=None):
+                 factual_response_ms=None, counterfactual_response_ms=None,
+                 expected_baseline_digest=None, expected_factual_digest=None):
         """Run one counterfactual pair, persisting and observing it.
 
         Returns ``(execution_id, CounterfactualPair)``.
@@ -298,6 +331,15 @@ class TrainingService:
         This is explicitly **not** one atomic transaction. A consequence
         environment cannot be rolled back by a database, so pretending
         otherwise would be a lie about what happened.
+
+        ``expected_baseline_digest`` / ``expected_factual_digest`` are optional
+        integrity checks for a flow that staged part of the interaction in a
+        browser before the authoritative run (see R4's factual preview). When
+        given, the run must reproduce them exactly; a mismatch raises
+        :class:`StagedExecutionMismatchError` inside the guarded section, so the
+        execution is recorded as ``failed`` and never as ``completed``. They are
+        checks on the *record*, not inputs to the runtime -- the runtime itself
+        is unchanged and still knows nothing about browser staging.
         """
         execution_id = new_execution_id()
         row = self._start_row(execution_id, session_id, scenario, decision_id)
@@ -326,6 +368,13 @@ class TrainingService:
                 factual_response_ms=factual_response_ms,
                 counterfactual_response_ms=counterfactual_response_ms,
                 session_ref=session_id)
+            # Inside the guarded section on purpose: a staged-interaction
+            # mismatch is a failed execution, recorded as one, not a completed
+            # comparison with a caveat attached.
+            self._check_staged(expected_baseline_digest, pair.baseline_digest,
+                               "baseline")
+            self._check_staged(expected_factual_digest, pair.factual.digest,
+                               "factual")
         except Exception as exc:  # noqa: BLE001 -- every failure is recorded
             row, reference = self._fail_row(row, exc)
             self._emit(EventType.TRAINING_EXECUTION_FAILED, execution_id,

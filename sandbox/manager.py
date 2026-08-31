@@ -14,6 +14,7 @@ from .backends.docker import DockerBackend
 from .backends.local import LocalBackend
 from .errors import SandboxError, SandboxNotReadyError
 from .events import EventCollector, EventType, make_event
+from .paths import normalise_target
 from .sanitize import error_reference, telemetry_detail
 
 DEFAULT_SANDBOX_ID = "primary"
@@ -112,6 +113,50 @@ class SandboxManager:
         self._emit(EventType.SANDBOX_DESTROYED, session_id=session_id,
                    target=sandbox_id, details="sandbox removed")
         return info
+
+    # -- constrained synthetic impact --------------------------------------
+    def apply_synthetic_impact(self, targets, sandbox_id=None, session_id=None):
+        """Apply the constrained demo impact to an explicit allow-listed subset.
+
+        Added in R4 so a training consequence adapter can drive a *subset* of
+        the fixed synthetic dataset without reaching into ``self.backend`` and
+        without going through :class:`FileImpactScenario`, whose whole-scenario
+        ``SCENARIO_*`` / ``FILE_IMPACT_*`` progression telemetry belongs to the
+        instructor demo rather than to a paired training execution.
+
+        This method adds no capability. It is a validating delegation:
+
+        * ``targets`` must be a non-empty explicit list -- unlike
+          ``backend.run_impact``, an empty/None selection does **not** mean
+          "the entire dataset", so a caller cannot impact everything by
+          omission;
+        * every target is checked against the fixed synthetic allow-list here,
+          before the backend sees it, and the backend and ``impact_core``
+          re-apply the same filename gate plus the known-baseline-content gate
+          downstream;
+        * a rejected target raises rather than being reported as a result, so a
+          caller cannot mistake a refusal for an applied impact.
+
+        There is no path, glob, recursion or command surface: the only thing
+        that crosses this boundary is a list of bare synthetic filenames.
+        """
+        sandbox_id = self.resolve_id(sandbox_id)
+        if not isinstance(targets, (list, tuple)) or not targets:
+            raise SandboxError(
+                "apply_synthetic_impact needs an explicit non-empty list of "
+                "synthetic filenames")
+        # normalise_target enforces the fixed allow-list and rejects paths,
+        # traversal, nested names and anything outside the dataset.
+        selected = [normalise_target(target) for target in targets]
+        self.require_ready(sandbox_id)
+        results = self.backend.run_impact(sandbox_id, selected)
+        refused = [row for row in results
+                   if row.get("status") not in ("impacted", "already_impacted")]
+        if refused:
+            raise SandboxError(
+                "synthetic impact refused for %d of %d target(s)"
+                % (len(refused), len(selected)))
+        return results
 
     # -- inspection --------------------------------------------------------
     def workspace_state(self, sandbox_id=None):

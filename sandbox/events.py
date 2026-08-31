@@ -35,6 +35,20 @@ class EventType:
     RANSOMWARE_TRIGGERED = "RANSOMWARE_TRIGGERED"
     RANSOMWARE_DEBRIEFED = "RANSOMWARE_DEBRIEFED"
 
+    # -- RewindSec counterfactual training lifecycle (R2) ------------------
+    # One paired execution emits at most one of each of these. For TRAINING_*
+    # events ``scenario_id`` carries the unique ``execution_id`` of the paired
+    # execution rather than a scenario run id -- see ``training_service.py``.
+    # Details are bounded metadata only: digests, choice ids, action keys,
+    # confidence. Never snapshot state, never an exception message.
+    TRAINING_EXECUTION_STARTED = "TRAINING_EXECUTION_STARTED"
+    TRAINING_BASELINE_CAPTURED = "TRAINING_BASELINE_CAPTURED"
+    TRAINING_FACTUAL_CAPTURED = "TRAINING_FACTUAL_CAPTURED"
+    TRAINING_REWIND_VERIFIED = "TRAINING_REWIND_VERIFIED"
+    TRAINING_COUNTERFACTUAL_CAPTURED = "TRAINING_COUNTERFACTUAL_CAPTURED"
+    TRAINING_EXECUTION_COMPLETED = "TRAINING_EXECUTION_COMPLETED"
+    TRAINING_EXECUTION_FAILED = "TRAINING_EXECUTION_FAILED"
+
     # -- raw interaction telemetry ----------------------------------------
     # Repeatable by design. A PAGE_VIEW records that a page was *requested*;
     # it is not a scenario stage and never feeds a progression metric. See

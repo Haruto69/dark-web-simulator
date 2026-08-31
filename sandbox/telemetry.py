@@ -53,6 +53,21 @@ PROGRESSION_EVENTS = frozenset({
     EventType.RANSOMWARE_DOWNLOAD_CLICKED,
     EventType.RANSOMWARE_TRIGGERED,
     EventType.RANSOMWARE_DEBRIEFED,
+    # RewindSec training lifecycle. These are stage-reached events for one
+    # paired execution, and the existing gate keys on
+    # ``(session_id, scenario_id, event_type)``. Because TRAINING_* events put
+    # the unique per-invocation ``execution_id`` in ``scenario_id``, two
+    # separate executions of the same experiment never deduplicate each other,
+    # while a repeated emission within one execution is collapsed -- which is
+    # exactly the exactly-once property the lifecycle needs. No ledger change
+    # was required.
+    EventType.TRAINING_EXECUTION_STARTED,
+    EventType.TRAINING_BASELINE_CAPTURED,
+    EventType.TRAINING_FACTUAL_CAPTURED,
+    EventType.TRAINING_REWIND_VERIFIED,
+    EventType.TRAINING_COUNTERFACTUAL_CAPTURED,
+    EventType.TRAINING_EXECUTION_COMPLETED,
+    EventType.TRAINING_EXECUTION_FAILED,
 })
 
 #: Repeatable telemetry. Never deduplicated, never counted as progression.

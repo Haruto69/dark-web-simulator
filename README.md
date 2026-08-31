@@ -85,6 +85,15 @@ Scenario definitions may *name* a consequence via an opaque symbolic
 or callable. Only a trusted adapter, declaring a fixed action vocabulary,
 resolves a key into behaviour.
 
+R2 connects that runtime to Flask and to the existing authoritative telemetry.
+`training_service.py` mints a unique `execution_id` per invocation (distinct
+from the runtime's deterministic `pair_id`), persists one `TrainingExecution`
+result row per paired run, and translates the runtime's generic lifecycle
+observations into ordered `TRAINING_*` `SecurityEvent` rows as each step
+happens. `TrainingExecution` is a materialised experiment *result*, not a second
+telemetry stream — `SecurityEvent` remains the one authoritative event timeline,
+with no schema change.
+
 Full design notes: [docs/training-runtime.md](docs/training-runtime.md).
 
 ## Setup Instructions

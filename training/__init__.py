@@ -24,6 +24,10 @@ from .comparison import (ADDED, CHANGED, REMOVED, StateChange, StateDiff,
 from .definitions import (CONFIDENCE_MAX, CONFIDENCE_MIN, Choice,
                           ConsequenceSpec, DecisionPoint, ScenarioDefinition,
                           validate_confidence)
+from .observation import (BASELINE_CAPTURED, COUNTERFACTUAL_CAPTURED,
+                          EXPECTED_ORDER, FACTUAL_CAPTURED, PAIR_COMPLETED,
+                          REWIND_VERIFIED, STAGES, ObservationCollector,
+                          RuntimeObservation)
 from .errors import (AdapterProtocolError, BaselineVerificationError,
                      ConfidenceValueError, ScenarioDefinitionError,
                      SnapshotError, TrainingError, UnknownActionError)
@@ -36,6 +40,9 @@ __all__ = [
     "ADDED", "CHANGED", "REMOVED",
     "CONFIDENCE_MIN", "CONFIDENCE_MAX",
     "FACTUAL", "COUNTERFACTUAL",
+    "BASELINE_CAPTURED", "FACTUAL_CAPTURED", "REWIND_VERIFIED",
+    "COUNTERFACTUAL_CAPTURED", "PAIR_COMPLETED", "STAGES", "EXPECTED_ORDER",
+    "ObservationCollector", "RuntimeObservation",
     "AdapterProtocolError", "BaselineVerificationError", "BranchOutcome",
     "Choice", "ConfidenceValueError", "ConsequenceAdapter", "ConsequenceSpec",
     "CounterfactualPair", "CounterfactualRuntime", "DecisionPoint",

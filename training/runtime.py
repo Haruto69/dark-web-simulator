@@ -20,8 +20,9 @@ alternative consequence.
 This module imports nothing from Flask, SQLAlchemy or the ``sandbox`` package.
 """
 
-from typing import Optional
+from typing import Any, Mapping, Optional
 
+from . import observation as obs
 from .adapters.base import ConsequenceAdapter
 from .comparison import diff_snapshots
 from .definitions import (Choice, DecisionPoint, ScenarioDefinition,
@@ -46,7 +47,9 @@ class CounterfactualRuntime:
     """
 
     def __init__(self, scenario: ScenarioDefinition,
-                 adapter: ConsequenceAdapter):
+                 adapter: ConsequenceAdapter,
+                 observer: Optional[obs.Observer] = None,
+                 observer_context: Optional[Mapping[str, Any]] = None):
         if not isinstance(scenario, ScenarioDefinition):
             raise AdapterProtocolError(
                 "scenario must be a ScenarioDefinition, got {0}".format(
@@ -56,9 +59,32 @@ class CounterfactualRuntime:
                 "adapter must implement the ConsequenceAdapter contract, got "
                 "{0}".format(type(adapter).__name__))
         adapter.check_protocol()
+        if observer is not None and not callable(observer):
+            raise AdapterProtocolError("observer must be callable")
         self.scenario = scenario
         self.adapter = adapter
+        # Optional and inert by default: with no observer the runtime behaves
+        # exactly as it did in R1.
+        self.observer = observer
+        self.observer_context = dict(observer_context or {})
         self._verify_vocabulary()
+
+    def _observe(self, stage: str, decision_id: str, **details) -> None:
+        """Emit one lifecycle observation, if an observer is configured.
+
+        Deliberately not wrapped in try/except: a telemetry write that fails
+        must stop the run loudly rather than leave a completed experiment with
+        an incomplete timeline. See ``training/observation.py``.
+        """
+        if self.observer is None:
+            return
+        obs.emit(self.observer, obs.RuntimeObservation(
+            stage=stage,
+            scenario_key=self.scenario.scenario_key,
+            scenario_version=self.scenario.version,
+            decision_id=decision_id,
+            context=self.observer_context,
+            details=details))
 
     def _verify_vocabulary(self) -> None:
         missing = [key for key in self.scenario.action_keys
@@ -121,15 +147,38 @@ class CounterfactualRuntime:
         counterfactual_response_ms = validate_response_ms(
             counterfactual_response_ms)
 
+        # Each observation is emitted immediately after the operation it
+        # describes and before the next one begins, so an observed timeline is
+        # the causal order of the experiment rather than a reconstruction of it.
         baseline = self.establish_baseline()
+        self._observe(obs.BASELINE_CAPTURED, decision.decision_id,
+                      baseline_digest=baseline.digest)
+
         factual_state = self.apply_choice(factual_choice, LABEL_FACTUAL)
+        self._observe(obs.FACTUAL_CAPTURED, decision.decision_id,
+                      choice_id=factual_choice.choice_id,
+                      action_key=factual_choice.action_key,
+                      confidence=factual_confidence,
+                      response_time_ms=factual_response_ms,
+                      state_digest=factual_state.digest)
 
         # Fails closed: the counterfactual branch below is unreachable unless
-        # the rewound environment fingerprints identically to the baseline.
+        # the rewound environment fingerprints identically to the baseline. No
+        # REWIND_VERIFIED observation is emitted on a mismatch, because the
+        # rewind was not verified.
         rewound = self.rewind_and_verify(baseline)
+        self._observe(obs.REWIND_VERIFIED, decision.decision_id,
+                      baseline_digest=baseline.digest,
+                      rewound_digest=rewound.digest)
 
         counterfactual_state = self.apply_choice(counterfactual_choice,
                                                  LABEL_COUNTERFACTUAL)
+        self._observe(obs.COUNTERFACTUAL_CAPTURED, decision.decision_id,
+                      choice_id=counterfactual_choice.choice_id,
+                      action_key=counterfactual_choice.action_key,
+                      confidence=counterfactual_confidence,
+                      response_time_ms=counterfactual_response_ms,
+                      state_digest=counterfactual_state.digest)
 
         factual_outcome = BranchOutcome(
             role=FACTUAL, choice_id=factual_choice.choice_id,
@@ -144,7 +193,7 @@ class CounterfactualRuntime:
             confidence=counterfactual_confidence,
             response_time_ms=counterfactual_response_ms)
 
-        return CounterfactualPair(
+        pair = CounterfactualPair(
             pair_id=derive_pair_id(
                 self.scenario.identity, decision.decision_id,
                 factual_choice.choice_id, counterfactual_choice.choice_id,
@@ -159,3 +208,12 @@ class CounterfactualRuntime:
             difference=diff_snapshots(factual_state, counterfactual_state),
             adapter_info=dict(self.adapter.describe()),
             session_ref=session_ref)
+
+        self._observe(obs.PAIR_COMPLETED, decision.decision_id,
+                      pair_id=pair.pair_id,
+                      baseline_digest=pair.baseline_digest,
+                      factual_digest=pair.factual.digest,
+                      counterfactual_digest=pair.counterfactual.digest,
+                      branches_diverged=pair.branches_diverged,
+                      change_count=len(pair.difference))
+        return pair

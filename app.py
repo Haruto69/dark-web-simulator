@@ -196,11 +196,139 @@ class SecurityEvent(db.Model):
             "details": self.details,
         }
 
+
+class TrainingExecution(db.Model):
+    """One paired counterfactual execution, materialised as a single row.
+
+    **This is not a second telemetry stream.** ``SecurityEvent`` remains the
+    authoritative ordered event timeline; this table holds the *result artifact*
+    of one experiment -- the evidence a later analysis or replay UI needs to
+    reconstruct the comparison. One execution is exactly one row, updated in
+    place from ``started`` to ``completed``/``failed``. It is never appended to,
+    and nothing derives a funnel or progression count from it. (Milestone 3
+    removed ``PhishingFunnel``/``RansomwareFunnel`` for being a parallel
+    analytics system; this must not become another.)
+
+    Data minimisation: the two *resulting* synthetic states are kept, because a
+    comparison cannot be reconstructed without them. The baseline state is not
+    -- its fingerprint is the whole of the evidence needed to show both branches
+    started from the same place. No credentials, no learner free text, no
+    exception messages, no host paths.
+    """
+    __tablename__ = 'training_execution'
+
+    STATUS_STARTED = "started"
+    STATUS_COMPLETED = "completed"
+    STATUS_FAILED = "failed"
+
+    id = db.Column(db.Integer, primary_key=True)
+    # Unique per actual invocation. Generated server-side (uuid4), never
+    # derived from a timestamp, safe to quote in logs and APIs.
+    execution_id = db.Column(db.String(64), unique=True, index=True,
+                             nullable=False)
+    # Deterministic content identity from the runtime: equivalent experiments
+    # share it deliberately. Null until a pair is successfully produced.
+    pair_id = db.Column(db.String(64), index=True, nullable=True)
+    session_id = db.Column(db.String(100), index=True)
+
+    scenario_key = db.Column(db.String(64), index=True)
+    scenario_version = db.Column(db.Integer)
+    decision_id = db.Column(db.String(64), index=True)
+
+    status = db.Column(db.String(16), nullable=False,
+                       default=STATUS_STARTED, index=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    # Baseline evidence: digests only, never the baseline state itself.
+    baseline_digest = db.Column(db.String(64))
+    rewound_digest = db.Column(db.String(64))
+
+    factual_choice_id = db.Column(db.String(64))
+    factual_action_key = db.Column(db.String(64))
+    factual_confidence = db.Column(db.Integer, nullable=True)
+    factual_response_time_ms = db.Column(db.Integer, nullable=True)
+    factual_result_digest = db.Column(db.String(64))
+
+    counterfactual_choice_id = db.Column(db.String(64))
+    counterfactual_action_key = db.Column(db.String(64))
+    counterfactual_confidence = db.Column(db.Integer, nullable=True)
+    counterfactual_response_time_ms = db.Column(db.Integer, nullable=True)
+    counterfactual_result_digest = db.Column(db.String(64))
+
+    # Canonical JSON produced by the runtime's own serializer. Text keeps the
+    # schema portable to SQLite; there is deliberately no second serializer.
+    factual_state_json = db.Column(db.Text, nullable=True)
+    counterfactual_state_json = db.Column(db.Text, nullable=True)
+    difference_json = db.Column(db.Text, nullable=True)
+
+    # Failure metadata: an exception *class name* and an opaque correlation
+    # reference. Never a message, never a traceback (see sandbox/sanitize.py).
+    failure_type = db.Column(db.String(64), nullable=True)
+    error_ref = db.Column(db.String(32), nullable=True)
+
+    @property
+    def baseline_verified(self):
+        """Whether both branches provably started from the same state."""
+        return bool(self.baseline_digest
+                    and self.baseline_digest == self.rewound_digest)
+
+    def to_dict(self):
+        """Canonical internal form. Carries the real ``session_id``."""
+        return {
+            "execution_id": self.execution_id,
+            "pair_id": self.pair_id,
+            "session_id": self.session_id,
+            "scenario_key": self.scenario_key,
+            "scenario_version": self.scenario_version,
+            "scenario_identity": ("%s@%s" % (self.scenario_key,
+                                             self.scenario_version)
+                                  if self.scenario_key else None),
+            "decision_id": self.decision_id,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed_at": (self.completed_at.isoformat()
+                             if self.completed_at else None),
+            "baseline_digest": self.baseline_digest,
+            "rewound_digest": self.rewound_digest,
+            "baseline_verified": self.baseline_verified,
+            "factual": {
+                "choice_id": self.factual_choice_id,
+                "action_key": self.factual_action_key,
+                "confidence": self.factual_confidence,
+                "response_time_ms": self.factual_response_time_ms,
+                "state_digest": self.factual_result_digest,
+            },
+            "counterfactual": {
+                "choice_id": self.counterfactual_choice_id,
+                "action_key": self.counterfactual_action_key,
+                "confidence": self.counterfactual_confidence,
+                "response_time_ms": self.counterfactual_response_time_ms,
+                "state_digest": self.counterfactual_result_digest,
+            },
+            "failure_type": self.failure_type,
+            "error_ref": self.error_ref,
+        }
+
+    def display_dict(self):
+        """Instructor-facing form: pseudonymous label instead of session id.
+
+        The raw identifier is absent from the context rather than merely hidden
+        by a template, matching ``RansomwareRunState.display_dict``. No HTTP
+        route exposes this yet; R2 adds no API.
+        """
+        row = self.to_dict()
+        row["session_label"] = session_label(row.pop("session_id"))
+        return row
+
+
 # --- Conference sandbox (instructor-only control surface) ---
 # All Docker / filesystem logic lives in the sandbox package; routes only
 # delegate. See README "Conference Sandbox Architecture".
 from sandbox_routes import (create_sandbox_blueprint, ensure_manager,
-                            sandbox_dashboard_context, session_sandbox_id)
+                            make_recorder, sandbox_dashboard_context,
+                            session_sandbox_id)
+from training_service import TrainingService
 
 app.register_blueprint(create_sandbox_blueprint(
     db, SecurityEvent, app.config['SANDBOX_LOCAL_ROOT']))
@@ -209,6 +337,28 @@ app.register_blueprint(create_sandbox_blueprint(
 def sandbox_manager():
     return ensure_manager(app, db, SecurityEvent,
                           app.config['SANDBOX_LOCAL_ROOT'])
+
+
+# --- RewindSec counterfactual training (Milestone R2) ---
+# The service owns execution identity, result persistence and lifecycle
+# telemetry; the pure runtime in ``training/`` stays free of Flask, SQLAlchemy
+# and the sandbox. R2 adds no learner-facing route: future scenario routes call
+# ``training_service().run_pair(...)``.
+
+def training_service():
+    """The configured TrainingService for this app. One per process.
+
+    Wired to the same telemetry write path the sandbox subsystem uses, so
+    TRAINING_* events pass through the identical progression-idempotency gate
+    and land in the one authoritative SecurityEvent table.
+    """
+    service = getattr(app, "_training_service", None)
+    if service is None:
+        service = TrainingService(db, TrainingExecution,
+                                  make_recorder(db, SecurityEvent),
+                                  logger=app.logger)
+        app._training_service = service
+    return service
 
 
 def record_event(event_type, scenario_id=None, source=None, target=None,

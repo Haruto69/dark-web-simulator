@@ -222,3 +222,162 @@ delta (factual -> counterfactual)
   endpoint.isolated     changed   false -> true
   files.impacted        changed   5 -> 1
 ```
+
+---
+
+# R2: application integration
+
+R1 proved the semantics. R2 connects them to the Flask application and to the
+existing authoritative telemetry, without letting either layer leak into the
+other.
+
+```
+training/          pure research runtime. No Flask, no SQLAlchemy, no sandbox,
+                   no Docker. Does not know what an execution_id or a
+                   SecurityEvent is.
+training_service.py  the integration seam. Mints execution identity, persists
+                   the result artifact, translates generic runtime
+                   observations into SecurityEvent telemetry.
+sandbox/           the existing validated execution primitives, untouched.
+```
+
+R2 adds no learner-facing page and no HTTP API. Future scenario routes call
+`app.training_service().run_pair(...)`.
+
+## pair_id vs execution_id
+
+These answer different questions and both are kept.
+
+| | `pair_id` | `execution_id` |
+|---|---|---|
+| identifies | the *experiment* | the *occurrence* |
+| derived from | scenario, decision, both choices, baseline digest, session_ref | `uuid4` |
+| deterministic | yes, by design | no, unique per invocation |
+| two identical runs | **same** value | **different** values |
+| null until | a pair is successfully produced | never (minted first) |
+
+Repeating an experiment is *supposed* to be recognisable as the same
+experiment — later reproducibility work depends on it. Making `pair_id` unique
+would have destroyed that, so `execution_id` was added alongside rather than
+changing R1's semantics.
+
+## TrainingExecution vs SecurityEvent
+
+**`TrainingExecution` is not a second telemetry stream.** It is the
+materialised result of one paired experiment: one execution, one row, updated
+in place from `started` to `completed` or `failed`. It is never appended to, it
+has no `event_type` or `stage` column, and no funnel or progression figure is
+derived from it.
+
+**`SecurityEvent` remains the authoritative ordered event timeline** — the same
+table, with the same schema, shared with every existing scenario. Milestone 3
+deleted `PhishingFunnel`/`RansomwareFunnel` for being a parallel analytics
+system; R2 must not reintroduce that mistake, and a test asserts no such table
+exists.
+
+## Correlation semantics
+
+`SecurityEvent`'s schema is **not** changed in R2. For `TRAINING_*` events:
+
+| column | carries |
+|---|---|
+| `session_id` | the existing server-issued learner session id |
+| `scenario_id` | **the `execution_id`** of this paired execution |
+| `source` | `training:counterfactual` |
+| `target` | `<scenario_key>/<decision_id>` |
+| `details` | bounded allow-listed metadata only |
+
+The `scenario_id` overload is deliberate and documented. It buys exact
+per-execution correlation with no migration, and it makes the existing
+progression-idempotency gate key on `(session_id, execution_id, event_type)` —
+which is precisely the exactly-once-per-execution property the lifecycle needs.
+`telemetry_ledger.py` was **not** modified. Because `execution_id` is unique per
+invocation, two executions of the same experiment never deduplicate each other,
+while a repeat *within* one execution is still collapsed.
+
+## Ordered runtime observation
+
+Telemetry is emitted from *inside* the runtime as each step happens, never
+reconstructed afterwards from a finished result — a reconstructed timeline
+could claim an ordering the run never had.
+
+`CounterfactualRuntime` takes an optional `observer` callable and an opaque
+`observer_context`. With no observer it behaves exactly as in R1. The runtime
+imports no `EventType`, no `SecurityEvent`, no Flask; it emits generic
+`RuntimeObservation`s and hands back the context it was given, which is how the
+service correlates them without the runtime knowing what an `execution_id` is.
+
+Observer failures are **not** swallowed: they propagate and stop the run, which
+the service records as a failed execution. Silently discarding a failed
+telemetry write would leave a completed experiment with no record of it.
+
+A successful execution produces exactly:
+
+```
+TRAINING_EXECUTION_STARTED         service, before the environment is touched
+TRAINING_BASELINE_CAPTURED         runtime observation
+TRAINING_FACTUAL_CAPTURED          runtime observation
+TRAINING_REWIND_VERIFIED           runtime observation
+TRAINING_COUNTERFACTUAL_CAPTURED   runtime observation
+TRAINING_EXECUTION_COMPLETED       service, after the result row is durable
+```
+
+The completion event is written by the service *after* persistence, so a
+storage failure can never leave a timeline claiming the execution completed. It
+is still last in the sequence.
+
+## Failure handling
+
+This is explicitly **not** one atomic transaction. A consequence environment
+cannot be rolled back by a SQL database, so pretending otherwise would
+misdescribe what happened.
+
+1. the `started` row is committed **before** the environment is touched, so a
+   run that dies mid-experiment is still observable;
+2. the experiment runs, emitting lifecycle events as it goes;
+3. on success the result is persisted and the row becomes `completed`;
+4. on failure the row becomes `failed` with `failure_type` (the exception
+   *class name*) and `error_ref` (an opaque `sandbox.sanitize` reference),
+   `TRAINING_EXECUTION_FAILED` is emitted, and `TrainingExecutionError` is
+   raised.
+
+No row is ever left permanently at `started` — including when an unresolvable
+action key is refused before the environment is touched at all.
+
+If the experiment ran but its *result* could not be stored, the service raises
+`TrainingPersistenceError`, deliberately distinct: the experiment did not fail,
+we merely lost the record of it.
+
+A failed rewind stops the experiment. No alternative consequence is applied, no
+`TRAINING_REWIND_VERIFIED` or `TRAINING_COUNTERFACTUAL_CAPTURED` event is
+written, and `pair_id`, `difference_json` and the counterfactual digest all stay
+null — nothing claims a comparison was produced.
+
+## Data minimisation
+
+Persisted: both *resulting* synthetic states, the machine-readable delta, and
+the baseline and rewound **digests**.
+
+Not persisted: the baseline state itself. Its fingerprint is the entire
+evidence needed to show both branches began from the same place, so storing the
+state would be data we do not need. Also never stored: credentials, learner free
+text, exception messages, tracebacks, host paths, request bodies.
+
+State is written using the runtime's own canonical serializer — the stored text
+is byte-identical to what was fingerprinted, so a digest can be re-derived from
+the stored row. There is deliberately no second serializer.
+
+`SecurityEvent.details` is built from an **allow-list** of safe keys (digests,
+choice ids, action keys, confidence, response time, `pair_id`, failure class,
+`error_ref`), so a value the runtime starts emitting later cannot leak by
+default. It is capped at 400 characters.
+
+## The research invariant, at the storage layer
+
+The R1 invariant is enforced a third time in R2, on the record itself:
+`_complete_row` refuses to write a `completed` row whose `baseline_digest` and
+`rewound_digest` differ. A stored execution therefore cannot claim
+counterfactual comparability it did not earn. Pinned by
+`test_completed_execution_persists_verified_identical_baseline_digests`. This is
+an explicit application invariant rather than a database CHECK constraint, to
+keep the schema portable to SQLite.

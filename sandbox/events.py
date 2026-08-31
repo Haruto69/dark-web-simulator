@@ -35,6 +35,12 @@ class EventType:
     RANSOMWARE_TRIGGERED = "RANSOMWARE_TRIGGERED"
     RANSOMWARE_DEBRIEFED = "RANSOMWARE_DEBRIEFED"
 
+    # -- raw interaction telemetry ----------------------------------------
+    # Repeatable by design. A PAGE_VIEW records that a page was *requested*;
+    # it is not a scenario stage and never feeds a progression metric. See
+    # ``sandbox/telemetry.py`` for the milestone/interaction split.
+    PAGE_VIEW = "PAGE_VIEW"
+
     # -- instructor authentication ----------------------------------------
     # Auth telemetry never records a password, a username or a source address.
     INSTRUCTOR_LOGIN_SUCCEEDED = "INSTRUCTOR_LOGIN_SUCCEEDED"

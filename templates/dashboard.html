@@ -160,7 +160,7 @@
                     {% for row in interactions %}
                     <tr style="border-bottom: 1px solid #333;">
                         <td style="padding: 12px;">{{ row.id }}</td>
-                        <td style="padding: 12px; color: #888; font-family: monospace;">{{ row.session_id[:8] if row.session_id else '-' }}</td>
+                        <td style="padding: 12px; color: #888; font-family: monospace;">{{ row.session_label }}</td>
                         <td style="padding: 12px; color: #888; font-family: monospace;">{{ row.scenario_id or '-' }}</td>
                         <td style="padding: 12px; color: #fd7e14; font-weight: bold;">{{ row.synthetic_username or '-' }}</td>
                         <td style="padding: 12px; color: {{ '#28a745' if row.credential_valid else '#dc3545' }};">{{ 'yes' if row.credential_valid else 'no' }}</td>

@@ -11,6 +11,7 @@ JSON decoded from ``/sandbox/events``. Nothing here touches Flask or a database.
 """
 
 from .events import EventType
+from .telemetry import drop_scoring_noise
 
 #: The canonical, ordered event sequence each scenario is expected to emit on a
 #: successful run. These are the *definitions* the telemetry-completeness
@@ -91,9 +92,12 @@ def matches_expected_sequence(events, scenario):
     """True when the observed types are exactly the expected ordered sequence.
 
     Repeats of a type that may legitimately occur more than once (``FILE_IMPACT``
-    fires once per file) are collapsed before comparison.
+    fires once per file) are collapsed before comparison, and raw interaction
+    telemetry (``PAGE_VIEW``) is dropped entirely: a refresh in the middle of a
+    run is browsing noise, not a step out of sequence.
     """
     expected = EXPECTED_SEQUENCES[scenario]
+    events = drop_scoring_noise(events)
     observed = []
     for event_type in event_types(events):
         if not observed or observed[-1] != event_type:
@@ -109,7 +113,7 @@ def completeness(events, scenario):
     fired. Extra event types beyond the definition neither help nor hurt.
     """
     expected = EXPECTED_SEQUENCES[scenario]
-    observed = set(event_types(events))
+    observed = set(event_types(drop_scoring_noise(events)))
     captured = sum(1 for event_type in expected if event_type in observed)
     return {
         "scenario": scenario,
@@ -140,7 +144,13 @@ def scenario_progress(events, scenario):
 
 
 def funnel_counts(events, funnel):
-    """Count events per funnel stage. ``funnel`` is PHISHING_/RANSOMWARE_FUNNEL."""
+    """Count events per funnel stage. ``funnel`` is PHISHING_/RANSOMWARE_FUNNEL.
+
+    Every funnel stage is a progression milestone, which the write path records
+    at most once per ``(session_id, scenario_id, event_type)`` -- so counting
+    occurrences here counts runs, not requests. Raw interaction telemetry is not
+    a funnel stage and so never appears in the result at all.
+    """
     types = event_types(events)
     return {stage: types.count(event_type) for stage, event_type in funnel}
 

@@ -33,6 +33,8 @@ from sandbox.dataset import BASELINE_FILENAMES
 from sandbox.sanitize import sanitized_failure
 from security import is_instructor, require_instructor, wants_json
 
+import telemetry_ledger
+
 #: Default staleness threshold for ``POST /sandbox/reap`` (2 hours), and a
 #: floor beneath which the route refuses to operate so a mistyped value cannot
 #: wipe every sandbox in an active class.
@@ -41,8 +43,21 @@ MIN_REAP_AGE_SECONDS = 60
 
 
 def make_recorder(db, SecurityEvent):
-    """Return a callable that persists telemetry dicts into SecurityEvent."""
+    """Return a callable that persists telemetry dicts into SecurityEvent.
+
+    Milestone 4.2: this is one of the two write paths (``app.record_event`` is
+    the other), and both funnel through :func:`telemetry_ledger.claim` first. A
+    **progression milestone** already recorded for this ``(session_id,
+    scenario_id, event_type)`` is not written a second time, so re-entering a
+    scenario stage -- by refresh, prefetch or a repeated call -- cannot append
+    another "stage reached" row. Raw interaction telemetry is unaffected and
+    stays repeatable. The event dict is returned either way, so a caller can
+    never tell the difference and no scenario logic depends on the write.
+    """
     def recorder(event):
+        if not telemetry_ledger.claim(db.session, event):
+            db.session.commit()
+            return event
         row = SecurityEvent(
             scenario_id=event.get("scenario_id"),
             session_id=event.get("session_id"),

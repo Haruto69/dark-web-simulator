@@ -37,7 +37,26 @@ streams and nothing else.
 #: Bumped by hand whenever a frozen specification is deliberately changed.
 #: Recorded in every formal result file so a number can always be traced back to
 #: the oracle version that produced it.
-SPECIFICATION_VERSION = "2026-08-30.1"
+SPECIFICATION_VERSION = "2026-08-30.2"
+
+
+#: Raw interaction telemetry that scoring **ignores**.
+#:
+#: Milestone 4.2 split the event model into progression milestones (recorded
+#: once per run) and repeatable interaction telemetry. The interaction events
+#: below carry a ``scenario_id``, so they turn up inside a scenario-scoped
+#: query, but they record that a page was *requested* rather than that a stage
+#: was reached: twenty refreshes legitimately produce twenty of them. They are
+#: dropped before an observed stream is compared against a specification, so
+#: browsing noise can neither complete a run nor invalidate one.
+#:
+#: Written out as literal strings and kept deliberately **short**, like every
+#: other declaration in this module: the oracle must not import the
+#: implementation's classification, or a production change that reclassified an
+#: event as "noise" would silently exempt it from scoring.
+IGNORED_INTERACTION_TYPES = frozenset({
+    "PAGE_VIEW",
+})
 
 
 class ScenarioSpecification:
@@ -211,6 +230,12 @@ def evaluate(events, scenario, scenario_id=None, session_id=None):
     silently scoring an unrecognised scenario would be worse than failing.
     """
     spec = SPECIFICATIONS[scenario]
+    # Drop raw interaction telemetry before anything is judged, so a refresh or
+    # a prefetch cannot make a correct run look incorrect (or an incomplete one
+    # look finished). Correlation and field checks below therefore also apply to
+    # the scored events only.
+    events = [e for e in events
+              if field(e, "event_type") not in IGNORED_INTERACTION_TYPES]
     types = observed_types(events)
     permitted = spec.permitted
 
@@ -263,6 +288,7 @@ def specification_manifest():
     """Every frozen specification, for embedding in a result file."""
     return {
         "specification_version": SPECIFICATION_VERSION,
+        "ignored_interaction_types": sorted(IGNORED_INTERACTION_TYPES),
         "global_forbidden": sorted(GLOBAL_FORBIDDEN),
         "required_fields": list(REQUIRED_FIELDS),
         "scenarios": {name: spec.as_dict()

@@ -98,14 +98,39 @@ python manage.py status
 python manage.py init
 python manage.py reset-demo
 python manage.py drop-legacy
-python manage.py reset-all
+python manage.py reap-state
+python manage.py reset-database
 ```
 
 `status` prints the schema and row counts; `init` creates missing tables and
 seeds only empty ones; `reset-demo` replaces the marketplace and demo-file rows;
-`drop-legacy` drops the superseded Milestone 1/2 tables; `reset-all` drops every
-table and rebuilds. Each destructive command names the database it is about to
-change and asks for confirmation; pass `--yes` in a script.
+`drop-legacy` drops the superseded Milestone 1/2 tables; `reap-state` deletes
+stale ransomware run state (see *Reaping stale run state* below);
+`reset-database` drops every table and rebuilds. Each destructive command prints
+what it is about to destroy, names the database, and asks for confirmation; pass
+`--yes` in a script. `reset-all` is kept as an alias for `reset-database` so
+older notes keep working.
+
+#### `reset-database` — the reproducible-experiment reset
+
+Run this before a formal measurement run so every run starts from an identical
+schema and identical seed data:
+
+```bash
+python manage.py reset-database --yes
+```
+
+It drops every table this build knows about (plus any superseded ones left
+behind), recreates the current schema and reseeds **only the synthetic baseline
+content** — the marketplace products and the demo-file catalogue. Recorded
+telemetry, credential-interaction metadata, ransomware run state and the
+progression-milestone ledger are *not* reseeded, because there is no synthetic
+baseline for them: an experiment has to start from an empty event table or its
+numbers mean nothing.
+
+It is destructive and irreversible, requires explicit invocation, and is never
+run by the application. **Application start-up remains non-destructive**: it
+creates missing tables and seeds empty ones, and nothing else.
 
 No current model creates `simulated_credential`, `phishing_funnel` or
 `ransomware_funnel`, so a database created by this build never contains one.
@@ -681,6 +706,118 @@ Every event carries `session_id`, `scenario_id`, `event_type`, `timestamp` and
 — total and stable, because `id` is a monotonic autoincrement. **No event ever
 carries a password**, including the authentication events.
 
+## Progression milestones vs raw interaction telemetry
+
+Several telemetry-emitting routes are plain `GET` pages — `/product/<id>`,
+`/marketplace/tools`, `/download/tool/<id>`. Before Milestone 4.2 each request
+appended another "stage reached" row, so a refresh, a browser prefetch, a link
+preview or a crawler grew the funnel counts and moved every conversion rate
+derived from them. Progression measured that way is a request counter, not a
+measurement.
+
+Event types are now split into two disjoint classes, declared once in
+`sandbox/telemetry.py`:
+
+| Class | Question it answers | Write behaviour |
+| --- | --- | --- |
+| **Progression milestone** (`PROGRESSION_EVENTS`) | did this run reach this stage? | recorded **at most once** per `(session_id, scenario_id, event_type)` |
+| **Raw interaction** (`INTERACTION_EVENTS`) | what did the browser ask for? | repeatable — twenty refreshes are twenty rows |
+
+Only milestones feed the dashboard funnel, the scenario-completion logic and the
+evaluation harness. Raw interaction telemetry — `PAGE_VIEW` and friends — is
+kept, because discarding observation data was never the goal; it simply never
+touches a progression or conversion figure. **Progression is never inferred from
+raw `GET` counts.**
+
+The classification is about idempotency of the *write*, not about whether a type
+is scored: `FILE_IMPACT` is repeatable (it fires once per synthetic file) and is
+also part of the file-impact scored sequence, which declares it repeatable.
+
+### How the guarantee is enforced
+
+`telemetry_ledger.py` holds a small `progression_milestone` table with a unique
+constraint on `(session_id, scenario_id, event_type)`. Both telemetry write
+paths — `app.record_event` and the sandbox recorder in `sandbox_routes.py` —
+claim the key there before writing to `security_event`; a repeat claim is
+refused and no second row is appended. Correctness under concurrency comes from
+the unique constraint rather than from a read, so two simultaneous requests
+racing on the same key still end with exactly one event row.
+
+The ledger is **not** a second analytics table: nothing reads it to produce a
+number, so Milestone 3's single-authoritative-telemetry-model property holds.
+`security_event` is still the only thing the dashboard, the debrief and the
+harness read. Because the ledger is a new *table* rather than a new column,
+`db.create_all()` adds it to an existing database non-destructively.
+
+As defence in depth, `funnel_event_counts` counts `DISTINCT (session_id,
+scenario_id)` rather than rows, so a duplicate that reached the table some other
+way still cannot inflate a stage.
+
+`/product/<id>` also stopped minting a fresh `scenario_id` once a run had
+completed: a session keeps one phishing run, so refreshing the lure page after
+the debrief no longer creates a new run stuck at funnel stage 1.
+
+### Sequence scoring ignores browsing noise
+
+`PAGE_VIEW` carries a `scenario_id`, so it turns up in a scenario-scoped query.
+Both `sandbox/progression.py` and the frozen oracle in
+`evaluation/specifications.py` drop it before comparing an observed stream to an
+expected sequence, so a refresh mid-run cannot make a correct run score as
+incorrect. The oracle declares its own literal copy of that set
+(`IGNORED_INTERACTION_TYPES`) rather than importing the implementation's, which
+is why `SPECIFICATION_VERSION` was bumped to `2026-08-30.2`. Dropping noise
+cannot make an *incomplete* run pass: page views alone score 0.0 completeness.
+
+## Instructor display identifiers are pseudonymous
+
+A learner's `session_id` is the join key of the whole telemetry model, so it
+stays intact internally — but it does not need to be on a projector.
+
+* **Stored and correlated**: the canonical `session_id`. Nothing about what is
+  written changes.
+* **Internal evaluation APIs** (`/api/logs`, `/sandbox/events`): canonical ids,
+  because the formal harness joins runs on them and a one-way label cannot be
+  joined on. Both are behind `@require_instructor`; the distinction is about
+  what ends up on a projected screen, not about who may read the data.
+* **Instructor HTML** (`/dashboard`, `/deets`): a stable pseudonymous label from
+  `sandbox/pseudonym.py`, rendered as `Session 4F2A91C8`.
+
+The label is deterministic across processes and restarts, so an instructor can
+still tell two learners apart and follow one across tables; it is a truncated
+BLAKE2s digest with a domain separator, so it is one-way by construction. It is
+a printed nickname, **not** a secret and **not** a lookup key — nothing joins,
+queries or authorises on it. The raw id is not merely hidden by the templates:
+it is absent from the template context, so a later edit cannot print it.
+
+## Reaping stale run state
+
+`RansomwareRunState` holds one row per learner session and used to hold it
+forever. `python manage.py reap-state` deletes rows whose `updated_at` is older
+than `--max-age` (default 24 h), and releases progression-milestone claims of the
+same age.
+
+```bash
+python manage.py reap-state --dry-run          # report the selection, delete nothing
+python manage.py reap-state --max-age 86400 --yes
+```
+
+There is deliberately **no background scheduler**: an automatic reaper is one
+clock skew away from deleting the state of a class that is mid-exercise. The
+safety properties mirror `SandboxManager.reap_stale`:
+
+1. **Selection is by age alone.** `select_stale` takes no session id, scenario id
+   or row id, so no request input can name a victim row — and no request handler
+   calls the reaper at all.
+2. **A row with an unknown `updated_at` is never selected.** Unknown age means
+   "leave it alone", never "assume it is old".
+3. **The threshold has a floor** (60 s); below it the call raises rather than
+   widening the selection.
+4. `--dry-run` reports the selection and deletes nothing, and is not
+   confirmation-gated because it destroys nothing.
+5. **Only `ransomware_run_state` is touched.** No `SecurityEvent`, product,
+   demo-file or credential-interaction row is read or written, so removing stale
+   simulation state never removes recorded telemetry.
+
 ## Telemetry event types
 
 Lifecycle and file impact: `SANDBOX_CREATED`, `SANDBOX_RESET`,
@@ -697,6 +834,10 @@ Ransomware awareness: `RANSOMWARE_LURE_VIEWED`, `RANSOMWARE_DOWNLOAD_CLICKED`,
 `RANSOMWARE_TRIGGERED`, `RANSOMWARE_DEBRIEFED`.
 
 Lifecycle hygiene: `SANDBOX_REAP_SCAN`, `SANDBOX_REAPED`.
+
+Raw interaction telemetry: `PAGE_VIEW`. Repeatable by design and excluded from
+every progression and conversion figure — see *Progression milestones vs raw
+interaction telemetry* above.
 
 Instructor authentication: `INSTRUCTOR_LOGIN_SUCCEEDED`,
 `INSTRUCTOR_LOGIN_FAILED`, `INSTRUCTOR_LOGGED_OUT`. These record that an

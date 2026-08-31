@@ -27,7 +27,7 @@
             {% for row in interactions %}
             <tr>
               <td>{{ row.id }}</td>
-              <td>{{ row.session_id[:8] if row.session_id else '-' }}</td>
+              <td>{{ row.session_label }}</td>
               <td>{{ row.scenario_id or '-' }}</td>
               <td>{{ row.synthetic_username or '-' }}</td>
               <td>{{ 'yes' if row.credential_valid else 'no' }}</td>
@@ -84,7 +84,7 @@
           <tbody>
             {% for r in ransomware_runs %}
             <tr>
-              <td>{{ r.session_id }}</td>
+              <td>{{ r.session_label }}</td>
               <td>{{ r.scenario_id }}</td>
               <td>{{ r.state }}</td>
               <td>{{ r.variant }}</td>

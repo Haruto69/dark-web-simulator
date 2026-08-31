@@ -14,16 +14,20 @@ from sandbox import (SYNTHETIC_RESOURCES, EventType, PhishingScenario,
                      new_scenario_id, stage_index)
 from sandbox.progression import (PHISHING_FUNNEL, RANSOMWARE_FUNNEL,
                                  STAGE_BY_EVENT, conversion_rates)
-from sandbox.ransomware_state import (BASELINE_REMARK, RESTORED_REMARK,
+from sandbox.pseudonym import session_label
+from sandbox.ransomware_state import (BASELINE_REMARK, DEFAULT_MAX_AGE_SECONDS,
+                                      MIN_MAX_AGE_SECONDS, RESTORED_REMARK,
                                       STATE_BASELINE, STATE_IMPACTED,
                                       file_rows, impact_remark,
-                                      normalise_variant)
+                                      normalise_variant, select_stale)
 from sandbox.timeutil import utcnow
 from security import (check_instructor_password, init_csrf,
                       instructor_auth_configured, login_instructor,
                       login_throttle, logout_instructor,
                       render_instructor_login, require_instructor, safe_next,
                       throttle_key)
+
+import telemetry_ledger
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -48,6 +52,11 @@ IDENTITIES = SyntheticIdentityStore(
     os.environ.get("SYNTHETIC_IDENTITY_SECRET") or app.secret_key)
 
 db = SQLAlchemy(app)
+
+# The progression-milestone idempotency ledger is a plain table on the same
+# metadata, so ``db.create_all()`` creates it like any other and adding it to an
+# existing database stays non-destructive. See telemetry_ledger.py.
+PROGRESSION_MILESTONE = telemetry_ledger.attach(db.metadata)
 
 # --- Models ---
 
@@ -93,6 +102,7 @@ class RansomwareRunState(db.Model):
     updated_at = db.Column(db.DateTime, default=utcnow, index=True)
 
     def to_dict(self):
+        """Canonical form, carrying the real ``session_id`` for correlation."""
         return {
             "session_id": self.session_id,
             "scenario_id": self.scenario_id,
@@ -100,6 +110,17 @@ class RansomwareRunState(db.Model):
             "variant": self.variant,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+    def display_dict(self):
+        """Instructor-HTML form: pseudonymous label instead of the session id.
+
+        The raw identifier is not merely hidden by the template, it is absent
+        from the context, so it cannot be rendered by a later edit. See
+        ``sandbox/pseudonym.py``.
+        """
+        row = self.to_dict()
+        row["session_label"] = session_label(row.pop("session_id"))
+        return row
 
 class CredentialInteraction(db.Model):
     """Metadata about a credential submission -- never the credential itself.
@@ -200,18 +221,46 @@ def record_event(event_type, scenario_id=None, source=None, target=None,
     and details are filled in where they apply. No caller may pass a credential
     value -- there is none available at any call site.
     """
+    session_id = session_id if session_id is not None else session.get('session_id')
+    target = (str(target)[:300] if target else None)
+    details = (str(details)[:500] if details else None)
+
+    # Milestone 4.2: a progression milestone is written at most once per
+    # (session_id, scenario_id, event_type). A refresh, a browser prefetch or a
+    # crawler re-issuing the same GET therefore cannot append a second
+    # "stage reached" row and cannot move a funnel count. Raw interaction
+    # telemetry (PAGE_VIEW and friends) is not gated and stays repeatable.
+    if not telemetry_ledger.claim(db.session, {
+            "event_type": event_type, "scenario_id": scenario_id,
+            "session_id": session_id}):
+        db.session.commit()
+        return None
+
     row = SecurityEvent(
         event_type=event_type,
         scenario_id=scenario_id,
-        session_id=session_id if session_id is not None else session.get('session_id'),
+        session_id=session_id,
         timestamp=utcnow(),
         source=source,
-        target=(str(target)[:300] if target else None),
-        details=(str(details)[:500] if details else None),
+        target=target,
+        details=details,
     )
     db.session.add(row)
     db.session.commit()
     return row
+
+
+def record_page_view(source, scenario_id=None, target=None, details=None):
+    """Record one raw ``PAGE_VIEW``. Deliberately repeatable.
+
+    This is the telemetry that a refresh *should* produce: it says a page was
+    requested, nothing more. It is never a scenario stage, it is excluded from
+    every funnel and conversion figure, and sequence scoring drops it as noise
+    (``sandbox.telemetry.SCORING_NOISE``). Keeping it means Milestone 4.2 makes
+    progression idempotent without throwing away observation data.
+    """
+    return record_event(EventType.PAGE_VIEW, scenario_id=scenario_id,
+                        source=source, target=target, details=details)
 
 
 # -- ransomware-awareness scenario correlation ------------------------------
@@ -281,6 +330,49 @@ def set_ransomware_state(state, variant="browser", remark=None):
     run.updated_at = utcnow()
     db.session.commit()
     return run
+
+
+def reap_ransomware_state(max_age_seconds=DEFAULT_MAX_AGE_SECONDS, now=None,
+                         dry_run=False):
+    """Delete ``RansomwareRunState`` rows that have gone stale.
+
+    **Explicit maintenance only.** There is no scheduler, no background thread
+    and no request handler that calls this: it runs when an operator asks, via
+    ``python manage.py reap-state``. That is deliberate -- an automatic reaper
+    is one clock skew away from deleting the state of a class that is mid
+    exercise.
+
+    Safety properties, in order of importance:
+
+    1. **Selection is by age alone.** ``select_stale`` takes no session id, no
+       scenario id and no row id, so there is no parameter through which
+       request data could ever name a victim row. Compare
+       ``SandboxManager.reap_stale``, which has the same shape for sandboxes.
+    2. **A row with no ``updated_at`` is never selected.** An unknown age means
+       "leave it alone".
+    3. **The threshold has a floor** (``MIN_MAX_AGE_SECONDS``); a value below it
+       raises rather than widening the selection.
+    4. ``dry_run=True`` reports the selection and deletes nothing.
+    5. **Only this table is touched.** No SecurityEvent, product, demo-file or
+       credential-interaction row is read or written here, so removing stale
+       simulation state never removes recorded telemetry.
+
+    Returns one dict per selected row, oldest first.
+    """
+    rows = RansomwareRunState.query.all()
+    selected = select_stale(rows, max_age_seconds, now=now)
+    selected.sort(key=lambda pair: pair[1], reverse=True)
+    reaped = [{"session_label": session_label(row.session_id),
+               "scenario_id": row.scenario_id,
+               "state": row.state,
+               "age_seconds": age,
+               "deleted": not dry_run}
+              for row, age in selected]
+    if not dry_run:
+        for row, _age in selected:
+            db.session.delete(row)
+        db.session.commit()
+    return reaped
 
 
 def ransomware_files():
@@ -727,16 +819,33 @@ def marketplace_weapons():
 
 @app.route("/ransomware/menu")
 def ransomware_menu():
-    """Main menu for choosing ransomware simulation type"""
+    """Main menu for choosing ransomware simulation type.
+
+    Read-only. It emits raw ``PAGE_VIEW`` telemetry only: browsing the menu is
+    not a scenario stage, so refreshing it moves no progression metric.
+    """
+    record_page_view("scenario:ransomware_awareness",
+                     scenario_id=ransomware_scenario_id(),
+                     target="ransomware_menu")
     return render_template("ransomware_menu.html")
 
 @app.route("/marketplace/tools")
 def marketplace_tools():
-    """Fake hacking tools marketplace - ransomware scenario stage 1."""
+    """Fake hacking tools marketplace - ransomware scenario stage 1.
+
+    Two events, deliberately of different kinds: the lure milestone (recorded
+    once for this run, however many times the page is fetched) and a repeatable
+    page view (recorded every time). Refreshing therefore adds observation data
+    without advancing the funnel.
+    """
+    scenario_id = ransomware_scenario_id()
     record_event(EventType.RANSOMWARE_LURE_VIEWED,
-                 scenario_id=ransomware_scenario_id(),
+                 scenario_id=scenario_id,
                  source="scenario:ransomware_awareness",
                  details="Viewed hacking tools marketplace")
+    record_page_view("scenario:ransomware_awareness", scenario_id=scenario_id,
+                     target="marketplace_tools")
+
     
     fake_tools = [
         {
@@ -809,18 +918,31 @@ def marketplace_tools():
 
 @app.route("/download/tool/<int:tool_id>")
 def download_tool(tool_id):
-    """Show fake download progress screen - ransomware scenario stage 2."""
+    """Show fake download progress screen - ransomware scenario stage 2.
+
+    Milestone once per run; page view every time. See ``marketplace_tools``.
+    """
+    scenario_id = ransomware_scenario_id()
     record_event(EventType.RANSOMWARE_DOWNLOAD_CLICKED,
-                 scenario_id=ransomware_scenario_id(),
+                 scenario_id=scenario_id,
                  source="scenario:ransomware_awareness",
                  target="tool:%d" % tool_id,
                  details="Clicked download for tool #%d" % tool_id)
+    record_page_view("scenario:ransomware_awareness", scenario_id=scenario_id,
+                     target="tool:%d" % tool_id)
+
     
     return render_template("ransomware_download.html", tool_id=tool_id)
 
 @app.route("/files/browser")
 def file_browser():
-    """File browser - read-only view of *this session's* catalogue state."""
+    """File browser - read-only view of *this session's* catalogue state.
+
+    Raw ``PAGE_VIEW`` only: looking at the catalogue is not a scenario stage.
+    """
+    record_page_view("scenario:ransomware_awareness",
+                     scenario_id=ransomware_scenario_id(),
+                     target="file_browser")
     return render_template("file_browser.html", files=ransomware_files())
 
 @app.route("/ransomware/trigger", methods=["POST"])
@@ -878,7 +1000,15 @@ def ransomware_activate():
 
 @app.route("/ransomware/screen")
 def ransomware_screen():
-    """Direct access to the ransom screen. Read-only: GET never mutates."""
+    """Direct access to the ransom screen. Read-only: GET never mutates.
+
+    Emits a repeatable ``PAGE_VIEW`` and no milestone: arriving here directly
+    is not the same as having triggered the simulation, and must not be counted
+    as though it were.
+    """
+    record_page_view("scenario:ransomware_awareness",
+                     scenario_id=ransomware_scenario_id(),
+                     target="ransomware_screen")
     files = ransomware_files()
     bitcoin_address = "1" + ''.join(random.choices('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', k=33))
     ransom_amount = random.choice([1.0, 1.5, 2.0, 2.5])
@@ -920,10 +1050,14 @@ def product(product_id):
     """Product page - the phishing lure (scenario stage 1)."""
     product = db.get_or_404(Product, product_id)
 
-    # Correlated scenario telemetry: PHISHING_EXPOSED, once per in-flight run.
-    # This event *is* the funnel's first stage -- there is no separate counter
-    # table any more.
-    start_phishing_scenario(product)
+    # Correlated scenario telemetry: PHISHING_EXPOSED, once per run. This event
+    # *is* the funnel's first stage -- there is no separate counter table any
+    # more -- so it must not fire again when the page is refreshed, prefetched
+    # or crawled. The repeatable observation lives in the PAGE_VIEW below.
+    state = start_phishing_scenario(product)
+    record_page_view("scenario:credential_reuse_phishing",
+                     scenario_id=state["scenario_id"],
+                     target="product:%d" % product.id)
 
     return render_template("product.html", product=product)
 
@@ -974,9 +1108,23 @@ def save_phishing_state(state):
 
 
 def start_phishing_scenario(product=None):
-    """Emit PHISHING_EXPOSED once per in-flight scenario."""
+    """Emit PHISHING_EXPOSED once per scenario, and mint at most one run.
+
+    Milestone 4.2: this used to mint a *new* ``scenario_id`` whenever the
+    previous run had reached ``completed``, so a learner who finished the
+    scenario and then refreshed the product page started a fresh run -- and a
+    fresh ``PHISHING_EXPOSED`` -- on every refresh. Twenty refreshes were twenty
+    runs at funnel stage 1 and none beyond it, which drove the conversion rate
+    towards zero without anybody doing anything.
+
+    A session now keeps one phishing run. The only way to start another is for
+    the scenario state to be cleared deliberately (a ``ScenarioStateError``
+    recovery in ``/phishing/consent``), which no passive GET can cause. The
+    repeatable "the learner looked at the lure again" signal is the PAGE_VIEW
+    that ``/product/<id>`` records alongside this call.
+    """
     state = phishing_state()
-    if state["scenario_id"] and stage_index(state["stage"]) < stage_index("completed"):
+    if state["scenario_id"]:
         return state
     result = phishing_scenario().expose(
         session["session_id"], scenario_id=new_scenario_id(),
@@ -1242,10 +1390,23 @@ def instructor_logout():
 
 
 def funnel_event_counts(funnel):
-    """Stage counts for a funnel, read straight from the event table."""
-    return {stage: SecurityEvent.query.filter(
-                SecurityEvent.event_type == event_type).count()
-            for stage, event_type in funnel}
+    """Stage counts for a funnel: **distinct runs** that reached each stage.
+
+    Every funnel stage is a progression milestone, and Milestone 4.2 makes those
+    idempotent at the write path, so counting rows would already be correct. This
+    counts ``DISTINCT (session_id, scenario_id)`` anyway, as defence in depth: a
+    duplicate that reached the table some other way -- an older database, a
+    direct insert, a future code path that forgets the ledger -- still cannot
+    inflate a stage, because the figure is "how many runs got here", not "how
+    many rows exist".
+    """
+    counts = {}
+    for stage, event_type in funnel:
+        counts[stage] = (
+            db.session.query(SecurityEvent.session_id, SecurityEvent.scenario_id)
+            .filter(SecurityEvent.event_type == event_type)
+            .distinct().count())
+    return counts
 
 
 def recent_funnel_activity(funnel, limit=15):
@@ -1255,10 +1416,13 @@ def recent_funnel_activity(funnel, limit=15):
             .filter(SecurityEvent.event_type.in_(wanted))
             .order_by(SecurityEvent.timestamp.desc(), SecurityEvent.id.desc())
             .limit(limit).all())
+    # ``session_label`` is what the template renders. The canonical session id
+    # is deliberately not placed in the template context at all, so it cannot
+    # be printed by accident; correlation still happens on the stored value.
     return [{"stage": STAGE_BY_EVENT.get(row.event_type, row.event_type),
              "details": row.details or row.event_type,
              "timestamp": row.timestamp,
-             "session_id": row.session_id,
+             "session_label": session_label(row.session_id),
              "scenario_id": row.scenario_id}
             for row in rows]
 
@@ -1284,10 +1448,18 @@ def dashboard():
     recent_ransom = recent_funnel_activity(RANSOMWARE_FUNNEL)
     
     # Credential *interactions* -- metadata only. There is no password to show,
-    # because none is ever stored.
-    interactions = (CredentialInteraction.query
+    # because none is ever stored. Reshaped to carry the pseudonymous session
+    # label rather than the raw session id (Milestone 4.2); ``timestamp`` stays
+    # a datetime because the template formats it.
+    interactions = [
+        {"id": row.id, "session_label": session_label(row.session_id),
+         "scenario_id": row.scenario_id,
+         "synthetic_username": row.synthetic_username,
+         "credential_valid": row.credential_valid,
+         "event_type": row.event_type, "timestamp": row.timestamp}
+        for row in (CredentialInteraction.query
                     .order_by(CredentialInteraction.timestamp.desc())
-                    .limit(50).all())
+                    .limit(50).all())]
 
     metrics = {
         'phishing': dict(stage1=phish_stage1, stage2=phish_stage2,
@@ -1338,6 +1510,14 @@ def api_logs():
     anyone who asked. It now returns scenario telemetry only -- event metadata
     that has never contained a credential value -- and requires the instructor
     session.
+
+    **Identifier policy (Milestone 4.2).** This endpoint and ``/sandbox/events``
+    are the *internal evaluation* APIs: they return the canonical
+    ``session_id``/``scenario_id``, because the formal harness joins runs on
+    them and a one-way display label cannot be joined on. Instructor **HTML**
+    (``/dashboard``, ``/deets``) shows the pseudonymous label instead. Both are
+    behind ``@require_instructor``; the distinction is about what ends up on a
+    projected screen, not about who may read the data.
     """
     limit = min(max(request.args.get("limit", 200, type=int), 1), 500)
     rows = (SecurityEvent.query
@@ -1354,16 +1534,24 @@ def deets():
     passwords, across every session) no longer exists. What remains is
     interaction metadata plus the synthetic demo dataset.
     """
-    interactions = (CredentialInteraction.query
-                    .order_by(CredentialInteraction.id.desc()).limit(200).all())
+    rows = (CredentialInteraction.query
+            .order_by(CredentialInteraction.id.desc()).limit(200).all())
+    # Milestone 4.2: instructor HTML shows a stable pseudonymous label, never
+    # the raw session id. The stored identifier is unchanged -- correlation and
+    # the internal evaluation APIs still use it (see ``/api/logs`` below) -- but
+    # a projected page no longer puts a learner's session UUID on a wall.
+    interactions = [dict(row.to_dict(), session_label=session_label(row.session_id))
+                    for row in rows]
+    for row in interactions:
+        row.pop("session_id", None)
     files = list(reversed(ransomware_files()))
     # Instructors may *aggregate* run state; learners never see another row.
     runs = (RansomwareRunState.query
             .order_by(RansomwareRunState.updated_at.desc()).limit(200).all())
-    products = Product.query.order_by(Product.id.desc()).all()
     return render_template("deets.html", interactions=interactions,
-                           files=files, products=products,
-                           ransomware_runs=[r.to_dict() for r in runs])
+                           files=files,
+                           products=Product.query.order_by(Product.id.desc()).all(),
+                           ransomware_runs=[r.display_dict() for r in runs])
 
 @app.route('/resources')
 def resources():

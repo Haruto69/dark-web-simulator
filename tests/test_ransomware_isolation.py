@@ -12,6 +12,7 @@ import pytest
 
 from conftest import csrf_for, login_instructor, ransomware_post
 from sandbox import EventType
+from sandbox.telemetry import drop_scoring_noise
 from sandbox.ransomware_state import (BASELINE_STATUS, IMPACTED_STATUS,
                                       STATE_BASELINE, STATE_IMPACTED)
 
@@ -206,11 +207,17 @@ def test_each_session_keeps_its_own_scenario_correlation(client, other_client):
                               app_module.SecurityEvent.id.asc()).all())
             # Every event of this run belongs to exactly one session.
             assert {r.session_id for r in rows} == {session_id}
-            assert [r.event_type for r in rows] == [
+            # Milestone 4.2: the run's *progression* is the milestone sequence.
+            # Raw PAGE_VIEW telemetry is correlated to the same scenario but is
+            # browsing noise, so it is dropped before the sequence is compared.
+            assert [r.event_type for r in drop_scoring_noise(rows)] == [
                 EventType.RANSOMWARE_LURE_VIEWED,
                 EventType.RANSOMWARE_DOWNLOAD_CLICKED,
                 EventType.RANSOMWARE_TRIGGERED,
                 EventType.RANSOMWARE_DEBRIEFED]
+            # ...and the noise is genuinely there, still scoped to one session.
+            views = [r for r in rows if r.event_type == EventType.PAGE_VIEW]
+            assert views and {r.session_id for r in views} == {session_id}
 
             # And each session's run state row is its own.
             state = (app_module.RansomwareRunState.query

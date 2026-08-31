@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from conftest import csrf_for, ransomware_post
 from sandbox import EventType
+from sandbox.telemetry import drop_scoring_noise
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -106,14 +107,18 @@ def test_manage_py_exposes_the_explicit_commands():
         env={**os.environ, "SIMULATOR_DATABASE_URI": "sqlite:///",
              "INSTRUCTOR_PASSWORD": "unused"})
     assert completed.returncode == 0, completed.stderr
-    for command in ("status", "init", "reset-demo", "drop-legacy", "reset-all"):
+    for command in ("status", "init", "reset-demo", "drop-legacy", "reap-state",
+                    "reset-database", "reset-all"):
         assert command in completed.stdout
 
 
 def test_every_destructive_manage_command_is_confirmation_gated():
     import manage
-    assert set(manage.DESTRUCTIVE) == {"reset-demo", "drop-legacy", "reset-all"}
+    assert set(manage.DESTRUCTIVE) == {"reset-demo", "drop-legacy", "reap-state",
+                                       "reset-database", "reset-all"}
     assert set(manage.DESTRUCTIVE) <= set(manage.COMMANDS)
+    # Every gated command explains what it destroys before it asks.
+    assert set(manage.WARNINGS) == set(manage.DESTRUCTIVE)
     # The read-only commands are deliberately not gated.
     assert "status" not in manage.DESTRUCTIVE and "init" not in manage.DESTRUCTIVE
 
@@ -135,7 +140,9 @@ def test_the_ransomware_debrief_emits_its_declared_event(client):
                 .filter_by(scenario_id=scenario_id)
                 .order_by(app_module.SecurityEvent.timestamp.asc(),
                           app_module.SecurityEvent.id.asc()).all())
-    types = [r.event_type for r in rows]
+    # Milestone 4.2: compare the progression milestones, not the raw stream --
+    # the same query also returns the repeatable PAGE_VIEW telemetry.
+    types = [r.event_type for r in drop_scoring_noise(rows)]
     assert types == [EventType.RANSOMWARE_LURE_VIEWED,
                      EventType.RANSOMWARE_DOWNLOAD_CLICKED,
                      EventType.RANSOMWARE_TRIGGERED,
@@ -229,3 +236,113 @@ def test_the_application_emits_no_deprecation_warnings_during_a_scenario(client,
                     if issubclass(w.category, DeprecationWarning)
                     and "utcnow" in str(w.message)]
     assert deprecations == []
+
+
+# -- Milestone 4.2: the reproducible-experiment reset ------------------------
+
+def test_reset_database_rebuilds_the_schema_and_reseeds_the_baseline(flask_app):
+    """One named command puts the database in a known, reproducible state."""
+    import app as app_module
+    import manage
+
+    with flask_app.app_context():
+        app_module.db.session.add(app_module.SecurityEvent(
+            event_type=EventType.SANDBOX_CREATED, session_id="reset-db-test",
+            source="test"))
+        app_module.db.session.add(app_module.Product(
+            name="pre-reset-row", description="", price=1.0, image=""))
+        app_module.db.session.commit()
+
+    assert manage.main(["reset-database", "--yes"]) == 0
+
+    with flask_app.app_context():
+        tables = set(sqlalchemy.inspect(app_module.db.engine).get_table_names())
+        # The current schema is back...
+        for model in (app_module.Product, app_module.DemoFile,
+                      app_module.CredentialInteraction,
+                      app_module.SecurityEvent,
+                      app_module.RansomwareRunState):
+            assert model.__tablename__ in tables
+        assert "progression_milestone" in tables
+        assert not (tables & set(app_module.LEGACY_TABLES))
+
+        # ...seeded with the synthetic baseline and nothing else.
+        assert app_module.Product.query.count() > 0
+        assert app_module.DemoFile.query.count() > 0
+        assert app_module.Product.query.filter_by(
+            name="pre-reset-row").first() is None
+        # Telemetry has no synthetic baseline: an experiment starts empty.
+        assert app_module.SecurityEvent.query.count() == 0
+        assert app_module.CredentialInteraction.query.count() == 0
+        assert app_module.RansomwareRunState.query.count() == 0
+
+
+def test_reset_database_is_reproducible(flask_app):
+    """Two resets produce the same seed data, which is the point of the command."""
+    import app as app_module
+    import manage
+
+    def snapshot():
+        with flask_app.app_context():
+            return ([(p.name, p.price, p.image) for p in
+                     app_module.Product.query.order_by(
+                         app_module.Product.name).all()],
+                    sorted(f.name for f in app_module.DemoFile.query.all()))
+
+    assert manage.main(["reset-database", "--yes"]) == 0
+    first = snapshot()
+    assert manage.main(["reset-database", "--yes"]) == 0
+    assert snapshot() == first
+
+
+def test_reset_database_aborts_without_confirmation(flask_app, monkeypatch):
+    import app as app_module
+    import manage
+
+    with flask_app.app_context():
+        app_module.db.session.add(app_module.Product(
+            name="survives-abort", description="", price=1.0, image=""))
+        app_module.db.session.commit()
+
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "n")
+    assert manage.main(["reset-database"]) == 1
+
+    with flask_app.app_context():
+        assert app_module.Product.query.filter_by(
+            name="survives-abort").first() is not None
+
+
+def test_reset_all_is_an_alias_for_reset_database():
+    import manage
+    assert manage.COMMANDS["reset-all"] is manage.COMMANDS["reset-database"]
+
+
+def test_every_destructive_command_warns_before_it_asks(flask_app, monkeypatch,
+                                                        capsys):
+    """The prompt must say what is lost, not merely that something is."""
+    import manage
+
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "no")
+    for command in manage.DESTRUCTIVE:
+        assert manage.main([command]) == 1
+        printed = capsys.readouterr().out
+        assert "WARNING" in printed
+        assert manage.WARNINGS[command].split(";")[0][:30] in printed
+
+
+def test_start_up_creates_the_milestone_ledger_without_destroying_anything(flask_app):
+    """Adding the ledger is a new *table*, so an existing database survives."""
+    import app as app_module
+
+    with flask_app.app_context():
+        app_module.db.session.add(app_module.SecurityEvent(
+            event_type=EventType.SANDBOX_CREATED, session_id="ledger-startup",
+            source="test"))
+        app_module.db.session.commit()
+        before = app_module.SecurityEvent.query.count()
+
+        app_module.init_db()
+
+        tables = sqlalchemy.inspect(app_module.db.engine).get_table_names()
+        assert "progression_milestone" in tables
+        assert app_module.SecurityEvent.query.count() == before

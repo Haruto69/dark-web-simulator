@@ -68,3 +68,67 @@ def file_rows(names, state=STATE_BASELINE, remark=None):
         remark = impact_remark(DEFAULT_VARIANT) if impacted else BASELINE_REMARK
     return [{"id": index, "name": name, "status": status, "remark": remark}
             for index, name in enumerate(names, start=1)]
+
+
+# -- stale run-state selection (Milestone 4.2) -------------------------------
+#
+# A ``RansomwareRunState`` row is created the first time a learner triggers the
+# scenario and then persists for ever. Across a conference that is an unbounded
+# accumulation of per-session simulation state -- small, but state nobody ever
+# removes and nobody needs after the session it belongs to has ended.
+#
+# The selection rule lives here, as a pure function over ``updated_at``, so it
+# can be tested without a database and so the Flask layer has nothing to decide.
+# Two properties matter and are asserted by the tests:
+#
+#   * a row whose ``updated_at`` is unknown is **never** selected. An unreadable
+#     age means "leave it alone", never "assume it is old".
+#   * selection is by age only. There is no session, scenario or id parameter,
+#     so no request input can be used to pick a victim row. Reaping is explicit
+#     maintenance (``python manage.py reap-state``), not something a request can
+#     ask for.
+
+#: Default staleness threshold: a day, comfortably longer than any single
+#: classroom session, so a same-day run is never a candidate.
+DEFAULT_MAX_AGE_SECONDS = 86400
+
+#: Floor beneath which the reaper refuses to operate, so a mistyped threshold
+#: cannot clear the state of a class that is mid-exercise.
+MIN_MAX_AGE_SECONDS = 60
+
+
+def age_seconds(updated_at, now=None):
+    """Age of a run-state row in seconds, or ``None`` when it has no timestamp."""
+    if updated_at is None:
+        return None
+    return ((now or utcnow()) - updated_at).total_seconds()
+
+
+def is_stale(updated_at, max_age_seconds, now=None):
+    """True when a row is at least ``max_age_seconds`` old.
+
+    The boundary is inclusive: a row exactly at the threshold is stale, which
+    makes the behaviour deterministic rather than dependent on clock jitter.
+    """
+    age = age_seconds(updated_at, now)
+    return age is not None and age >= float(max_age_seconds)
+
+
+def select_stale(rows, max_age_seconds, now=None):
+    """The subset of ``rows`` that is stale, as ``(row, age_seconds)`` pairs.
+
+    ``rows`` is any iterable of objects carrying ``updated_at``; nothing here
+    knows about SQLAlchemy. Raises ``ValueError`` for a threshold below
+    ``MIN_MAX_AGE_SECONDS`` rather than quietly widening the selection.
+    """
+    max_age_seconds = float(max_age_seconds)
+    if max_age_seconds < MIN_MAX_AGE_SECONDS:
+        raise ValueError("max_age_seconds must be at least %d"
+                         % MIN_MAX_AGE_SECONDS)
+    now = now or utcnow()
+    selected = []
+    for row in rows:
+        age = age_seconds(getattr(row, "updated_at", None), now)
+        if age is not None and age >= max_age_seconds:
+            selected.append((row, age))
+    return selected

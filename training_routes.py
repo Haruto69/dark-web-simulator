@@ -20,6 +20,13 @@ the real contained sandbox as its consequence environment:
     /training/ransomware/outcome       the factual consequence, then rewind
     /training/ransomware/result        the executed side-by-side comparison
 
+Milestone R5 adds two more, whose consequence environment is a deterministic
+in-memory state machine rather than the contained sandbox, so they need no
+Docker. Their routes are registered from ``training_flow``:
+
+    /training/mfa      ... /start /prompt /decision /outcome /rewind /result
+    /training/bec      ... /start /inbox  /decision /outcome /rewind /result
+
 Design rules this module holds to:
 
 **The runtime does the work.** The comparison is produced by
@@ -67,7 +74,16 @@ from scenario_adapters.ransomware import (IMPACT_PROGRESSION,
                                           RANSOMWARE_SCENARIO,
                                           REQUIRED_BACKEND,
                                           RansomwareConsequenceAdapter)
+from scenario_adapters.bec import (BEC_DECISION_ID, BEC_SCENARIO,
+                                   ORG_NAME as BEC_ORG_NAME,
+                                   SUPPLIER_NAME, SYNTHETIC_CURRENCY,
+                                   SYNTHETIC_INVOICE_AMOUNT,
+                                   SYNTHETIC_INVOICE_ID,
+                                   BecConsequenceAdapter)
+from scenario_adapters.mfa import (MFA_DECISION_ID, MFA_SCENARIO,
+                                   MfaConsequenceAdapter)
 from training.snapshots import StateSnapshot
+from training_flow import SyntheticModule, register_synthetic_module
 from training_service import TrainingExecutionError, TrainingPersistenceError
 
 import json
@@ -103,6 +119,54 @@ ORG = {
     "lure_sender": "no-reply@northgate-secure-verify.lab",
     "lure_domain": "northgate-secure-verify.lab",
     "lure_host": "northgate-secure-verify.lab",
+}
+
+#: The fictional identity service the MFA module is set in. Invented, with a
+#: ``.lab`` domain that resolves nowhere: no real vendor's product, branding or
+#: interface is reproduced.
+MFA_CONTEXT = {
+    "identity_service": "Northgate Identity",
+    "identity_domain": "northgate-identity.lab",
+    # Fixed authored sign-in details. Not a real device, not a real address,
+    # and never derived from the learner's browser or connection.
+    "signin": {
+        "application": "Northgate Staff Portal",
+        "requested_at": "02:14",
+        "device": "Windows desktop — unrecognised",
+        "location": "Ostrava, Czechia",
+        "usual_location": "Sheffield, United Kingdom",
+        "request_code": "48",
+    },
+    # The urgent accompanying message. Authored fixture, never generated text.
+    "urgent_message": {
+        "sender": "IT Support",
+        "channel": "chat message",
+        "body": "Hi — we're finishing an overnight mailbox migration on "
+                "your account and the system keeps asking for approval. "
+                "Please approve the prompt on your phone so it completes "
+                "before the maintenance window closes. Sorry for the hour.",
+    },
+}
+
+#: The fictional supplier request the BEC module is set in. Every organisation,
+#: reference and figure here is invented; there is no real company, no real
+#: bank detail and no real person.
+BEC_CONTEXT = {
+    "org_name": BEC_ORG_NAME,
+    "supplier": SUPPLIER_NAME,
+    "invoice": {
+        "reference": SYNTHETIC_INVOICE_ID,
+        "amount": SYNTHETIC_INVOICE_AMOUNT,
+        "amount_display": "{:,}".format(SYNTHETIC_INVOICE_AMOUNT),
+        "currency": SYNTHETIC_CURRENCY,
+        "due": "overdue by 4 days",
+    },
+    "email": {
+        "display_sender": "Rachel Ntembe, Accounts — %s" % SUPPLIER_NAME,
+        "address": "accounts@asterline-officesupplies.lab",
+        "subject": "Updated remittance details — %s (overdue)"
+                   % SYNTHETIC_INVOICE_ID,
+    },
 }
 
 #: Deterministic, fixed evidence shown for each branch on the outcome page.
@@ -909,5 +973,41 @@ def create_training_blueprint(db, TrainingExecution, identities, service,
                 counterfactual_state, vocabulary=RANSOMWARE_VOCABULARY),
             difference_lines=describe_difference(
                 difference, vocabulary=RANSOMWARE_VOCABULARY))
+
+    # ======================================================================
+    # MFA Fatigue and Business Email Compromise (milestone R5)
+    #
+    # Two scenarios whose security consequence is account and payment workflow
+    # state rather than filesystem impact, so their consequence environment is
+    # a deterministic in-memory state machine. They run with no Docker daemon
+    # and are deliberately not routed through SandboxManager: there is no
+    # container to contain, because there is nothing to contain.
+    #
+    # Both flows are registered from the shared R5 helper, which reproduces the
+    # R4 factual-preview integrity model exactly (see ``training_flow``).
+    # ======================================================================
+    register_synthetic_module(
+        bp,
+        SyntheticModule(
+            "mfa", MFA_SCENARIO, MFA_DECISION_ID, MfaConsequenceAdapter,
+            prompt_route="prompt",
+            templates={"brief": "training_mfa_brief.html",
+                       "prompt": "training_mfa_prompt.html",
+                       "outcome": "training_mfa_outcome.html",
+                       "result": "training_mfa_result.html"},
+            context=MFA_CONTEXT),
+        TrainingExecution, service, _session_id)
+
+    register_synthetic_module(
+        bp,
+        SyntheticModule(
+            "bec", BEC_SCENARIO, BEC_DECISION_ID, BecConsequenceAdapter,
+            prompt_route="inbox",
+            templates={"brief": "training_bec_brief.html",
+                       "prompt": "training_bec_inbox.html",
+                       "outcome": "training_bec_outcome.html",
+                       "result": "training_bec_result.html"},
+            context=BEC_CONTEXT),
+        TrainingExecution, service, _session_id)
 
     return bp

@@ -1,0 +1,32 @@
+{% extends "training_base.html" %}
+{% block title %}MFA Fatigue — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>MFA Fatigue</h1>
+  <p class="rs-lead">Before you start, four things about how this works.</p>
+  <ul>
+    <li>You are looking at a synthetic account on an invented identity service,
+      {{ identity_service }}. Nothing here belongs to a real provider.</li>
+    <li>The exercise begins the moment an approval request you were not
+      expecting arrives.</li>
+    <li>Your response is carried out against a synthetic account state, and
+      you will see exactly what it produced.</li>
+    <li>Afterwards the account is returned to the identical starting state, a
+      different response is carried out, and the two are compared.</li>
+  </ul>
+  <div class="rs-note">
+    <p>No identity provider is contacted, no real approval is issued and no
+    account of yours is involved. The approval and the access that follows it
+    are local synthetic state changes.</p>
+  </div>
+  <form method="post" action="{{ url_for('training.mfa_start') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="rs-actions">
+      <button class="rs-btn" type="submit">{% if started %}Start again{% else %}Start the scenario{% endif %}</button>
+      {% if started %}
+      <a class="rs-btn secondary" href="{{ url_for('training.mfa_prompt') }}">Continue where I left off</a>
+      {% endif %}
+    </div>
+  </form>
+</section>
+{% endblock %}

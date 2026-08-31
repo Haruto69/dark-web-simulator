@@ -1,0 +1,33 @@
+{% extends "training_base.html" %}
+{% block title %}Business Email Compromise — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>Business Email Compromise</h1>
+  <p class="rs-lead">Before you start, four things about how this works.</p>
+  <ul>
+    <li>You are handling accounts payable for {{ org_name }}, an invented
+      organisation, and {{ supplier }} is an invented supplier.</li>
+    <li>The exercise begins with one outstanding invoice and a request to
+      change where it is paid.</li>
+    <li>Your response is carried out against a synthetic payment workflow, and
+      you will see exactly what it produced.</li>
+    <li>Afterwards the request is returned to the identical starting state, a
+      different response is carried out, and the two are compared.</li>
+  </ul>
+  <div class="rs-note">
+    <p>There is no payment system behind this exercise. The invoice, the
+    amount and any loss are authored scenario values held in memory; RewindSec
+    does not initiate or simulate a networked financial transaction, and you
+    are never asked for a real bank detail.</p>
+  </div>
+  <form method="post" action="{{ url_for('training.bec_start') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="rs-actions">
+      <button class="rs-btn" type="submit">{% if started %}Start again{% else %}Start the scenario{% endif %}</button>
+      {% if started %}
+      <a class="rs-btn secondary" href="{{ url_for('training.bec_inbox') }}">Continue where I left off</a>
+      {% endif %}
+    </div>
+  </form>
+</section>
+{% endblock %}

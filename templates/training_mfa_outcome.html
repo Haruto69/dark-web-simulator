@@ -1,0 +1,41 @@
+{% extends "training_base.html" %}
+{% block title %}What happened — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>What your response produced</h1>
+  <p class="rs-meta">Your response</p>
+  <p class="rs-decision">{{ factual_label }}</p>
+  <p class="rs-meta">Resulting account state</p>
+  <ul class="rs-outcomes">
+    {% for line in state_lines %}
+    <li class="{{ 'notable' if line.notable }}">{{ line.text }}</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="rs-card">
+  <h2>Rewind and compare another response</h2>
+  <p class="rs-lead">The account will be returned to exactly the state it was
+  in when the request arrived, and a different response will be carried out
+  from there. Both outcomes are executed; neither is a guess.</p>
+  {% if error %}<p class="rs-error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('training.mfa_rewind') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset>
+      <legend>Response to compare against “{{ factual_label }}”</legend>
+      {% for choice in alternatives %}
+      <label class="rs-choice" for="alt-{{ choice.choice_id }}">
+        <input type="radio" id="alt-{{ choice.choice_id }}" name="choice_id"
+               value="{{ choice.choice_id }}" required>
+        <strong>{{ choice.label }}</strong>
+        <span class="rs-choice-desc">{{ choice.description }}</span>
+      </label>
+      {% endfor %}
+    </fieldset>
+    {% with confidence_label = "How confident are you in that alternative?" %}
+      {% include "_training_confidence.html" %}
+    {% endwith %}
+    <button class="rs-btn" type="submit">Rewind and run the comparison</button>
+  </form>
+</section>
+{% endblock %}

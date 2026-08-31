@@ -1,0 +1,74 @@
+{% extends "training_base.html" %}
+{% block title %}Accounts inbox — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>Your accounts inbox</h1>
+  <p class="rs-lead">One message on an invoice that is already overdue. Read
+  it, then decide what you would actually do.</p>
+
+  <article class="rs-message">
+    <div class="rs-message-head">
+      <dl>
+        <dt>From</dt><dd>{{ email.display_sender }} &lt;{{ email.address }}&gt;</dd>
+        <dt>To</dt><dd>Accounts Payable, {{ org_name }}</dd>
+        <dt>Subject</dt><dd><strong>{{ email.subject }}</strong></dd>
+      </dl>
+    </div>
+    <div class="rs-message-body">
+      <p>Hello,</p>
+      <p>Following an audit our finance operations have moved to a new banking
+      provider, so payments can no longer be received on the account you hold
+      for us. Please update our remittance details before settling
+      <strong>{{ invoice.reference }}</strong>.</p>
+      <p>The invoice is <strong>{{ invoice.due }}</strong> and our credit
+      control system will suspend your account at the end of the week, which
+      would hold your outstanding orders.</p>
+      <p>Our new account details are attached to this thread. Please confirm
+      once the transfer has been released today.</p>
+      <p>Kind regards,<br>{{ email.display_sender }}</p>
+    </div>
+  </article>
+
+  <div class="rs-note">
+    <h2>The invoice on file</h2>
+    <dl class="rs-authenticator-details">
+      <dt>Reference</dt><dd>{{ invoice.reference }}</dd>
+      <dt>Supplier</dt><dd>{{ supplier }}</dd>
+      <dt>Amount</dt><dd>{{ invoice.currency }} {{ invoice.amount_display }}</dd>
+      <dt>Status</dt><dd>Unpaid, {{ invoice.due }}</dd>
+      <dt>Requested change</dt><dd>Pay to a different account</dd>
+    </dl>
+    <p class="rs-meta">These values are fixed scenario fixtures. Nothing on
+    this page accepts an amount, an account or a destination from you.</p>
+  </div>
+
+  <ul class="rs-outcomes">
+    {% for line in state_lines %}
+    <li class="{{ 'notable' if line.notable }}">{{ line.text }}</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="rs-card">
+  <h2>What do you do?</h2>
+  {% if error %}<p class="rs-error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('training.bec_decision') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset>
+      <legend>Your response</legend>
+      {% for choice in choices %}
+      <label class="rs-choice" for="choice-{{ choice.choice_id }}">
+        <input type="radio" id="choice-{{ choice.choice_id }}" name="choice_id"
+               value="{{ choice.choice_id }}" required>
+        <strong>{{ choice.label }}</strong>
+        <span class="rs-choice-desc">{{ choice.description }}</span>
+      </label>
+      {% endfor %}
+    </fieldset>
+    {% with confidence_label = "How confident are you in that response?" %}
+      {% include "_training_confidence.html" %}
+    {% endwith %}
+    <button class="rs-btn" type="submit">Submit response</button>
+  </form>
+</section>
+{% endblock %}

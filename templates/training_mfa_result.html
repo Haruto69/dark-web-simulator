@@ -1,0 +1,17 @@
+{% extends "training_base.html" %}
+{% block title %}Comparison — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>Two responses, one starting point</h1>
+  <p class="rs-lead">Both responses were carried out against the same synthetic
+  account, starting from the same pending approval request. The state was
+  rewound between them and its fingerprint checked before the second one ran.</p>
+  {% if row.baseline_verified %}
+  <p class="rs-verified">✓ Verified: the rewind restored the identical starting
+  state, so the only difference between these two paths is the response.</p>
+  {% endif %}
+</section>
+{% with restart_url = url_for('training.mfa_start') %}
+  {% include "_training_result_body.html" %}
+{% endwith %}
+{% endblock %}

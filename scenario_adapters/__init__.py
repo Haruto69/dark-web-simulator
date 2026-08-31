@@ -19,6 +19,10 @@ What is here:
 ``ransomware``    the ``ransomware_incident_response`` scenario definition and
                   the adapter that enacts it against the real contained
                   sandbox through ``SandboxManager``.
+``mfa``           the ``mfa_fatigue_response`` scenario definition and its
+                  deterministic in-memory consequence adapter (R5).
+``bec``           the ``business_email_compromise`` scenario definition and its
+                  deterministic in-memory consequence adapter (R5).
 ``presentation``  an allow-listed, deterministic mapping from state keys and
                   state changes to learner-readable sentences. No LLM, no
                   generated prose, no raw JSON shown to a learner.
@@ -35,9 +39,20 @@ from .ransomware import (IMPACT_PROGRESSION, INITIAL_IMPACT,
                          RANSOMWARE_SCENARIO_KEY, RANSOMWARE_SCENARIO_VERSION,
                          RansomwareConsequenceAdapter, ransomware_choices,
                          ransomware_choice_labels)
-from .presentation import (CHOICE_LABEL_SOURCES, RANSOMWARE_VOCABULARY,
-                           choice_labels_for, describe_difference,
-                           describe_state, label_for_choice)
+from .bec import (BEC_ACTIONS, BEC_BASELINE_STATE, BEC_CHOICE_IDS,
+                  BEC_DECISION_ID, BEC_SCENARIO, BEC_SCENARIO_KEY,
+                  BEC_SCENARIO_VERSION, SYNTHETIC_INVOICE_AMOUNT,
+                  SYNTHETIC_INVOICE_ID, BecConsequenceAdapter, bec_choices,
+                  bec_choice_labels)
+from .mfa import (MFA_ACTIONS, MFA_BASELINE_STATE, MFA_CHOICE_IDS,
+                  MFA_DECISION_ID, MFA_SCENARIO, MFA_SCENARIO_KEY,
+                  MFA_SCENARIO_VERSION, MfaConsequenceAdapter, mfa_choices,
+                  mfa_choice_labels)
+from .presentation import (BEC_VOCABULARY, CHOICE_LABEL_SOURCES,
+                           MFA_VOCABULARY, RANSOMWARE_VOCABULARY,
+                           STATE_VOCABULARIES, choice_labels_for,
+                           describe_difference, describe_state,
+                           label_for_choice, vocabulary_for)
 
 __all__ = [
     "PHISHING_ACTIONS", "PHISHING_BASELINE_STATE", "PHISHING_DECISION_ID",
@@ -51,4 +66,13 @@ __all__ = [
     "RANSOMWARE_VOCABULARY", "RansomwareConsequenceAdapter",
     "ransomware_choices", "ransomware_choice_labels",
     "CHOICE_LABEL_SOURCES", "choice_labels_for",
+    "MFA_ACTIONS", "MFA_BASELINE_STATE", "MFA_CHOICE_IDS", "MFA_DECISION_ID",
+    "MFA_SCENARIO", "MFA_SCENARIO_KEY", "MFA_SCENARIO_VERSION",
+    "MFA_VOCABULARY", "MfaConsequenceAdapter", "mfa_choices",
+    "mfa_choice_labels",
+    "BEC_ACTIONS", "BEC_BASELINE_STATE", "BEC_CHOICE_IDS", "BEC_DECISION_ID",
+    "BEC_SCENARIO", "BEC_SCENARIO_KEY", "BEC_SCENARIO_VERSION",
+    "BEC_VOCABULARY", "BecConsequenceAdapter", "bec_choices",
+    "bec_choice_labels", "SYNTHETIC_INVOICE_ID", "SYNTHETIC_INVOICE_AMOUNT",
+    "STATE_VOCABULARIES", "vocabulary_for",
 ]

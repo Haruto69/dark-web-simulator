@@ -1,0 +1,22 @@
+{% extends "training_base.html" %}
+{% block title %}Comparison — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>Two responses, one starting point</h1>
+  <p class="rs-lead">Both responses were carried out against the same synthetic
+  payment request, starting from the same unpaid invoice. The state was rewound
+  between them and its fingerprint checked before the second one ran.</p>
+  {% if row.baseline_verified %}
+  <p class="rs-verified">✓ Verified: the rewind restored the identical starting
+  state, so the only difference between these two paths is the response.</p>
+  {% endif %}
+</section>
+{% with restart_url = url_for('training.bec_start') %}
+  {% include "_training_result_body.html" %}
+{% endwith %}
+<section class="rs-card">
+  <p class="rs-meta">The invoice, the amount and any loss shown here are
+  authored synthetic scenario values. RewindSec does not initiate or simulate a
+  networked financial transaction.</p>
+</section>
+{% endblock %}

@@ -17,6 +17,10 @@ tables; ``describe_state`` and ``describe_difference`` default to the phishing
 one, so every existing call site behaves exactly as before.
 """
 
+from .bec import (BEC_SCENARIO_KEY, SYNTHETIC_CURRENCY,
+                  SYNTHETIC_INVOICE_ID, bec_choice_labels)
+from .mfa import (MFA_SCENARIO_KEY, VERIFICATION_OUTCOME as
+                  MFA_VERIFICATION_OUTCOME, mfa_choice_labels)
 from .phishing import PHISHING_SCENARIO_KEY, choice_labels
 from .ransomware import (IMPACT_PROGRESSION, RANSOMWARE_SCENARIO_KEY,
                          ransomware_choice_labels)
@@ -234,6 +238,8 @@ def describe_difference(difference, resources=None, vocabulary=None):
 CHOICE_LABEL_SOURCES = {
     PHISHING_SCENARIO_KEY: choice_labels,
     RANSOMWARE_SCENARIO_KEY: ransomware_choice_labels,
+    MFA_SCENARIO_KEY: mfa_choice_labels,
+    BEC_SCENARIO_KEY: bec_choice_labels,
 }
 
 
@@ -347,3 +353,160 @@ def label_for_choice(scenario_key, choice_id):
     choices. It never searches another scenario's vocabulary.
     """
     return choice_labels_for(scenario_key).get(choice_id, choice_id or "")
+
+
+# -- the MFA fatigue vocabulary (R5) ----------------------------------------
+MFA_STATE_SENTENCES = {
+    "mfa.approved": {
+        True: "The sign-in request was approved",
+        False: "The sign-in request was not approved",
+    },
+    "mfa.denied": {
+        True: "The sign-in request was denied",
+        False: "The sign-in request was not denied",
+    },
+    "mfa.request_pending": {
+        True: "The request was left pending",
+        False: "The request is no longer pending",
+    },
+    "evidence.details_reviewed": {
+        True: "The sign-in details were reviewed before responding",
+        False: "The sign-in details were never reviewed",
+    },
+    "evidence.unexpected_device_visible": {
+        True: "The request came from a device and location you did not "
+              "recognise",
+        False: "The device and location behind the request were never seen",
+    },
+    "evidence.verified_out_of_band": {
+        True: "The request was checked through a known support channel",
+        False: "The request was never checked through a known support channel",
+    },
+    "evidence.verification_outcome": {
+        MFA_VERIFICATION_OUTCOME: "The support channel confirmed nobody had "
+                                  "asked for that sign-in",
+        None: "No independent verification result was obtained",
+    },
+    "account.synthetic_session_created": {
+        True: "A synthetic signed-in session was created",
+        False: "No session was created",
+    },
+    "resource.accessed": {
+        True: "A synthetic internal resource was accessed",
+        False: "Internal resources were not reached",
+    },
+    "incident.reported": {
+        True: "The incident was reported to the security team",
+        False: "The incident was not reported",
+    },
+}
+
+MFA_DISPLAY_ORDER = (
+    "mfa.approved",
+    "mfa.denied",
+    "mfa.request_pending",
+    "account.synthetic_session_created",
+    "resource.accessed",
+    "evidence.details_reviewed",
+    "evidence.unexpected_device_visible",
+    "evidence.verified_out_of_band",
+    "evidence.verification_outcome",
+    "incident.reported",
+)
+
+#: Every MFA reading is worth showing in both directions: "no session was
+#: created" is exactly as informative as its opposite.
+MFA_NEGATIVE_WORTH_SHOWING = frozenset(MFA_DISPLAY_ORDER)
+
+MFA_VOCABULARY = Vocabulary(MFA_STATE_SENTENCES, MFA_DISPLAY_ORDER,
+                            MFA_NEGATIVE_WORTH_SHOWING)
+
+
+# -- the business email compromise vocabulary (R5) --------------------------
+def _synthetic_loss(value):
+    """Render the authored synthetic loss figure.
+
+    The number comes from the stored scenario state, which only ever holds
+    either zero or the module-level authored invoice amount. It is never a
+    figure a learner submitted.
+    """
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("synthetic loss must be a non-negative integer")
+    if value == 0:
+        return "No synthetic loss was recorded"
+    return ("Synthetic loss recorded: %s %s (invoice %s)"
+            % (SYNTHETIC_CURRENCY, "{:,}".format(value), SYNTHETIC_INVOICE_ID))
+
+
+BEC_STATE_SENTENCES = {
+    "payment.authorized": {
+        True: "The payment was released to the changed account details",
+        False: "The payment was not released",
+    },
+    "message.request_received": {
+        True: "A request to change the supplier's payment details was received",
+        False: "No payment-change request was received",
+    },
+    "message.replied_to_unverified_thread": {
+        True: "You replied in the same email thread the request arrived in",
+        False: "The request thread was not replied to",
+    },
+    "verification.known_contact_used": {
+        True: "The supplier was contacted on the details already held for them",
+        False: "The supplier was never contacted independently",
+    },
+    "verification.change_confirmed": {
+        True: "The supplier confirmed the change was genuine",
+        False: "The supplier confirmed they had not requested any change",
+        None: "The requested change was never confirmed either way",
+    },
+    "incident.finance_escalated": {
+        True: "The request was escalated to Finance and the payment held",
+        False: "Finance was not told about the request",
+    },
+    "incident.security_reported": {
+        True: "The request was reported to the security team",
+        False: "The request was not reported to the security team",
+    },
+}
+
+BEC_FORMATTERS = {"payment.synthetic_loss": _synthetic_loss}
+
+BEC_DISPLAY_ORDER = (
+    "payment.authorized",
+    "payment.synthetic_loss",
+    "verification.known_contact_used",
+    "verification.change_confirmed",
+    "message.replied_to_unverified_thread",
+    "incident.finance_escalated",
+    "incident.security_reported",
+)
+
+BEC_NEGATIVE_WORTH_SHOWING = frozenset(BEC_DISPLAY_ORDER)
+
+BEC_VOCABULARY = Vocabulary(BEC_STATE_SENTENCES, BEC_DISPLAY_ORDER,
+                            BEC_NEGATIVE_WORTH_SHOWING, BEC_FORMATTERS)
+
+
+#: ``scenario_key -> Vocabulary``. State rendering is scenario-scoped for the
+#: same reason label resolution is: a pointer such as ``incident.reported``
+#: means one thing in one scenario's authored vocabulary and may mean nothing
+#: at all in another's. Resolution never falls through to a different scenario.
+STATE_VOCABULARIES = {
+    PHISHING_SCENARIO_KEY: PHISHING_VOCABULARY,
+    RANSOMWARE_SCENARIO_KEY: RANSOMWARE_VOCABULARY,
+    MFA_SCENARIO_KEY: MFA_VOCABULARY,
+    BEC_SCENARIO_KEY: BEC_VOCABULARY,
+}
+
+#: An unknown scenario renders nothing rather than borrowing a vocabulary.
+EMPTY_VOCABULARY = Vocabulary({}, ())
+
+
+def vocabulary_for(scenario_key):
+    """The state-rendering vocabulary registered for one scenario.
+
+    An unrecognised scenario key resolves to :data:`EMPTY_VOCABULARY`, which
+    describes no pointer at all, rather than to another scenario's tables.
+    """
+    return STATE_VOCABULARIES.get(scenario_key, EMPTY_VOCABULARY)

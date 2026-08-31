@@ -1,0 +1,25 @@
+{# Confidence slider with a live numeric readout.
+
+   Included by the R5 modules. The readout is display only: the submitted value
+   is still validated server-side as an integer 0..100, so nothing here is
+   trusted. #}
+<div class="rs-field">
+  <label for="confidence">{{ confidence_label }}</label>
+  <input type="range" id="confidence" name="confidence" min="0" max="100"
+         step="1" value="50" aria-describedby="confidence-scale">
+  <div class="rs-scale" id="confidence-scale">
+    <span>0 — not at all</span><span>100 — certain</span>
+  </div>
+  <p class="rs-meta">Confidence:
+    <output id="confidence-readout" for="confidence">50</output>%</p>
+</div>
+<script>
+  (function () {
+    var slider = document.getElementById('confidence');
+    var readout = document.getElementById('confidence-readout');
+    if (!slider || !readout) { return; }
+    var show = function () { readout.textContent = slider.value; };
+    slider.addEventListener('input', show);
+    show();
+  })();
+</script>

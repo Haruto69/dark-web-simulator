@@ -32,5 +32,21 @@
     sandbox. It is not offered on a reduced-isolation fallback.</p>
     {% endif %}
   </li>
+  <li class="rs-module">
+    <span class="rs-tag">Available</span>
+    <h3><a href="{{ url_for('training.mfa_brief') }}">MFA Fatigue</a></h3>
+    <p>An approval request you did not ask for keeps arriving, with someone
+    urging you to accept it. Decide how to respond, then compare that response
+    against one you did not take.</p>
+    <p><a class="rs-btn" href="{{ url_for('training.mfa_brief') }}">Open module</a></p>
+  </li>
+  <li class="rs-module">
+    <span class="rs-tag">Available</span>
+    <h3><a href="{{ url_for('training.bec_brief') }}">Business Email Compromise</a></h3>
+    <p>A supplier asks for an overdue invoice to be paid to a different
+    account, urgently. Decide how to respond, then compare that response
+    against one you did not take.</p>
+    <p><a class="rs-btn" href="{{ url_for('training.bec_brief') }}">Open module</a></p>
+  </li>
 </ul>
 {% endblock %}

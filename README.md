@@ -38,7 +38,7 @@ to a new situation.
 
 ## End-to-end scenarios
 
-**RewindSec now has two end-to-end scenarios**, both running the complete loop
+**RewindSec now has four end-to-end scenarios**, all running the complete loop
 in the browser at `/training` — decision, real consequence, verified rewind,
 alternative decision, side-by-side comparison — on the R1 runtime and the R2
 persistence and telemetry.
@@ -51,6 +51,13 @@ persistence and telemetry.
   same verified starting point. It requires the contained Docker backend and
   reports itself unavailable rather than falling back to reduced isolation. See
   [`docs/ransomware-scenario.md`](docs/ransomware-scenario.md).
+- **MFA Fatigue** — an unexpected approval request and an urgent message
+  insisting it be accepted, against deterministic synthetic authentication
+  state. No Docker required. See [`docs/mfa-scenario.md`](docs/mfa-scenario.md).
+- **Business Email Compromise** — a supplier asks for an overdue invoice to be
+  paid to different bank details, against a deterministic synthetic payment
+  workflow. No payment system is contacted and no Docker is required. See
+  [`docs/bec-scenario.md`](docs/bec-scenario.md).
 
 The legacy marketplace, `/ransomware/*` and `/phishing/*` flows are unchanged.
 

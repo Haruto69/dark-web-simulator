@@ -1687,9 +1687,23 @@ def api_logs():
     (``/dashboard``, ``/deets``) shows the pseudonymous label instead. Both are
     behind ``@require_instructor``; the distinction is about what ends up on a
     projected screen, not about who may read the data.
+
+    Query parameters: ``limit`` (1..500, default 200) and an optional
+    ``session_id`` exact-equality filter on the canonical identifier.
     """
     limit = min(max(request.args.get("limit", 200, type=int), 1), 500)
-    rows = (SecurityEvent.query
+    query = SecurityEvent.query
+    # Optional exact-equality filter on the canonical id, mirroring the one
+    # ``/sandbox/events`` already exposes. Without it, asking for one learner's
+    # rows means paging a *global* newest-first window that unrelated volume can
+    # push them out of -- which is a property of how much other telemetry
+    # exists, not of that learner. Read-only, instructor-only, and canonical
+    # ids only: a pseudonymous label is a printed nickname and is never accepted
+    # as a lookup key here. Absent the parameter, behaviour is unchanged.
+    session_filter = request.args.get("session_id")
+    if session_filter:
+        query = query.filter(SecurityEvent.session_id == session_filter)
+    rows = (query
             .order_by(SecurityEvent.timestamp.desc(), SecurityEvent.id.desc())
             .limit(limit).all())
     return jsonify([row.to_dict() for row in rows])

@@ -15,6 +15,7 @@ import pytest
 
 from conftest import login_instructor, ransomware_post
 from sandbox.pseudonym import ABSENT, DEFAULT_LENGTH, session_label, short_id
+from sandbox.timeutil import utcnow
 
 SESSION_A = "9d5a3f1e-0b2c-4d6e-8f70-112233445566"
 SESSION_B = "1a2b3c4d-5e6f-4708-9a0b-ffeeddccbbaa"
@@ -157,23 +158,128 @@ def test_the_stored_correlation_identifier_is_untouched(flask_app,
             session_id=session_id).first() is not None
 
 
-@pytest.mark.parametrize("path", ["/api/logs?limit=500",
-                                  "/sandbox/events?limit=500"])
+#: The internal evaluation APIs, each with its exact-equality ``session_id``
+#: filter. Asking for one learner by canonical id is the operation the formal
+#: harness actually performs; paging a *global* window and hoping the learner
+#: falls inside it tests how much unrelated telemetry exists, not whether
+#: canonical ids are returned.
+EVALUATION_APIS = ["/api/logs", "/sandbox/events"]
+
+
+def rows_of(response):
+    """The event rows from either API's response shape."""
+    payload = response.get_json()
+    return payload["events"] if isinstance(payload, dict) else payload
+
+
+def fetch(instructor, path, session_id, limit=500):
+    return instructor.get("%s?session_id=%s&limit=%d"
+                          % (path, session_id, limit))
+
+
+@pytest.mark.parametrize("path", EVALUATION_APIS)
 def test_the_internal_evaluation_apis_still_return_canonical_ids(
         flask_app, learner_with_history, path):
     """The formal harness joins runs on the real id; a one-way label cannot."""
     _learner, session_id = learner_with_history
     instructor = login_instructor(flask_app.test_client())
 
-    payload = instructor.get(path).get_json()
-    rows = payload["events"] if isinstance(payload, dict) else payload
-    assert any(row["session_id"] == session_id for row in rows)
+    response = fetch(instructor, path, session_id)
+    assert response.status_code == 200
+    rows = rows_of(response)
+    assert rows, "the learner's own telemetry must be retrievable by their id"
+    # Every returned row is this learner's, and carries the canonical id --
+    # not a label, not a truncation, not a digest.
+    for row in rows:
+        assert row["session_id"] == session_id
+    assert short_id(session_id) not in str(rows)
+
+
+@pytest.mark.parametrize("path", EVALUATION_APIS)
+def test_internal_evaluation_api_session_filter_is_not_volume_sensitive(
+        flask_app, learner_with_history, path):
+    """Unrelated telemetry volume must not hide a learner from the harness.
+
+    Regression guard. Both endpoints page a bounded window (max 500 rows), so
+    an unfiltered query answers "is this learner inside the newest 500 rows of
+    the whole database" -- which other tests, and real classroom use, can
+    falsify at any time. Filtering by canonical id answers the question the
+    invariant is actually about.
+    """
+    import app as app_module
+
+    _learner, session_id = learner_with_history
+    instructor = login_instructor(flask_app.test_client())
+    before = rows_of(fetch(instructor, path, session_id))
+    assert before
+
+    # Bury the learner under more unrelated rows than either window holds. One
+    # bulk insert and one commit, so the guard costs milliseconds.
+    with flask_app.app_context():
+        app_module.db.session.bulk_save_objects([
+            app_module.SecurityEvent(
+                session_id="volume-noise-%04d" % index,
+                scenario_id="volume-noise",
+                event_type="SCENARIO_STARTED",
+                source="tests:volume",
+                timestamp=utcnow())
+            for index in range(600)])
+        app_module.db.session.commit()
+
+    after = rows_of(fetch(instructor, path, session_id))
+    assert [row["id"] for row in after] == [row["id"] for row in before]
+    for row in after:
+        assert row["session_id"] == session_id
+
+    # And the noise really was large enough to matter: an unfiltered request
+    # now saturates the window cap, so which sessions land inside it is a
+    # property of insertion order and total volume rather than of this
+    # learner. (The two endpoints order oppositely -- ``/api/logs`` newest
+    # first, ``/sandbox/events`` oldest first -- so no assertion is made about
+    # *which* rows fill it. That ordering dependence is precisely what the
+    # filter removes.)
+    unfiltered = rows_of(instructor.get("%s?limit=500" % path))
+    assert len(unfiltered) == 500
+    with flask_app.app_context():
+        noise = app_module.SecurityEvent.query.filter(
+            app_module.SecurityEvent.scenario_id == "volume-noise").count()
+    assert noise > 500
+
+
+@pytest.mark.parametrize("path", EVALUATION_APIS)
+def test_the_session_filter_is_exact_equality_and_not_a_pseudonym_lookup(
+        flask_app, learner_with_history, path):
+    """A partial id, or the printed label, matches nothing."""
+    _learner, session_id = learner_with_history
+    instructor = login_instructor(flask_app.test_client())
+
+    for wrong in (session_id[:8], session_id.upper(), short_id(session_id),
+                  session_label(session_id), session_id + "x"):
+        assert rows_of(fetch(instructor, path, wrong)) == []
+
+
+@pytest.mark.parametrize("path", EVALUATION_APIS)
+def test_omitting_the_filter_leaves_the_endpoints_behaviour_unchanged(
+        flask_app, learner_with_history, path):
+    """The new parameter is additive: absent it, nothing about the feed moves."""
+    instructor = login_instructor(flask_app.test_client())
+
+    baseline = rows_of(instructor.get("%s?limit=25" % path))
+    assert len(baseline) <= 25
+    assert baseline == rows_of(instructor.get("%s?limit=25" % path))
+    assert rows_of(instructor.get("%s?session_id=&limit=25" % path)) == baseline
 
 
 @pytest.mark.parametrize("path", ["/api/logs?limit=500",
-                                  "/sandbox/events?limit=500"])
+                                  "/sandbox/events?limit=500",
+                                  "/api/logs?session_id=" + SESSION_A,
+                                  "/sandbox/events?session_id=" + SESSION_A])
 def test_the_internal_evaluation_apis_stay_instructor_only(flask_app, path):
-    """Canonical ids are exposed to an authenticated instructor and nobody else."""
+    """Canonical ids are exposed to an authenticated instructor and nobody else.
+
+    The ``session_id`` filter is a read-only convenience behind the same gate;
+    it opens no learner-accessible route to another session's telemetry.
+    """
     response = flask_app.test_client().get(path)
     assert response.status_code in (302, 401, 403), response.status_code
 

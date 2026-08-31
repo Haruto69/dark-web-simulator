@@ -1,0 +1,42 @@
+{% extends "training_base.html" %}
+{% block title %}Phishing &amp; Credential Compromise — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>Phishing &amp; Credential Compromise</h1>
+  <p class="rs-lead">Before you start, four things about how this works.</p>
+
+  <ul>
+    <li>This is a safe simulation. Every organisation, message and system in it
+      is invented.</li>
+    <li>Any credentials you use here are synthetic lab identities issued to your
+      session only. <strong>Never enter a real password.</strong></li>
+    <li>Your decision produces a simulated technical consequence, which you will
+      see.</li>
+    <li>Afterwards you will rewind to the same starting point, take a different
+      decision, and compare the two.</li>
+  </ul>
+
+  <div class="rs-note">
+    <h2>Your lab identities</h2>
+    <p>Issued to this session, valid nowhere else, and derived rather than
+    stored. Use one if the exercise asks you to sign in.</p>
+    <ul>
+      {% for identity in identities %}
+      <li><code>{{ identity.username }}</code> / <code>{{ identity.password }}</code></li>
+      {% endfor %}
+    </ul>
+    <p class="rs-meta">Domain <code>{{ lab_domain }}</code> resolves nowhere and
+    belongs to no real service.</p>
+  </div>
+
+  <form method="post" action="{{ url_for('training.phishing_start') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="rs-actions">
+      <button class="rs-btn" type="submit">{% if started %}Start again{% else %}Start the scenario{% endif %}</button>
+      {% if started %}
+      <a class="rs-btn secondary" href="{{ url_for('training.phishing_inbox') }}">Continue where I left off</a>
+      {% endif %}
+    </div>
+  </form>
+</section>
+{% endblock %}

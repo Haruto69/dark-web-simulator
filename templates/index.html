@@ -1,4 +1,4 @@
-﻿{% extends "base_stub.html" %}
+{% extends "base_stub.html" %}
 {% block content %}
 <section class="hero">
   <h1 class="hero-title">.onion index</h1>
@@ -8,6 +8,13 @@
     <input class="search-input" name="q" placeholder="search .onion (simulation)..." value="{{ q|default('') }}">
     <button class="search-btn">search</button>
   </form>
+</section>
+
+<section class="hero">
+  <h2 class="hero-title">RewindSec training</h2>
+  <p class="hero-sub">Decision training with deterministic counterfactual replay.
+  The pages below are the legacy simulation and are kept for existing exercises.</p>
+  <p><a class="btn" href="{{ url_for('training.home') }}">open rewindsec training</a></p>
 </section>
 
 <section class="featured">

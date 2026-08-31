@@ -1,0 +1,81 @@
+{% extends "training_base.html" %}
+{% block title %}Comparison — RewindSec{% endblock %}
+{% block content %}
+<section class="rs-card">
+  <h1>Two paths, one starting point</h1>
+  <p class="rs-lead">Both decisions were executed against the same synthetic
+  environment. The environment was rewound between them and its fingerprint
+  checked before the second one ran.</p>
+  {% if row.baseline_verified %}
+  <p class="rs-verified">✓ Verified: the rewind restored the identical starting
+  state, so the only difference between these two paths is the decision.</p>
+  {% endif %}
+</section>
+
+<div class="rs-compare">
+  <section class="rs-path">
+    <h2>Your path</h2>
+    <p class="rs-decision">{{ factual_label }}</p>
+    {% if row.factual_confidence is not none %}
+    <p class="rs-meta">Confidence {{ row.factual_confidence }}/100</p>
+    {% endif %}
+    <ul class="rs-outcomes">
+      {% for line in factual_lines %}
+      <li class="{{ 'notable' if line.notable }}">{{ line.text }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="rs-path">
+    <h2>Rewind path</h2>
+    <p class="rs-decision">{{ counterfactual_label }}</p>
+    {% if row.counterfactual_confidence is not none %}
+    <p class="rs-meta">Confidence {{ row.counterfactual_confidence }}/100</p>
+    {% endif %}
+    <ul class="rs-outcomes">
+      {% for line in counterfactual_lines %}
+      <li class="{{ 'notable' if line.notable }}">{{ line.text }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section class="rs-card">
+  <h2>What changed</h2>
+  {% if difference_lines %}
+  <div class="rs-table-scroll">
+    <table class="rs-diff">
+      <thead>
+        <tr><th scope="col">Your path</th><th scope="col">Rewind path</th></tr>
+      </thead>
+      <tbody>
+        {% for line in difference_lines %}
+        <tr><td>{{ line.your_path }}</td><td>{{ line.rewind_path }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p>The two decisions produced no difference in the recorded state.</p>
+  {% endif %}
+</section>
+
+<section class="rs-card">
+  <h2>Record</h2>
+  <p class="rs-meta">
+    Execution <code>{{ row.execution_id }}</code><br>
+    Experiment <code>{{ row.pair_id }}</code><br>
+    Scenario <code>{{ row.scenario_key }}@{{ row.scenario_version }}</code>,
+    decision <code>{{ row.decision_id }}</code><br>
+    Baseline fingerprint <code>{{ row.baseline_digest[:16] }}…</code>,
+    after rewind <code>{{ row.rewound_digest[:16] }}…</code>
+  </p>
+  <div class="rs-actions">
+    <form method="post" action="{{ url_for('training.phishing_start') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="rs-btn secondary" type="submit">Start again</button>
+    </form>
+    <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Training home</a>
+  </div>
+</section>
+{% endblock %}

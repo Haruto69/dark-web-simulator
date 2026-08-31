@@ -48,6 +48,45 @@ counterfactual-replay loop on top of it, and does not discard it.
 Sections below this point describe the current, pre-redesign behaviour of the
 system as it stands today.
 
+## The training runtime (milestone R1)
+
+`training/` is the deterministic core of RewindSec: it executes one learner
+decision **twice** — the path the learner took, and the alternative path replayed
+from a verified identical starting state — and reports a structured comparison.
+It is framework-independent (no Flask, no SQLAlchemy, no `sandbox` import) and is
+tested without Flask and without Docker. It is not yet wired into any route; the
+existing phishing, file-impact and ransomware flows are unchanged.
+
+```
+prepare()               ->  capture baseline   S0
+apply(factual action)   ->  capture factual    S_A
+rewind()                ->  capture rewound    S0'
+VERIFY  fingerprint(S0') == fingerprint(S0)     <-- else fail closed
+apply(counterfactual)   ->  capture alternative S_B
+diff(S_A, S_B)
+```
+
+The invariant the subsystem exists to enforce:
+
+> The counterfactual branch is executed only after the environment has been
+> rewound and its canonical baseline fingerprint matches the baseline captured
+> before the factual branch.
+
+If the fingerprints differ the runtime raises `BaselineVerificationError` and the
+alternative consequence is never applied — so the only variable that differs
+between two compared branches is the learner's decision, not environmental drift.
+
+This is **deterministic counterfactual execution, not a hypothetical narrated by
+a language model**: both outcomes are really executed in a controlled
+environment, and both are reproducible.
+
+Scenario definitions may *name* a consequence via an opaque symbolic
+`action_key`; they can never carry a command, import path, URL, filesystem path
+or callable. Only a trusted adapter, declaring a fixed action vocabulary,
+resolves a key into behaviour.
+
+Full design notes: [docs/training-runtime.md](docs/training-runtime.md).
+
 ## Setup Instructions
 
 ### 1. Create Virtual Environment

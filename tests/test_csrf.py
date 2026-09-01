@@ -4,15 +4,14 @@ import pytest
 
 from conftest import INSTRUCTOR_PASSWORD, csrf_for
 
-LEARNER_POSTS = ["/phishing/consent"]
+LEARNER_POSTS = ["/training/phishing/start"]
 INSTRUCTOR_POSTS = ["/sandbox/create", "/sandbox/reset", "/sandbox/destroy",
-                    "/sandbox/scenario/file-impact", "/ransomware/simulate",
-                    "/ransomware/restore", "/instructor/logout"]
+                    "/sandbox/scenario/file-impact", "/instructor/logout"]
 
 
 @pytest.mark.parametrize("path", LEARNER_POSTS)
 def test_learner_posts_without_a_token_are_rejected(client, path):
-    assert client.post(path, data={"consent": "yes"}).status_code == 400
+    assert client.post(path, data={}).status_code == 400
 
 
 @pytest.mark.parametrize("path", INSTRUCTOR_POSTS)
@@ -54,4 +53,4 @@ def test_a_valid_token_is_accepted(instructor):
 def test_get_routes_stay_readable_without_a_token(client):
     assert client.get("/").status_code == 200
     assert client.get("/instructor/login").status_code == 200
-    assert client.get("/phishing/consent").status_code == 200
+    assert client.get("/training/phishing").status_code == 200

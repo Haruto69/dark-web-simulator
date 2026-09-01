@@ -196,7 +196,7 @@ from every session at `/api/logs` with no authentication. All of that is gone:
 | Old behaviour | Now |
 | --- | --- |
 | `SimulatedCredential` (plaintext passwords) | table **dropped on start-up**; replaced by `CredentialInteraction` (metadata only) |
-| `/deets` — every credential, unauthenticated | instructor-only; renders interaction metadata, no credential values |
+| `/deets` — every credential, unauthenticated | route removed (UI consolidation); instructor metadata now lives on `/dashboard` |
 | `/api/logs` — usernames across all sessions | instructor-only; returns `SecurityEvent` telemetry only |
 | `/dashboard` — unauthenticated credential dump | instructor-only; no credential values |
 | `/process_payment/<id>` — displayed "captured" credentials | **route removed** |
@@ -318,9 +318,8 @@ password is compared. Its limitations are real and deliberate:
 
 This is adequate for an academic sandbox and is not claimed to be more.
 
-Protected: `/dashboard`, `/deets`, `/api/logs`, all `/sandbox/*` routes
-(including the read-only `status`, `events` and `sessions`), and the
-`/ransomware/simulate` and `/ransomware/restore` demo controls.
+Protected: `/dashboard`, `/api/logs`, all `/sandbox/*` routes (including the
+read-only `status`, `events` and `sessions`).
 
 ## CSRF protection
 
@@ -354,7 +353,7 @@ restored the whole room. `DemoFile` is now a **baseline catalogue** (`id`,
 to the run's `scenario_id` (`sandbox/ransomware_state.py`). The file browser
 projects the catalogue through the caller's own row per request. No route
 accepts a session, scenario or sandbox id from request data, so no parameter
-addresses another learner's run; instructors aggregate the rows on `/deets`.
+addresses another learner's run.
 
 ## Sanitised failures
 
@@ -924,7 +923,7 @@ stays intact internally — but it does not need to be on a projector.
   because the formal harness joins runs on them and a one-way label cannot be
   joined on. Both are behind `@require_instructor`; the distinction is about
   what ends up on a projected screen, not about who may read the data.
-* **Instructor HTML** (`/dashboard`, `/deets`): a stable pseudonymous label from
+* **Instructor HTML** (`/dashboard`): a stable pseudonymous label from
   `sandbox/pseudonym.py`, rendered as `Session 4F2A91C8`.
 
 The label is deterministic across processes and restarts, so an instructor can

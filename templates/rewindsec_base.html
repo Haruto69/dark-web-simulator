@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}RewindSec{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='rewindsec.css') }}">
+  <meta name="robots" content="noindex,nofollow">
+</head>
+<body class="rs">
+  <header class="rs-header">
+    <div class="rs-brand"><a href="{{ url_for('index') }}">RewindSec</a>
+      <span>Deterministic counterfactual cybersecurity training</span></div>
+    <nav aria-label="Main">
+      {% block nav %}{% endblock %}
+    </nav>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="rs-flashes">
+      {% for cat, msg in messages %}
+      <p class="rs-flash rs-flash-{{ cat }}">{{ msg }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="rs-main" id="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="rs-foot">
+    {% block footer %}
+    Simulation only. Every identity, message and system in this exercise is
+    synthetic. Never enter a real password here.
+    {% endblock %}
+  </footer>
+</body>
+</html>

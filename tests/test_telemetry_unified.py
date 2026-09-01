@@ -41,92 +41,40 @@ def test_only_one_telemetry_table_remains(flask_app):
 
 # -- every event carries the required correlation fields ---------------------
 
-def test_scenario_events_carry_the_required_fields(client, other_client):
-    from test_phishing_scenario import run_full_scenario
-    run_full_scenario(client)
-
-    instructor = login_instructor(other_client)
-    events = instructor.get("/sandbox/events?limit=500").get_json()["events"]
-    scenario_events = [e for e in events
-                       if e["source"] == "scenario:credential_reuse_phishing"]
-    assert scenario_events
-    for event in scenario_events:
-        assert event["session_id"], "every event must name its session"
-        assert event["scenario_id"], "every event must name its scenario"
-        assert event["event_type"]
-        assert event["timestamp"]
-        assert event["source"]
-
-
-def test_ransomware_routes_emit_correlated_security_events(client, other_client):
-    client.get("/marketplace/tools")
-    client.get("/download/tool/1")
-    ransomware_post(client, "/ransomware/activate")
-
-    # Scope to *this* client's run. The events table is shared across the test
-    # session, so filtering only by source would also pick up ransomware events
-    # emitted by other tests and make the correlation assertions below
-    # accidentally depend on test ordering.
-    with client.session_transaction() as flask_session:
-        own_session_id = flask_session["session_id"]
-
-    instructor = login_instructor(other_client)
-    events = instructor.get("/sandbox/events?limit=500").get_json()["events"]
-    ransomware = [e for e in events
-                  if e["source"] == "scenario:ransomware_awareness"
-                  and e["session_id"] == own_session_id]
-    assert ransomware
-
-    types = [e["event_type"] for e in ransomware]
-    for expected in (EventType.RANSOMWARE_LURE_VIEWED,
-                     EventType.RANSOMWARE_DOWNLOAD_CLICKED,
-                     EventType.RANSOMWARE_TRIGGERED):
-        assert expected in types
-
-    # One correlated scenario id across the whole run, one session.
-    assert len({e["scenario_id"] for e in ransomware}) == 1
-    assert len({e["session_id"] for e in ransomware}) == 1
-
-
-def test_no_event_ever_carries_a_password(client, other_client, flask_app):
-    from test_phishing_scenario import consent, identities_for, submit
-    secret = "UNIFIED-TELEMETRY-SECRET-77"
-    consent(client)
-    submit(client, identities_for(client)[0][0], secret)
-
-    import app as app_module
-    with flask_app.app_context():
-        for row in app_module.SecurityEvent.query.all():
-            blob = "%s %s %s" % (row.target or "", row.details or "",
-                                 row.source or "")
-            assert secret not in blob
-
-
-# -- the dashboard derives its funnel from events ----------------------------
-
-def test_dashboard_funnel_counts_track_security_events(client, other_client,
-                                                       flask_app):
-    instructor = login_instructor(other_client)
-
-    import app as app_module
-    with flask_app.app_context():
-        before = app_module.SecurityEvent.query.filter_by(
-            event_type=EventType.RANSOMWARE_LURE_VIEWED).count()
-
-    assert instructor.get("/dashboard").status_code == 200
-    client.get("/marketplace/tools")
-
-    with flask_app.app_context():
-        after = app_module.SecurityEvent.query.filter_by(
-            event_type=EventType.RANSOMWARE_LURE_VIEWED).count()
-    assert after == before + 1
-    assert instructor.get("/dashboard").status_code == 200
+# NOTE (UI consolidation pass): four tests used to live here, driving the
+# *legacy* conference-simulator routes (``/product/<id>``, ``/phishing/*``,
+# ``/marketplace/tools``, ``/download/tool/<id>``, ``/ransomware/activate``)
+# that this pass removed:
+#
+#   * ``test_scenario_events_carry_the_required_fields`` and
+#     ``test_ransomware_routes_emit_correlated_security_events`` asserted that
+#     every scenario event carries session/scenario/type/timestamp/source and
+#     shares one correlated scenario id across a run. That invariant is still
+#     exercised for the current architecture by
+#     ``test_phishing_training_flow.py`` and ``test_ransomware_training_flow.py``
+#     (``all_events``/``training_event_types`` helpers, ``run_full_flow``).
+#   * ``test_no_event_ever_carries_a_password`` is superseded by
+#     ``test_phishing_training_flow.py::test_phishing_training_never_persists_submitted_password``
+#     and ``test_counterfactual_signin_password_is_never_persisted``, which
+#     check the same invariant against the current sign-in routes.
+#   * ``test_dashboard_funnel_counts_track_security_events`` asserted a
+#     stage-conversion funnel keyed on the legacy ``RANSOMWARE_LURE_VIEWED``
+#     event and rendered on ``/dashboard``. The instructor dashboard no longer
+#     computes or renders that funnel (the legacy routes that produced its
+#     inputs are gone); the current dashboard's descriptive counts come
+#     straight from the retained subsystems (TrainingExecution,
+#     LearningReflection, TransferAttempt, StudyEnrollment, sandbox status) and
+#     are covered by tests/test_ui_consolidation.py.
+#
+# They were removed rather than ported, since porting them would just
+# duplicate coverage that already exists against the current routes.
 
 
 def test_dashboard_renders_without_the_legacy_tables(instructor):
     page = instructor.get("/dashboard")
     assert page.status_code == 200
-    assert b"Conference Sandbox" in page.data
+    assert b"Instructor console" in page.data
+    assert b"marketplace" not in page.data.lower()
 
 
 # -- progression helpers -----------------------------------------------------

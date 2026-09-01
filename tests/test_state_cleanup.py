@@ -214,20 +214,23 @@ def test_reaping_does_not_disturb_an_active_learner(flask_app):
     import app as app_module
 
     client = flask_app.test_client()
-    client.get("/marketplace/tools")
-    assert ransomware_post(client, "/ransomware/activate").status_code == 200
+    client.get("/")
     with client.session_transaction() as flask_session:
         active_session = flask_session["session_id"]
 
     with flask_app.app_context():
+        # A fresh, non-stale run for the active learner, seeded directly at
+        # the model layer (the legacy ``/marketplace/tools`` +
+        # ``/ransomware/activate`` HTTP flow that used to produce this row
+        # was removed by the UI consolidation pass; ``reap_ransomware_state``
+        # itself, under test here, is untouched).
+        make_run(app_module, active_session, age_seconds_=0)
         make_run(app_module, "reap-active-decoy", MAX_AGE + 60)
         app_module.reap_ransomware_state(MAX_AGE)
         assert run_exists(app_module, active_session)
         assert not run_exists(app_module, "reap-active-decoy")
         assert app_module.RansomwareRunState.query.filter_by(
             session_id=active_session).first().state == STATE_IMPACTED
-
-    assert client.get("/files/browser").status_code == 200
 
 
 def test_the_reaper_takes_no_session_or_scenario_parameter():

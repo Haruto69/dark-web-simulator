@@ -578,6 +578,20 @@ def _run_ransomware_telemetry(flask_client_factory, index):
     This scenario is application-level only: it marks this session's own
     RansomwareRunState row and touches no sandbox and no real file. Its telemetry therefore has to be
     collected through the Flask routes that emit it.
+
+    NOTE (UI consolidation pass): ``/marketplace/tools``, ``/download/tool/<id>``,
+    ``/ransomware/activate``, ``/ransomware/reveal`` and ``/files/browser`` were
+    the *legacy conference-simulator* routes for this scenario and have been
+    removed from app.py -- they are distinct from the current R4 ransomware
+    training module under ``/training/ransomware/*`` (training_routes.py),
+    which has its own telemetry shape and is untouched by this pass. This
+    probe therefore now fails with 404s if invoked; ``experiment_c`` already
+    guards it behind an optional ``flask_client_factory`` argument, so a
+    caller that stops supplying that factory skips it cleanly rather than
+    reporting spurious failures. It is left in place, not deleted, so a
+    future pass can either retarget it at the current ransomware module's
+    real routes (a different telemetry specification) or formally retire the
+    ``ransomware_awareness`` legacy specification entry.
     """
     session_id = None
     try:

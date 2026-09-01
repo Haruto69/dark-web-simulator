@@ -1,29 +1,8 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}RewindSec Training{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='training.css') }}">
-  <meta name="robots" content="noindex,nofollow">
-</head>
-<body class="rs">
-  <header class="rs-header">
-    <div class="rs-brand">RewindSec <span>Cybersecurity Decision Training</span></div>
-    <nav aria-label="Main">
-      <a href="{{ url_for('training.home') }}">Training home</a>
-      <a href="{{ url_for('resources') }}">Resources</a>
-      <a href="{{ url_for('instructor_login') }}">Instructor</a>
-    </nav>
-  </header>
-
-  <main class="rs-main" id="main">
-    {% block content %}{% endblock %}
-  </main>
-
-  <footer class="rs-foot">
-    Simulation only. Every identity, message and system in this exercise is
-    synthetic. Never enter a real password here.
-  </footer>
-</body>
-</html>
+{% extends "rewindsec_base.html" %}
+{# Normal (non-study, non-instructor) product nav: Home / Training / Resources / Instructor. #}
+{% block nav %}
+  <a href="{{ url_for('index') }}">Home</a>
+  <a href="{{ url_for('training.home') }}">Training</a>
+  <a href="{{ url_for('resources') }}">Resources</a>
+  <a href="{{ url_for('instructor_login') }}">Instructor</a>
+{% endblock %}

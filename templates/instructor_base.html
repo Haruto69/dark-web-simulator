@@ -1,0 +1,13 @@
+{% extends "rewindsec_base.html" %}
+{# Instructor-mode nav: Home / Training / Instructor console / Study ops / Sign out.
+   Sign out is a POST form with a CSRF token, never a GET link. #}
+{% block nav %}
+  <a href="{{ url_for('index') }}">Home</a>
+  <a href="{{ url_for('training.home') }}">Training</a>
+  <a href="{{ url_for('dashboard') }}">Instructor console</a>
+  <a href="{{ url_for('study.admin') }}">Study ops</a>
+  <form class="rs-nav-signout" method="post" action="{{ url_for('instructor_logout') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="rs-link-btn">Sign out</button>
+  </form>
+{% endblock %}

@@ -1,0 +1,254 @@
+/* RewindSec product UI -- the single retained stylesheet.
+ *
+ * One cohesive design system for the whole learner-, instructor- and
+ * study-facing product. No terminal aesthetic, no ambient overlays, no
+ * external font or framework. Everything here is local and self-contained.
+ */
+
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-alt: #f0f3f7;
+  --ink: #16202c;
+  --muted: #566579;
+  --line: #d9e0e9;
+  --accent: #1d4ed8;
+  --accent-ink: #ffffff;
+  --notable: #b42318;
+  --notable-bg: #fdf0ef;
+  --calm: #12693f;
+  --calm-bg: #eafaf1;
+  --warn: #92600a;
+  --warn-bg: #fdf3da;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body.rs {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+a { color: var(--accent); }
+
+.rs-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.rs-brand { font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; }
+.rs-brand a { color: inherit; text-decoration: none; }
+.rs-brand span { display: block; color: var(--muted); font-weight: 400; font-size: 0.78rem; }
+.rs-header nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; }
+.rs-header nav a { text-decoration: none; font-size: 0.92rem; }
+.rs-header nav a:hover { text-decoration: underline; }
+
+.rs-link-btn {
+  background: none; border: none; color: var(--accent); font: inherit;
+  font-size: 0.92rem; cursor: pointer; padding: 0; text-decoration: none;
+}
+.rs-link-btn:hover { text-decoration: underline; }
+.rs-nav-signout { display: inline; margin: 0; }
+
+.rs-flashes { max-width: 62rem; margin: 1rem auto 0; padding: 0 1.25rem; }
+.rs-flash { border-radius: 6px; padding: 0.6rem 0.9rem; margin: 0 0 0.6rem; font-size: 0.92rem; }
+.rs-flash-warning { background: var(--warn-bg); color: var(--warn); }
+.rs-flash-danger { background: var(--notable-bg); color: var(--notable); }
+.rs-flash-info { background: #eef3ff; color: var(--accent); }
+.rs-flash-success { background: var(--calm-bg); color: var(--calm); }
+
+.rs-main { max-width: 62rem; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+.rs-main.rs-wide { max-width: 82rem; }
+
+.rs-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 1.25rem;
+}
+
+.rs-card h1, .rs-card h2 { margin-top: 0; letter-spacing: -0.01em; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.2rem; }
+h3 { font-size: 1rem; margin-bottom: 0.35rem; }
+
+.rs-lead { color: var(--muted); margin-top: 0.25rem; }
+
+.rs-note {
+  border-left: 4px solid var(--accent);
+  background: #eef3ff;
+  padding: 0.75rem 1rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin: 1rem 0;
+}
+.rs-note.warn { border-left-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.rs-note.error { border-left-color: var(--notable); background: var(--notable-bg); color: var(--notable); }
+.rs-note.success { border-left-color: var(--calm); background: var(--calm-bg); color: var(--calm); }
+
+/* -- hero / landing ------------------------------------------------------- */
+.rs-hero {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 2.25rem 1.75rem; margin-bottom: 1.5rem; text-align: center;
+}
+.rs-hero h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+.rs-hero .rs-lead { max-width: 40rem; margin-left: auto; margin-right: auto; font-size: 1.05rem; }
+.rs-hero-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 1.25rem; }
+
+.rs-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; counter-reset: rs-step; }
+@media (min-width: 44rem) { .rs-steps { grid-template-columns: repeat(3, 1fr); } }
+.rs-steps li { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem 1rem; counter-increment: rs-step; position: relative; }
+.rs-steps li::before {
+  content: counter(rs-step); display: inline-flex; align-items: center; justify-content: center;
+  width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--accent); color: #fff;
+  font-size: 0.8rem; font-weight: 700; margin-bottom: 0.4rem;
+}
+
+/* module list */
+.rs-modules { list-style: none; padding: 0; margin: 0; display: grid; gap: 1rem; }
+@media (min-width: 44rem) { .rs-modules { grid-template-columns: 1fr 1fr; } }
+.rs-module { border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; background: var(--surface); }
+.rs-module.soon { opacity: 0.6; }
+.rs-tag {
+  display: inline-block; font-size: 0.72rem; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted); border: 1px solid var(--line);
+  border-radius: 999px; padding: 0.1rem 0.55rem; margin-bottom: 0.5rem;
+}
+.rs-tag.accent { color: var(--accent); border-color: var(--accent); }
+
+/* buttons and forms */
+.rs-btn {
+  display: inline-block; background: var(--accent); color: var(--accent-ink);
+  border: 1px solid var(--accent); border-radius: 6px; padding: 0.55rem 1.1rem;
+  font: inherit; text-decoration: none; cursor: pointer;
+}
+.rs-btn:hover { filter: brightness(1.08); }
+.rs-btn.secondary { background: transparent; color: var(--accent); }
+.rs-btn.destructive { background: var(--notable); border-color: var(--notable); color: #fff; }
+.rs-btn.destructive.outline { background: transparent; color: var(--notable); }
+.rs-btn.muted { background: var(--muted); border-color: var(--muted); color: #fff; }
+.rs-btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; }
+legend { font-weight: 600; padding: 0 0.4rem; }
+
+.rs-choice { display: block; border: 1px solid var(--line); border-radius: 8px;
+             padding: 0.7rem 0.85rem; margin-bottom: 0.6rem; cursor: pointer; }
+.rs-choice:hover { border-color: var(--accent); }
+.rs-choice input { margin-right: 0.5rem; }
+.rs-choice .rs-choice-desc { display: block; color: var(--muted); font-size: 0.9rem;
+                             margin-left: 1.45rem; }
+
+.rs-field { margin: 1rem 0; }
+.rs-field label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+.rs-field input[type="text"], .rs-field input[type="password"] {
+  width: 100%; max-width: 26rem; padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line); border-radius: 6px; font: inherit;
+}
+.rs-field input[type="range"] { width: 100%; max-width: 26rem; }
+.rs-scale { display: flex; justify-content: space-between; max-width: 26rem;
+            color: var(--muted); font-size: 0.8rem; }
+
+.rs-error { color: var(--notable); font-weight: 600; margin: 0.75rem 0; }
+
+/* login card */
+.rs-login-card { max-width: 26rem; margin: 0 auto; }
+.rs-login-card .rs-field { margin: 0.75rem 0; }
+
+/* the simulated message */
+.rs-message { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.rs-message-head { background: var(--surface-alt); padding: 0.85rem 1rem; border-bottom: 1px solid var(--line); }
+.rs-message-head dl { margin: 0; display: grid; grid-template-columns: auto 1fr;
+                      gap: 0.2rem 0.75rem; font-size: 0.92rem; }
+.rs-message-head dt { color: var(--muted); }
+.rs-message-head dd { margin: 0; }
+.rs-message-body { padding: 1rem; }
+.rs-fake-link { color: var(--accent); text-decoration: underline; word-break: break-all; }
+
+/* comparison */
+.rs-compare { display: grid; gap: 1rem; }
+@media (min-width: 48rem) { .rs-compare { grid-template-columns: 1fr 1fr; } }
+.rs-path { border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; background: var(--surface); }
+.rs-path h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.rs-path .rs-decision { font-weight: 700; font-size: 1.05rem; margin-bottom: 0.6rem; }
+.rs-outcomes { list-style: none; padding: 0; margin: 0; }
+.rs-outcomes li { padding: 0.35rem 0 0.35rem 1.25rem; position: relative; word-wrap: break-word; }
+.rs-outcomes li::before { content: "\2192"; position: absolute; left: 0; color: var(--muted); }
+.rs-outcomes li.notable::before { color: var(--notable); }
+
+.rs-diff { width: 100%; border-collapse: collapse; }
+.rs-diff th, .rs-diff td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line);
+                           vertical-align: top; font-size: 0.94rem; word-break: break-word; }
+.rs-diff th { color: var(--muted); font-weight: 600; }
+.rs-table-scroll { overflow-x: auto; }
+
+.rs-verified { font-size: 0.9rem; color: var(--calm); font-weight: 600; }
+.rs-meta { font-size: 0.82rem; color: var(--muted); word-break: break-word; overflow-wrap: anywhere; }
+.rs-meta code { background: var(--surface-alt); padding: 0.05rem 0.3rem; border-radius: 4px; }
+
+.rs-foot { border-top: 1px solid var(--line); padding: 1rem 1.25rem; color: var(--muted);
+           font-size: 0.85rem; text-align: center; background: var(--surface); }
+
+.rs-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-top: 1rem; }
+
+/* -- the synthetic workstation view --------------------------------------- */
+.rs-alert { background: var(--notable-bg); border-left: 4px solid var(--notable);
+            color: var(--notable); font-weight: 600; padding: 0.7rem 0.9rem;
+            border-radius: 6px; }
+
+.rs-files { width: 100%; border-collapse: collapse; margin: 0.75rem 0; }
+.rs-files th, .rs-files td { text-align: left; padding: 0.45rem 0.6rem;
+                             border-bottom: 1px solid var(--line);
+                             font-size: 0.92rem; }
+.rs-files th { color: var(--muted); font-weight: 600; }
+.rs-files tr.impacted td { color: var(--notable); }
+.rs-files tr.impacted code { text-decoration: line-through; }
+
+/* -- learning layer -------------------------------------------------------
+   The transfer probe's code figure. Decorative only: it is drawn from a fixed
+   arithmetic rule, encodes nothing and links nowhere. */
+.rs-qr { display: block; border: 1px solid var(--line); border-radius: 6px;
+         margin: 0 0 0.6rem; image-rendering: pixelated; }
+
+/* -- metric / stat cards (instructor console) ----------------------------- */
+.rs-metrics { display: grid; gap: 1rem; margin: 1rem 0; }
+@media (min-width: 36rem) { .rs-metrics { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); } }
+.rs-metric { background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; }
+.rs-metric-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.rs-metric-value { font-size: 1.7rem; font-weight: 700; margin-top: 0.25rem; }
+.rs-metric-sub { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
+
+/* -- badges/tags ------------------------------------------------------- */
+.rs-badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.5rem;
+            border-radius: 999px; }
+.rs-badge.ok { background: var(--calm-bg); color: var(--calm); }
+.rs-badge.bad { background: var(--notable-bg); color: var(--notable); }
+.rs-badge.neutral { background: var(--surface-alt); color: var(--muted); border: 1px solid var(--line); }
+
+/* -- admin panel ----------------------------------------------------------- */
+.rs-panel-grid { display: grid; gap: 1rem; }
+@media (min-width: 44rem) { .rs-panel-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); } }
+
+/* -- empty states ----------------------------------------------------------*/
+.rs-empty { color: var(--muted); text-align: center; padding: 1.5rem 0; }
+
+/* -- generic grids -----------------------------------------------------*/
+.rs-grid-2 { display: grid; gap: 1rem; }
+@media (min-width: 44rem) { .rs-grid-2 { grid-template-columns: 1fr 1fr; } }
+
+/* -- responsive header/nav wrap ---------------------------------------- */
+@media (max-width: 30rem) {
+  .rs-header { flex-direction: column; align-items: flex-start; }
+  .rs-hero { padding: 1.5rem 1.1rem; }
+}

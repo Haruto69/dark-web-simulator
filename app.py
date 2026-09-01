@@ -9,11 +9,8 @@ import uuid
 
 import sqlalchemy
 
-from sandbox import (SYNTHETIC_RESOURCES, EventType, PhishingScenario,
-                     SandboxError, ScenarioStateError, SyntheticIdentityStore,
-                     new_scenario_id, stage_index)
-from sandbox.progression import (PHISHING_FUNNEL, RANSOMWARE_FUNNEL,
-                                 STAGE_BY_EVENT, conversion_rates)
+from sandbox import (EventType, SandboxError, SyntheticIdentityStore,
+                     new_scenario_id)
 from sandbox.pseudonym import session_label, short_id
 from sandbox.ransomware_state import (BASELINE_REMARK, DEFAULT_MAX_AGE_SECONDS,
                                       MIN_MAX_AGE_SECONDS, RESTORED_REMARK,
@@ -1342,749 +1339,8 @@ with app.app_context():
 
 @app.route("/")
 def index():
-    q = request.args.get('q', '').lower()
-    results = []
-    navigation_links = []
-    
-    # Mock pages for search results
-    mock_pages = [
-        # Plant-related pages
-        {
-            'slug': 'exotic-plants',
-            'title': 'Exotic Plants Market',
-            'content': 'Rare and exotic botanical specimens from around the world. Premium selection of unique plants and herbs.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        {
-            'slug': 'rare-specimens',
-            'title': 'Rare Plant Specimens',
-            'content': 'Premium collection of hard-to-find botanical varieties. Exclusive selection of rare plants and crystalline extracts.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        {
-            'slug': 'herbal-market',
-            'title': 'Premium Herbal Market',
-            'content': 'Special aromatic mixtures and botanical blends. Features rare plant collections.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        {
-            'slug': 'crystal-botanicals',
-            'title': 'Crystal Botanical Exchange',
-            'content': 'Specialized marketplace for crystalline botanical specimens and extracts.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        {
-            'slug': 'plant-nutrients',
-            'title': 'Plant Nutrient Systems',
-            'content': 'Advanced feeding and nutrient delivery systems for specialized plant cultivation.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        {
-            'slug': 'smoke-blends',
-            'title': 'Aromatic Smoke Blends',
-            'content': 'Curated collection of premium aromatic blends and mixtures.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        {
-            'slug': 'botanical-research',
-            'title': 'Botanical Research Supplies',
-            'content': 'Specialized equipment and supplies for botanical research and experimentation.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        {
-            'slug': 'plant-extracts',
-            'title': 'Premium Plant Extracts',
-            'content': 'High-quality botanical extracts and concentrates from rare specimens.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        {
-            'slug': 'herb-collection',
-            'title': 'Rare Herb Collection',
-            'content': 'Exclusive collection of rare and exotic herbal specimens.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        {
-            'slug': 'botanical-lab',
-            'title': 'Botanical Laboratory',
-            'content': 'Professional equipment for botanical processing and research.',
-            'category': 'plants',
-            'url': '/marketplace/plants'
-        },
-        # Equipment-related pages
-        {
-            'slug': 'tactical-gear',
-            'title': 'Tactical Equipment Market',
-            'content': 'Professional grade tactical equipment and accessories.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        {
-            'slug': 'military-surplus',
-            'title': 'Military Equipment Market',
-            'content': 'Specialized military-grade equipment and collectibles.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        {
-            'slug': 'weapon-collect',
-            'title': 'Equipment Collection Market',
-            'content': 'Premium collection of specialized equipment and replicas.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        {
-            'slug': 'sniper-gear',
-            'title': 'Precision Equipment Market',
-            'content': 'High-precision tactical equipment and accessories.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        {
-            'slug': 'combat-gear',
-            'title': 'Combat Equipment Exchange',
-            'content': 'Professional combat equipment and tactical gear.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        {
-            'slug': 'collector-items',
-            'title': 'Collector Equipment Gallery',
-            'content': 'Rare and exclusive collector-grade equipment and replicas.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        {
-            'slug': 'aerial-equipment',
-            'title': 'Aerial Equipment Market',
-            'content': 'Professional aerial devices and related equipment.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        {
-            'slug': 'tactical-accessories',
-            'title': 'Tactical Accessories Exchange',
-            'content': 'Specialized accessories for tactical equipment.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        {
-            'slug': 'defense-gear',
-            'title': 'Defense Equipment Market',
-            'content': 'Professional defense equipment and tactical gear.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        {
-            'slug': 'equipment-parts',
-            'title': 'Equipment Parts Exchange',
-            'content': 'Specialized parts and components for tactical equipment.',
-            'category': 'equipment',
-            'url': '/marketplace/weapons'
-        },
-        # Tools pages
-        {
-            'slug': 'hacking-tools',
-            'title': 'Premium Hacking Tools',
-            'content': 'Professional exploitation tools and penetration testing suites. Download the most advanced hacking software used by professionals worldwide.',
-            'category': 'tools',
-            'url': '/marketplace/tools'
-        },
-        {
-            'slug': 'exploit-kits',
-            'title': 'Exploit Kits Market',
-            'content': 'Advanced exploitation frameworks and zero-day vulnerabilities. Professional hacking tools.',
-            'category': 'tools',
-            'url': '/marketplace/tools'
-        },
-        # Storage page
-        {
-            'slug': 'secure-storage',
-            'title': 'Secure File Storage',
-            'content': 'Browse and manage your encrypted files. Access your secure document storage system.',
-            'category': 'storage',
-            'url': '/files/browser'
-        }
-    ]
-    
-    if q:
-        # Keywords for better categorization
-        plant_keywords = ['plant', 'botanic', 'herb', 'crystal', 'specimen', 'extract', 'blend']
-        equipment_keywords = ['equipment', 'weapon', 'tactical', 'military', 'gear', 'device']
-        tools_keywords = ['hack', 'tool', 'exploit', 'crack', 'penetration', 'software']
-        
-        # Check if query matches category keywords
-        is_plant_search = any(keyword in q for keyword in plant_keywords)
-        is_equipment_search = any(keyword in q for keyword in equipment_keywords)
-        is_tools_search = any(keyword in q for keyword in tools_keywords)
-        
-        # Define navigation links based on search category
-        if is_plant_search:
-            results = [page for page in mock_pages if page['category'] == 'plants']
-            navigation_links = [{'title': 'Plants & Botanicals', 'url': '/marketplace/plants'}]
-        elif is_equipment_search:
-            results = [page for page in mock_pages if page['category'] == 'equipment']
-            navigation_links = [{'title': 'Equipment & Accessories', 'url': '/marketplace/weapons'}]
-        elif is_tools_search:
-            results = [page for page in mock_pages if page['category'] == 'tools']
-            navigation_links = [{'title': 'Hacking Tools', 'url': '/marketplace/tools'}]
-        else:
-            # Regular search in title and content
-            results = [page for page in mock_pages if q in page['title'].lower() or q in page['content'].lower()]
-            navigation_links = [
-                {'title': 'Plants & Botanicals', 'url': '/marketplace/plants'},
-                {'title': 'Equipment & Accessories', 'url': '/marketplace/weapons'},
-                {'title': 'Hacking Tools', 'url': '/marketplace/tools'}
-            ]
-    else:
-        # Show all navigation links if no search query
-        navigation_links = [
-            {'title': 'Plants & Botanicals', 'url': '/marketplace/plants'},
-            {'title': 'Equipment & Accessories', 'url': '/marketplace/weapons'},
-            {'title': 'Hacking Tools', 'url': '/marketplace/tools'}
-        ]
-    
-    return render_template("index.html", results=results, q=q, navigation_links=navigation_links)
+    return render_template("index.html")
 
-@app.route("/marketplace/plants")
-def marketplace_plants():
-    products = Product.query.filter(
-        db.or_(
-            Product.image.like('%calc%'),
-            Product.image.like('%coke%'),
-            Product.image.like('%crystals%'),
-            Product.image.like('%injection%'),
-            Product.image.like('%plant%'),
-            Product.image.like('%smoke%')
-        )
-    ).all()
-    return render_template("marketplace.html", products=products, category="Plants & Botanicals")
-
-@app.route("/marketplace/weapons")
-def marketplace_weapons():
-    products = Product.query.filter(
-        db.or_(
-            Product.image.like('%ak%'),
-            Product.image.like('%drone%'),
-            Product.image.like('%glock%'),
-            Product.image.like('%m16%'),
-            Product.image.like('%MH12%'),
-            Product.image.like('%AWM%'),
-            Product.image.like('%guns1%')
-        )
-    ).all()
-    return render_template("marketplace.html", products=products, category="Equipment & Accessories")
-
-# RANSOMWARE ROUTES
-
-@app.route("/ransomware/menu")
-def ransomware_menu():
-    """Main menu for choosing ransomware simulation type.
-
-    Read-only. It emits raw ``PAGE_VIEW`` telemetry only: browsing the menu is
-    not a scenario stage, so refreshing it moves no progression metric.
-    """
-    record_page_view("scenario:ransomware_awareness",
-                     scenario_id=ransomware_scenario_id(),
-                     target="ransomware_menu")
-    return render_template("ransomware_menu.html")
-
-@app.route("/marketplace/tools")
-def marketplace_tools():
-    """Fake hacking tools marketplace - ransomware scenario stage 1.
-
-    Two events, deliberately of different kinds: the lure milestone (recorded
-    once for this run, however many times the page is fetched) and a repeatable
-    page view (recorded every time). Refreshing therefore adds observation data
-    without advancing the funnel.
-    """
-    scenario_id = ransomware_scenario_id()
-    record_event(EventType.RANSOMWARE_LURE_VIEWED,
-                 scenario_id=scenario_id,
-                 source="scenario:ransomware_awareness",
-                 details="Viewed hacking tools marketplace")
-    record_page_view("scenario:ransomware_awareness", scenario_id=scenario_id,
-                     target="marketplace_tools")
-
-    
-    fake_tools = [
-        {
-            'id': 1,
-            'name': 'MetaSploit Pro Ultimate',
-            'description': 'Advanced exploitation framework. Penetrate any system. Includes all premium modules and zero-day exploits.',
-            'price': 499.99,
-            'downloads': random.randint(500, 2000),
-            'rating': 4.8
-        },
-        {
-            'id': 2,
-            'name': 'Network Cracker Suite',
-            'description': 'Crack WiFi passwords, bypass firewalls, access any network. Military-grade encryption breaking.',
-            'price': 299.99,
-            'downloads': random.randint(800, 1500),
-            'rating': 4.9
-        },
-        {
-            'id': 3,
-            'name': 'Database Exploit Kit',
-            'description': 'Extract data from any SQL/NoSQL database. Includes zero-days for MongoDB, MySQL, PostgreSQL.',
-            'price': 899.99,
-            'downloads': random.randint(300, 900),
-            'rating': 4.7
-        },
-        {
-            'id': 4,
-            'name': 'RAT Command Center',
-            'description': 'Remote access trojan with keylogger, screen capture, webcam access. Undetectable by antivirus.',
-            'price': 699.99,
-            'downloads': random.randint(600, 1200),
-            'rating': 4.6
-        },
-        {
-            'id': 5,
-            'name': 'Credential Stealer Pro',
-            'description': 'Harvest credentials from browsers, email clients, FTP applications. Works on all platforms.',
-            'price': 399.99,
-            'downloads': random.randint(900, 1800),
-            'rating': 4.8
-        },
-        {
-            'id': 6,
-            'name': 'Crypto Miner Botnet',
-            'description': 'Deploy mining software across networks. Includes DDoS capabilities and proxy chaining.',
-            'price': 1299.99,
-            'downloads': random.randint(200, 600),
-            'rating': 4.5
-        },
-        {
-            'id': 7,
-            'name': 'Mobile Spy Suite',
-            'description': 'Complete mobile surveillance. Track location, read messages, access camera remotely.',
-            'price': 549.99,
-            'downloads': random.randint(700, 1400),
-            'rating': 4.7
-        },
-        {
-            'id': 8,
-            'name': 'Ransomware Builder Kit',
-            'description': 'Build custom ransomware with GUI interface. Automated Bitcoin payment system included.',
-            'price': 1999.99,
-            'downloads': random.randint(150, 400),
-            'rating': 4.9
-        }
-    ]
-    
-    return render_template("hacking_tools.html", tools=fake_tools)
-
-@app.route("/download/tool/<int:tool_id>")
-def download_tool(tool_id):
-    """Show fake download progress screen - ransomware scenario stage 2.
-
-    Milestone once per run; page view every time. See ``marketplace_tools``.
-    """
-    scenario_id = ransomware_scenario_id()
-    record_event(EventType.RANSOMWARE_DOWNLOAD_CLICKED,
-                 scenario_id=scenario_id,
-                 source="scenario:ransomware_awareness",
-                 target="tool:%d" % tool_id,
-                 details="Clicked download for tool #%d" % tool_id)
-    record_page_view("scenario:ransomware_awareness", scenario_id=scenario_id,
-                     target="tool:%d" % tool_id)
-
-    
-    return render_template("ransomware_download.html", tool_id=tool_id)
-
-@app.route("/files/browser")
-def file_browser():
-    """File browser - read-only view of *this session's* catalogue state.
-
-    Raw ``PAGE_VIEW`` only: looking at the catalogue is not a scenario stage.
-    """
-    record_page_view("scenario:ransomware_awareness",
-                     scenario_id=ransomware_scenario_id(),
-                     target="file_browser")
-    return render_template("file_browser.html", files=ransomware_files())
-
-@app.route("/ransomware/trigger", methods=["POST"])
-def ransomware_trigger():
-    """Trigger ransomware from file browser - ransomware scenario stage 3.
-
-    POST because it changes state: it therefore inherits the application-wide
-    CSRF check in ``security.init_csrf``. The state it changes belongs to the
-    calling session alone.
-    """
-    record_event(EventType.RANSOMWARE_TRIGGERED,
-                 scenario_id=ransomware_scenario_id(),
-                 source="scenario:ransomware_awareness",
-                 target="file_browser",
-                 details="Interacted with file browser - ransomware triggered")
-
-    set_ransomware_state(STATE_IMPACTED, variant="browser")
-    files = ransomware_files()
-
-    # Generate fake Bitcoin address
-    bitcoin_address = "1" + ''.join(random.choices('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', k=33))
-    ransom_amount = random.choice([0.5, 1.0, 1.5, 2.0])
-    
-    return render_template("ransomware_screen.html",
-                         bitcoin_address=bitcoin_address,
-                         ransom_amount=ransom_amount,
-                         encrypted_files=files,
-                         source='browser')
-
-@app.route("/ransomware/activate", methods=["POST"])
-def ransomware_activate():
-    """Trigger ransomware from hacking tools download - scenario stage 3.
-
-    State-changing, therefore POST and therefore CSRF-protected. Scoped to the
-    calling session's own run.
-    """
-    record_event(EventType.RANSOMWARE_TRIGGERED,
-                 scenario_id=ransomware_scenario_id(),
-                 source="scenario:ransomware_awareness",
-                 target="tool_download",
-                 details="Downloaded fake hacking tool - ransomware triggered")
-
-    set_ransomware_state(STATE_IMPACTED, variant="download")
-    files = ransomware_files()
-
-    # Generate fake Bitcoin address
-    bitcoin_address = "1" + ''.join(random.choices('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', k=33))
-    ransom_amount = random.choice([1.0, 1.5, 2.0, 2.5])
-    
-    return render_template("ransomware_screen.html",
-                         bitcoin_address=bitcoin_address,
-                         ransom_amount=ransom_amount,
-                         encrypted_files=files,
-                         source='download')
-
-@app.route("/ransomware/screen")
-def ransomware_screen():
-    """Direct access to the ransom screen. Read-only: GET never mutates.
-
-    Emits a repeatable ``PAGE_VIEW`` and no milestone: arriving here directly
-    is not the same as having triggered the simulation, and must not be counted
-    as though it were.
-    """
-    record_page_view("scenario:ransomware_awareness",
-                     scenario_id=ransomware_scenario_id(),
-                     target="ransomware_screen")
-    files = ransomware_files()
-    bitcoin_address = "1" + ''.join(random.choices('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', k=33))
-    ransom_amount = random.choice([1.0, 1.5, 2.0, 2.5])
-    
-    return render_template("ransomware_screen.html",
-                         bitcoin_address=bitcoin_address,
-                         ransom_amount=ransom_amount,
-                         encrypted_files=files,
-                         source='direct')
-
-@app.route("/ransomware/reveal", methods=["POST"])
-def ransomware_reveal():
-    """Educational reveal - the ransomware scenario's final stage.
-
-    This is the debrief, so it emits ``RANSOMWARE_DEBRIEFED``. Until Milestone 4
-    that event type was declared but never produced, which left the scenario's
-    telemetry sequence permanently incomplete against its specification.
-    """
-    # Restore *this session's* run. No real file is touched here, and no other
-    # learner's state is read or written: ``state`` is a string on this
-    # session's own RansomwareRunState row.
-    set_ransomware_state(STATE_BASELINE, remark=RESTORED_REMARK)
-    files = ransomware_files()
-
-    record_event(EventType.RANSOMWARE_DEBRIEFED,
-                 scenario_id=ransomware_scenario_id(),
-                 source="scenario:ransomware_awareness",
-                 target="education",
-                 details="learner reached the educational debrief; "
-                         "%d catalogue entry/entries restored for this "
-                         "session" % len(files))
-
-    return render_template("ransomware_education.html")
-
-# PHISHING ROUTES
-
-@app.route('/product/<int:product_id>')
-def product(product_id):
-    """Product page - the phishing lure (scenario stage 1)."""
-    product = db.get_or_404(Product, product_id)
-
-    # Correlated scenario telemetry: PHISHING_EXPOSED, once per run. This event
-    # *is* the funnel's first stage -- there is no separate counter table any
-    # more -- so it must not fire again when the page is refreshed, prefetched
-    # or crawled. The repeatable observation lives in the PAGE_VIEW below.
-    state = start_phishing_scenario(product)
-    record_page_view("scenario:credential_reuse_phishing",
-                     scenario_id=state["scenario_id"],
-                     target="product:%d" % product.id)
-
-    return render_template("product.html", product=product)
-
-@app.route("/page/<slug>")
-def page(slug):
-    # Mock page content
-    mock_pages = {
-        'exotic-plants': {'title': 'Exotic Plants Market', 'content': 'Coming soon...'},
-        'rare-specimens': {'title': 'Rare Plant Specimens', 'content': 'Coming soon...'},
-        'tactical-gear': {'title': 'Tactical Equipment Market', 'content': 'Coming soon...'},
-        'military-surplus': {'title': 'Military Equipment Market', 'content': 'Coming soon...'},
-        'weapon-collect': {'title': 'Weapons Collection Market', 'content': 'Coming soon...'}
-    }
-    
-    page = mock_pages.get(slug)
-    if page is None:
-        return render_template('404.html'), 404
-    return render_template('page.html', page=page)
-
-# --- Multi-stage phishing / synthetic credential-reuse scenario -------------
-#
-#   product lure -> consent -> phishing-style login -> credential validation
-#   -> sandbox-only reuse -> synthetic resource -> debrief
-#
-# The scenario stage lives in the *server-side* session, so consent and
-# credential validation cannot be skipped by requesting a later URL directly.
-# All logic lives in sandbox/scenarios/phishing.py; these routes only move the
-# state machine along and render templates.
-
-PHISHING_SESSION_KEY = "phishing_scenario"
-
-
-def phishing_scenario():
-    return PhishingScenario(sandbox_manager(), IDENTITIES)
-
-
-def phishing_state():
-    state = session.get(PHISHING_SESSION_KEY)
-    if not isinstance(state, dict):
-        state = {"scenario_id": None, "stage": "start", "product_id": None,
-                 "synthetic_username": None}
-    return state
-
-
-def save_phishing_state(state):
-    session[PHISHING_SESSION_KEY] = state
-    session.modified = True
-
-
-def start_phishing_scenario(product=None):
-    """Emit PHISHING_EXPOSED once per scenario, and mint at most one run.
-
-    Milestone 4.2: this used to mint a *new* ``scenario_id`` whenever the
-    previous run had reached ``completed``, so a learner who finished the
-    scenario and then refreshed the product page started a fresh run -- and a
-    fresh ``PHISHING_EXPOSED`` -- on every refresh. Twenty refreshes were twenty
-    runs at funnel stage 1 and none beyond it, which drove the conversion rate
-    towards zero without anybody doing anything.
-
-    A session now keeps one phishing run. The only way to start another is for
-    the scenario state to be cleared deliberately (a ``ScenarioStateError``
-    recovery in ``/phishing/consent``), which no passive GET can cause. The
-    repeatable "the learner looked at the lure again" signal is the PAGE_VIEW
-    that ``/product/<id>`` records alongside this call.
-    """
-    state = phishing_state()
-    if state["scenario_id"]:
-        return state
-    result = phishing_scenario().expose(
-        session["session_id"], scenario_id=new_scenario_id(),
-        lure=("product:%s" % product.id) if product else "marketplace")
-    state = {"scenario_id": result["scenario_id"], "stage": result["stage"],
-             "product_id": product.id if product else None,
-             "synthetic_username": None}
-    save_phishing_state(state)
-    return state
-
-
-def _requested_product():
-    """Resolve ``product_id`` from the query string, or None. Never trusted."""
-    raw = request.args.get("product_id")
-    if not raw or not raw.isdigit():
-        return None
-    return db.session.get(Product, int(raw))
-
-
-@app.route("/phishing/consent", methods=["GET", "POST"])
-def phishing_consent():
-    """Learner-facing briefing. Consent is recorded server-side on POST."""
-    product = _requested_product()
-    state = phishing_state()
-    if not state["scenario_id"]:
-        state = start_phishing_scenario(product)
-    if product and not state.get("product_id"):
-        state["product_id"] = product.id
-        save_phishing_state(state)
-
-    if request.method == "POST":
-        if request.form.get("consent") != "yes":
-            flash("You must accept the simulation briefing to continue.", "warning")
-            return redirect(url_for("phishing_consent",
-                                    product_id=state.get("product_id")))
-        try:
-            result = phishing_scenario().grant_consent(
-                session["session_id"], state["scenario_id"], state["stage"])
-        except ScenarioStateError:
-            flash("Scenario restarted - please read the briefing again.", "warning")
-            session.pop(PHISHING_SESSION_KEY, None)
-            return redirect(url_for("phishing_consent"))
-        state["stage"] = result["stage"]
-        save_phishing_state(state)
-        return redirect(url_for("phishing_login"))
-
-    return render_template(
-        "phishing_consent.html",
-        product=(db.session.get(Product, state["product_id"])
-                 if state.get("product_id") else None),
-        identities=IDENTITIES.identities(session["session_id"]),
-        lab_domain=IDENTITIES.domain)
-
-
-@app.route("/phishing/login", methods=["GET", "POST"])
-def phishing_login():
-    """Phishing-style login. Only sandbox identities can ever validate."""
-    state = phishing_state()
-    if stage_index(state["stage"]) < stage_index("consented"):
-        flash("Read and accept the simulation briefing first.", "warning")
-        return redirect(url_for("phishing_consent",
-                                product_id=request.args.get("product_id")))
-
-    product = (db.session.get(Product, state["product_id"])
-               if state.get("product_id") else None)
-
-    if request.method == "GET":
-        result = phishing_scenario().view_form(
-            session["session_id"], state["scenario_id"], state["stage"])
-        state["stage"] = result["stage"]
-        save_phishing_state(state)
-        return render_template("phishing_login.html", product=product,
-                               identities=IDENTITIES.identities(session["session_id"]),
-                               error=None)
-
-    # POST: validate, then discard. The submitted password is never assigned to
-    # any longer-lived name, never logged and never persisted.
-    outcome = phishing_scenario().submit_credential(
-        session["session_id"], state["scenario_id"], state["stage"],
-        request.form.get("username", ""), request.form.get("password", ""))
-
-    db.session.add(CredentialInteraction(
-        session_id=session["session_id"],
-        scenario_id=state["scenario_id"],
-        synthetic_username=(outcome["synthetic_username"][:120] or None),
-        credential_valid=outcome["valid"],
-        product_id=state.get("product_id"),
-        event_type=("CREDENTIAL_VALIDATED" if outcome["valid"]
-                    else "CREDENTIAL_VALIDATION_FAILED")))
-    db.session.commit()
-
-    if not outcome["valid"]:
-        return render_template(
-            "phishing_login.html", product=product,
-            identities=IDENTITIES.identities(session["session_id"]),
-            error="That is not a sandbox identity issued to this session. "
-                  "Use one of the lab identities shown below."), 401
-
-    state["stage"] = outcome["stage"]
-    state["synthetic_username"] = outcome["synthetic_username"]
-    save_phishing_state(state)
-
-    # The contained "reuse" transition: the validated synthetic identity is
-    # replayed against this session's own sandbox. No destination is accepted
-    # from the request and no network call is made.
-    try:
-        sandbox_manager().ensure_ready(session_sandbox_id(),
-                                       session_id=session["session_id"])
-        result = phishing_scenario().reuse_credential(
-            session["session_id"], state["scenario_id"], state["stage"],
-            state["synthetic_username"])
-    except SandboxError:
-        flash("The sandbox is unavailable; the scenario cannot continue.", "danger")
-        return redirect(url_for("phishing_consent"))
-    state["stage"] = result["stage"]
-    save_phishing_state(state)
-    return redirect(url_for("phishing_portal"))
-
-
-@app.route("/phishing/portal")
-def phishing_portal():
-    """Synthetic internal resource reached by the reused sandbox identity."""
-    state = phishing_state()
-    if stage_index(state["stage"]) < stage_index("sandbox_login"):
-        flash("Complete the login stage first.", "warning")
-        return redirect(url_for("phishing_consent"))
-
-    # Only an allow-listed *key* is accepted -- never a URL, host or path.
-    requested = request.args.get("resource")
-    if requested not in SYNTHETIC_RESOURCES:
-        requested = None
-    try:
-        result = phishing_scenario().access_resource(
-            session["session_id"], state["scenario_id"], state["stage"], requested)
-    except ScenarioStateError:
-        flash("Scenario state is out of order; restarting.", "warning")
-        session.pop(PHISHING_SESSION_KEY, None)
-        return redirect(url_for("phishing_consent"))
-    state["stage"] = result["stage"]
-    save_phishing_state(state)
-
-    try:
-        files = sandbox_manager().workspace_state(session_sandbox_id())
-    except SandboxError:
-        files = []
-
-    return render_template("phishing_portal.html",
-                           resource=result["resource"],
-                           resources=SYNTHETIC_RESOURCES,
-                           synthetic_username=state.get("synthetic_username"),
-                           files=files,
-                           scenario_id=state["scenario_id"])
-
-
-@app.route("/phishing/debrief")
-def phishing_debrief():
-    """Educational debrief; marks the scenario complete."""
-    state = phishing_state()
-    if stage_index(state["stage"]) < stage_index("resource_accessed"):
-        flash("Finish the scenario before viewing the debrief.", "warning")
-        return redirect(url_for("phishing_consent"))
-    if stage_index(state["stage"]) < stage_index("completed"):
-        result = phishing_scenario().complete(
-            session["session_id"], state["scenario_id"], state["stage"])
-        state["stage"] = result["stage"]
-        save_phishing_state(state)
-
-    events = (SecurityEvent.query
-              .filter(SecurityEvent.scenario_id == state["scenario_id"],
-                      SecurityEvent.session_id == session["session_id"])
-              .order_by(SecurityEvent.timestamp.asc(), SecurityEvent.id.asc())
-              .all())
-    product = (db.session.get(Product, state["product_id"])
-               if state.get("product_id") else None)
-    return render_template("phishing_result.html",
-                           product=product,
-                           synthetic_username=state.get("synthetic_username"),
-                           scenario_id=state["scenario_id"],
-                           events=events)
-
-
-@app.route("/payment/<product_id>")
-def payment(product_id):
-    """Legacy entry point.
-
-    The old payment page existed only to funnel learners into the plaintext
-    credential capture that Milestone 2 removed. It now redirects into the
-    consent-gated scenario, so bookmarked links keep working without reviving
-    the old behaviour. ``/process_payment`` is gone entirely.
-    """
-    product = db.get_or_404(Product, product_id)
-    return redirect(url_for("phishing_consent", product_id=product.id))
 
 
 # --- Instructor authentication ---------------------------------------------
@@ -2154,71 +1410,17 @@ def instructor_logout():
     return redirect(url_for("instructor_login"))
 
 
-# DASHBOARD -- every figure below is derived from SecurityEvent
-
-
-def funnel_event_counts(funnel):
-    """Stage counts for a funnel: **distinct runs** that reached each stage.
-
-    Every funnel stage is a progression milestone, and Milestone 4.2 makes those
-    idempotent at the write path, so counting rows would already be correct. This
-    counts ``DISTINCT (session_id, scenario_id)`` anyway, as defence in depth: a
-    duplicate that reached the table some other way -- an older database, a
-    direct insert, a future code path that forgets the ledger -- still cannot
-    inflate a stage, because the figure is "how many runs got here", not "how
-    many rows exist".
-    """
-    counts = {}
-    for stage, event_type in funnel:
-        counts[stage] = (
-            db.session.query(SecurityEvent.session_id, SecurityEvent.scenario_id)
-            .filter(SecurityEvent.event_type == event_type)
-            .distinct().count())
-    return counts
-
-
-def recent_funnel_activity(funnel, limit=15):
-    """Recent events for a funnel, adapted to the template's stage/details shape."""
-    wanted = [event_type for _, event_type in funnel]
-    rows = (SecurityEvent.query
-            .filter(SecurityEvent.event_type.in_(wanted))
-            .order_by(SecurityEvent.timestamp.desc(), SecurityEvent.id.desc())
-            .limit(limit).all())
-    # ``session_label`` is what the template renders. The canonical session id
-    # is deliberately not placed in the template context at all, so it cannot
-    # be printed by accident; correlation still happens on the stored value.
-    return [{"stage": STAGE_BY_EVENT.get(row.event_type, row.event_type),
-             "details": row.details or row.event_type,
-             "timestamp": row.timestamp,
-             "session_label": session_label(row.session_id),
-             "scenario_id": row.scenario_id}
-            for row in rows]
+# DASHBOARD -- descriptive counts from the current-architecture subsystems,
+# plus the sandbox control/status panel. No inferred statistics.
 
 
 @app.route("/dashboard")
 @require_instructor
 def dashboard():
-    # Funnel metrics, derived entirely from SecurityEvent. There is no second
-    # analytics table to fall out of step with the scenario telemetry: a stage
-    # count is literally a count of the event that defines that stage.
-    phish_counts = funnel_event_counts(PHISHING_FUNNEL)
-    ransom_counts = funnel_event_counts(RANSOMWARE_FUNNEL)
-    phish_conv = conversion_rates(phish_counts, PHISHING_FUNNEL)
-    ransom_conv = conversion_rates(ransom_counts, RANSOMWARE_FUNNEL)
-
-    phish_stage1, phish_stage2, phish_stage3 = (
-        phish_counts[stage] for stage, _ in PHISHING_FUNNEL)
-    ransom_stage1, ransom_stage2, ransom_stage3 = (
-        ransom_counts[stage] for stage, _ in RANSOMWARE_FUNNEL)
-
-    # Recent activity, shaped for the existing template (stage/details/timestamp).
-    recent_phish = recent_funnel_activity(PHISHING_FUNNEL)
-    recent_ransom = recent_funnel_activity(RANSOMWARE_FUNNEL)
-    
-    # Credential *interactions* -- metadata only. There is no password to show,
-    # because none is ever stored. Reshaped to carry the pseudonymous session
-    # label rather than the raw session id (Milestone 4.2); ``timestamp`` stays
-    # a datetime because the template formats it.
+    # Credential *interactions* -- metadata only, retained from the removed
+    # legacy phishing flow. There is no password to show, because none is
+    # ever stored. Reshaped to carry the pseudonymous session label rather
+    # than the raw session id.
     interactions = [
         {"id": row.id, "session_label": session_label(row.session_id),
          "scenario_id": row.scenario_id,
@@ -2229,45 +1431,19 @@ def dashboard():
                     .order_by(CredentialInteraction.timestamp.desc())
                     .limit(50).all())]
 
-    metrics = {
-        'phishing': dict(stage1=phish_stage1, stage2=phish_stage2,
-                         stage3=phish_stage3, **phish_conv),
-        'ransomware': dict(stage1=ransom_stage1, stage2=ransom_stage2,
-                           stage3=ransom_stage3, **ransom_conv),
-    }
-    
     sandbox_ctx = sandbox_dashboard_context(
         app, db, SecurityEvent, app.config['SANDBOX_LOCAL_ROOT'])
 
-    return render_template("dashboard.html",
-                         metrics=metrics,
-                         recent_phish=recent_phish,
-                         recent_ransom=recent_ransom,
-                         interactions=interactions,
-                         **sandbox_ctx)
+    return render_template(
+        "dashboard.html",
+        interactions=interactions,
+        training_execution_count=TrainingExecution.query.count(),
+        learning_reflection_count=LearningReflection.query.count(),
+        transfer_attempt_count=TransferAttempt.query.count(),
+        study_enrollment_count=StudyEnrollment.query.count(),
+        **sandbox_ctx)
 
 # OTHER ROUTES
-
-@app.route("/ransomware/simulate", methods=["POST"])
-@require_instructor
-def ransomware_simulate():
-    """Instructor demonstration -- scoped to the instructor's own session.
-
-    It used to flip the global catalogue, which changed what every learner in
-    the room saw mid-exercise.
-    """
-    set_ransomware_state(STATE_IMPACTED, variant="instructor")
-    flash("Ransomware simulation executed on your own demo view "
-          "(NO REAL FILES TOUCHED, no other session affected).", "info")
-    return redirect(url_for("dashboard"))
-
-@app.route("/ransomware/restore", methods=["POST"])
-@require_instructor
-def ransomware_restore():
-    """Restore the instructor's own demo view. No other session is altered."""
-    set_ransomware_state(STATE_BASELINE, remark="Restored in simulation.")
-    flash("Your demo files restored (simulation).", "success")
-    return redirect(url_for("dashboard"))
 
 @app.route("/api/logs")
 @require_instructor
@@ -2283,7 +1459,7 @@ def api_logs():
     are the *internal evaluation* APIs: they return the canonical
     ``session_id``/``scenario_id``, because the formal harness joins runs on
     them and a one-way display label cannot be joined on. Instructor **HTML**
-    (``/dashboard``, ``/deets``) shows the pseudonymous label instead. Both are
+    (``/dashboard``) shows the pseudonymous label instead. Both are
     behind ``@require_instructor``; the distinction is about what ends up on a
     projected screen, not about who may read the data.
 
@@ -2307,37 +1483,33 @@ def api_logs():
             .limit(limit).all())
     return jsonify([row.to_dict() for row in rows])
 
-@app.route("/deets")
-@require_instructor
-def deets():
-    """Instructor-only lab state view.
-
-    The credential table it used to render (usernames *and* plaintext
-    passwords, across every session) no longer exists. What remains is
-    interaction metadata plus the synthetic demo dataset.
-    """
-    rows = (CredentialInteraction.query
-            .order_by(CredentialInteraction.id.desc()).limit(200).all())
-    # Milestone 4.2: instructor HTML shows a stable pseudonymous label, never
-    # the raw session id. The stored identifier is unchanged -- correlation and
-    # the internal evaluation APIs still use it (see ``/api/logs`` below) -- but
-    # a projected page no longer puts a learner's session UUID on a wall.
-    interactions = [dict(row.to_dict(), session_label=session_label(row.session_id))
-                    for row in rows]
-    for row in interactions:
-        row.pop("session_id", None)
-    files = list(reversed(ransomware_files()))
-    # Instructors may *aggregate* run state; learners never see another row.
-    runs = (RansomwareRunState.query
-            .order_by(RansomwareRunState.updated_at.desc()).limit(200).all())
-    return render_template("deets.html", interactions=interactions,
-                           files=files,
-                           products=Product.query.order_by(Product.id.desc()).all(),
-                           ransomware_runs=[r.display_dict() for r in runs])
-
 @app.route('/resources')
 def resources():
-    return render_template('resources.html')
+    phishing_pdfs = [
+        {"title": "Phishing Awareness Guide",
+         "description": "Complete introduction to phishing threats.",
+         "path": "pdfs/Phishing_Awareness_Guide.pdf"},
+        {"title": "Phishing Terms to Know",
+         "description": "Essential vocabulary and concepts.",
+         "path": "pdfs/Phishing_terms_you_should_know.pdf"},
+        {"title": "Anti-Phishing Toolkit",
+         "description": "Practical tools and techniques.",
+         "path": "pdfs/sophos-anti-phishing-toolkit-guide.pdf"},
+        {"title": "Full Awareness Material",
+         "description": "Comprehensive training resource.",
+         "path": "pdfs/Phishing awarebess material.pdf"},
+    ]
+    phishing_pdfs = [
+        pdf for pdf in phishing_pdfs
+        if os.path.exists(os.path.join(app.static_folder, pdf["path"]))
+    ]
+    return render_template('resources.html', phishing_pdfs=phishing_pdfs)
+
+
+@app.errorhandler(404)
+def not_found(_error):
+    return render_template('404.html'), 404
+
 
 if __name__ == "__main__":
     # Defaults are loopback-only and debug-off. Override deliberately via the

@@ -44,10 +44,9 @@ def test_pre_login_csrf_token_is_rejected_afterwards(client):
 
 def test_session_contents_are_cleared_on_login(client, flask_app):
     """Anything an attacker could have fixed pre-auth is gone after login."""
-    client.get("/phishing/consent")  # seeds scenario state in the session
+    client.get("/training/phishing")  # seeds scenario state in the session
     with client.session_transaction() as session:
         session["planted_by_attacker"] = "should-not-survive"
-        session["phishing_scenario"] = {"stage": "completed"}
         old_csrf = session.get(CSRF_SESSION_KEY)
 
     client.post("/instructor/login",
@@ -56,7 +55,6 @@ def test_session_contents_are_cleared_on_login(client, flask_app):
 
     with client.session_transaction() as session:
         assert "planted_by_attacker" not in session
-        assert "phishing_scenario" not in session
         assert session.get(CSRF_SESSION_KEY) != old_csrf
         assert session.get(INSTRUCTOR_SESSION_KEY) is True
 

@@ -1,8 +1,11 @@
-{% extends "training_base.html" %}
+{% extends "rewindsec_base.html" %}
 {# The study flow's shared shell.
 
-   Deliberately a thin layer over the ordinary training base: a participant in
-   the pilot sees the same product they would see outside it. There is no
-   research banner, no condition name, no progress-through-conditions indicator
-   and nothing anywhere in this template tree that could tell one participant
-   they were treated differently from another. #}
+   Deliberately isolated from the ordinary product nav: a participant in the
+   pilot must never see a link to /training, /resources, /dashboard or
+   /instructor/login. There is no research banner, no condition name, no
+   progress-through-conditions indicator and nothing anywhere in this
+   template tree that could tell one participant they were treated
+   differently from another. The page still uses the shared RewindSec visual
+   system, just with no nav links at all. #}
+{% block nav %}{% endblock %}

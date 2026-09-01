@@ -1,50 +1,57 @@
-{% extends "base_stub.html" %}
+{% extends "training_base.html" %}
+{% block title %}RewindSec — Deterministic counterfactual cybersecurity training{% endblock %}
 {% block content %}
-<section class="hero">
-  <h1 class="hero-title">.onion index</h1>
-  <p class="hero-sub">A simulated directory to learn dark-web risks. No real vendors or transaction flows.</p>
-
-  <form class="search-form" method="get" action="{{ url_for('index') }}">
-    <input class="search-input" name="q" placeholder="search .onion (simulation)..." value="{{ q|default('') }}">
-    <button class="search-btn">search</button>
-  </form>
-</section>
-
-<section class="hero">
-  <h2 class="hero-title">RewindSec training</h2>
-  <p class="hero-sub">Decision training with deterministic counterfactual replay.
-  The pages below are the legacy simulation and are kept for existing exercises.</p>
-  <p><a class="btn" href="{{ url_for('training.home') }}">open rewindsec training</a></p>
-</section>
-
-<section class="featured">
-  <div class="market-row">
-    {% for link in navigation_links %}
-    <div class="market">
-      <div class="market-head">{{ link.title.lower().replace(' & ', '-') }}.onion <span class="sim-pill">SIM</span></div>
-      <div class="market-desc">{{ link.title }} marketplace.</div>
-      <div class="market-actions">
-        <a class="btn" href="{{ link.url }}">open market</a>
-      </div>
-    </div>
-    {% endfor %}
+<section class="rs-hero">
+  <h1>Deterministic counterfactual cybersecurity training</h1>
+  <p class="rs-lead">Make a real decision inside a realistic scenario, see the
+  consequence play out, then rewind and compare it against the path you
+  didn't take. No terminology quiz, no lecture slides -- just the decision
+  and what happens next.</p>
+  <div class="rs-hero-actions">
+    <a class="rs-btn" href="{{ url_for('training.home') }}">Start training</a>
+    <a class="rs-btn secondary" href="{{ url_for('instructor_login') }}">Instructor access</a>
   </div>
 </section>
 
-<section class="results">
-  <h2 class="results-head">search results</h2>
-  <div class="result-list">
-    {% for page in results %}
-    <div class="result">
-      <div class="res-left">
-        <div class="res-host">{{ page.slug }}.onion</div>
-      </div>
-      <div class="res-right">
-        <a class="res-title" href="{{ page.url }}">{{ page.title }}</a>
-        <div class="res-snippet">{{ page.content[:100] }}...</div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
+<section class="rs-card">
+  <h2>How it works</h2>
+  <ol class="rs-steps">
+    <li><strong>Observe</strong> a realistic scenario -- an email, a prompt, a workstation.</li>
+    <li><strong>Decide</strong> what you would actually do, in the moment.</li>
+    <li><strong>Experience the consequence</strong> your decision leads to.</li>
+    <li><strong>Rewind</strong> to the same decision point.</li>
+    <li><strong>Compare</strong> your path against the one you didn't take.</li>
+    <li><strong>Reflect</strong> on what changed your judgment.</li>
+  </ol>
+</section>
+
+<section class="rs-card">
+  <h2>Training modules</h2>
+  <ul class="rs-modules">
+    <li class="rs-module">
+      <span class="rs-tag accent">Module</span>
+      <h3>Phishing &amp; Credential Compromise</h3>
+      <p class="rs-lead">A credential-reuse lure, and what happens if you fall for it.</p>
+      <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Open training</a>
+    </li>
+    <li class="rs-module">
+      <span class="rs-tag accent">Module</span>
+      <h3>Ransomware Incident Response</h3>
+      <p class="rs-lead">A synthetic workstation, an impact event, and the choices that follow it.</p>
+      <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Open training</a>
+    </li>
+    <li class="rs-module">
+      <span class="rs-tag accent">Module</span>
+      <h3>MFA Fatigue</h3>
+      <p class="rs-lead">A wave of push prompts, and the decision to approve or verify.</p>
+      <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Open training</a>
+    </li>
+    <li class="rs-module">
+      <span class="rs-tag accent">Module</span>
+      <h3>Business Email Compromise</h3>
+      <p class="rs-lead">An urgent request from "the top", and what verifying it actually costs.</p>
+      <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Open training</a>
+    </li>
+  </ul>
 </section>
 {% endblock %}

@@ -4,11 +4,10 @@ import pytest
 
 from conftest import INSTRUCTOR_PASSWORD, csrf_for
 
-INSTRUCTOR_ROUTES = ["/dashboard", "/deets", "/api/logs", "/sandbox/status",
+INSTRUCTOR_ROUTES = ["/dashboard", "/api/logs", "/sandbox/status",
                      "/sandbox/events", "/sandbox/sessions"]
 INSTRUCTOR_POST_ROUTES = ["/sandbox/create", "/sandbox/reset",
-                          "/sandbox/destroy", "/sandbox/scenario/file-impact",
-                          "/ransomware/simulate", "/ransomware/restore"]
+                          "/sandbox/destroy", "/sandbox/scenario/file-impact"]
 
 
 @pytest.mark.parametrize("path", INSTRUCTOR_ROUTES)
@@ -64,9 +63,9 @@ def test_login_then_logout(client):
 def test_login_honours_a_relative_next_path(client):
     response = client.post("/instructor/login",
                            data={"password": INSTRUCTOR_PASSWORD,
-                                 "next": "/deets",
+                                 "next": "/api/logs",
                                  "csrf_token": csrf_for(client)})
-    assert response.headers["Location"].endswith("/deets")
+    assert response.headers["Location"].endswith("/api/logs")
 
 
 @pytest.mark.parametrize("evil", ["https://evil.example/x", "//evil.example",

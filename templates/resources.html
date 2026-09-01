@@ -1,199 +1,112 @@
-{% extends "base_stub.html" %}
-
+{% extends "training_base.html" %}
+{% block title %}Resources — RewindSec{% endblock %}
 {% block content %}
+<section class="rs-hero">
+  <h1>Security awareness resources</h1>
+  <p class="rs-lead">You've practiced recognizing phishing and ransomware
+  scenarios firsthand. These resources back that up with guides, tools and
+  organizations you can turn to outside the simulator.</p>
+</section>
 
-<div style="max-width: 900px; margin: 0 auto; padding: 20px; line-height: 1.8;">
+<section class="rs-card">
+  <h2>Phishing defense</h2>
+  <p class="rs-lead">Phishing is the most common entry point for cyberattacks.
+  Learn how to recognize, avoid and report phishing attempts before they
+  compromise an account.</p>
+  <ul class="rs-modules">
+    {% for pdf in phishing_pdfs %}
+    <li class="rs-module">
+      <h3>{{ pdf.title }}</h3>
+      <p class="rs-lead">{{ pdf.description }}</p>
+      <a class="rs-btn secondary" href="{{ url_for('static', filename=pdf.path) }}" target="_blank" rel="noopener noreferrer">Open PDF</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
 
-    <h1 style="text-align: center; color: #fff; margin-bottom: 20px;">🛡️ Security Awareness Resources</h1>
-    
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 40px; text-align: center;">
-        <h2 style="margin: 0 0 15px 0; font-size: 1.8em;">Stay Safe When Navigating the Dark Web & Beyond</h2>
-        <p style="font-size: 1.1em; margin: 0; line-height: 1.6;">
-            You've experienced firsthand how easy it is to fall victim to phishing attacks and ransomware threats. 
-            The dark web and cybercriminal ecosystems are real dangers lurking in the shadows of the internet. 
-            But knowledge is your strongest armor. Use these resources to protect yourself, your data, and your digital identity from those who would exploit your vulnerabilities.
-        </p>
+<section class="rs-card">
+  <h2>Ransomware protection</h2>
+  <p class="rs-lead">Ransomware can encrypt files and hold them for ransom.
+  Understanding how it spreads and how to respond is critical.</p>
+  <ul class="rs-modules">
+    <li class="rs-module">
+      <h3>No More Ransom</h3>
+      <p class="rs-lead">Free decryption tools.</p>
+      <a class="rs-btn secondary" href="https://www.nomoreransom.org/" target="_blank" rel="noopener noreferrer">Visit site</a>
+    </li>
+    <li class="rs-module">
+      <h3>CISA StopRansomware</h3>
+      <p class="rs-lead">Government guide and resources.</p>
+      <a class="rs-btn secondary" href="https://www.cisa.gov/stopransomware" target="_blank" rel="noopener noreferrer">Visit site</a>
+    </li>
+    <li class="rs-module">
+      <h3>FBI IC3</h3>
+      <p class="rs-lead">Report cybercrime.</p>
+      <a class="rs-btn secondary" href="https://www.ic3.gov/" target="_blank" rel="noopener noreferrer">Visit site</a>
+    </li>
+  </ul>
+</section>
+
+<section class="rs-card">
+  <h2>Ten habits of digital safety</h2>
+  <ol>
+    <li>Never enter real credentials on a suspicious site, even for testing.</li>
+    <li>Use strong, unique passwords managed by a password manager.</li>
+    <li>Enable two-factor authentication on every critical account.</li>
+    <li>Install security patches promptly.</li>
+    <li>Back up data regularly -- 3 copies, 2 media, 1 offsite.</li>
+    <li>Be skeptical of manufactured urgency.</li>
+    <li>Verify links and sender identity before clicking.</li>
+    <li>Keep reputable security software installed and current.</li>
+    <li>Keep learning -- tactics evolve continuously.</li>
+    <li>Report suspicious activity to IT or the relevant authority.</li>
+  </ol>
+</section>
+
+<section class="rs-card">
+  <h2>Quick reference</h2>
+  <div class="rs-grid-2">
+    <div>
+      <h3>Red flags</h3>
+      <ul>
+        <li>Urgent language</li>
+        <li>Misspelled or lookalike URLs</li>
+        <li>Requests for credentials</li>
+        <li>Too-good-to-be-true offers</li>
+        <li>Generic greetings</li>
+        <li>Unexpected attachments</li>
+      </ul>
     </div>
-
-    <p style="text-align: center; font-size: 1.1em; color: #aaa; margin-bottom: 40px;">
-        <em>Download comprehensive guides, learn best practices, and stay one step ahead of cyber threats.</em>
-    </p>
-
-    <!-- Phishing Defense Section -->
-    <h2 style="color: #dc3545; border-bottom: 3px solid #dc3545; padding-bottom: 10px; margin-bottom: 20px;">
-        🎣 Phishing Defense Resources
-    </h2>
-    
-    <p style="color: #ccc;">Phishing is the #1 entry point for cyberattacks. Learn how to recognize, avoid, and report phishing attempts before they compromise your accounts.</p>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin: 30px 0;">
-        <a href="{{ url_for('static', filename='pdfs/Phishing_Awareness_Guide.pdf') }}" target="_blank" 
-           style="display: block; background: #28a745; color: white; padding: 20px; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-            <div style="font-size: 2.5em; margin-bottom: 10px;">📄</div>
-            <div style="font-size: 1.1em;">Phishing Awareness Guide</div>
-            <div style="font-size: 0.85em; font-weight: normal; margin-top: 8px; opacity: 0.9;">Complete introduction to phishing threats</div>
-        </a>
-        
-        <a href="{{ url_for('static', filename='pdfs/Phishing_terms_you_should_know.pdf') }}" target="_blank"
-           style="display: block; background: #28a745; color: white; padding: 20px; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-            <div style="font-size: 2.5em; margin-bottom: 10px;">📖</div>
-            <div style="font-size: 1.1em;">Phishing Terms to Know</div>
-            <div style="font-size: 0.85em; font-weight: normal; margin-top: 8px; opacity: 0.9;">Essential vocabulary and concepts</div>
-        </a>
-        
-        <a href="{{ url_for('static', filename='pdfs/sophos-anti-phishing-toolkit-guide.pdf') }}" target="_blank"
-           style="display: block; background: #28a745; color: white; padding: 20px; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-            <div style="font-size: 2.5em; margin-bottom: 10px;">🛠️</div>
-            <div style="font-size: 1.1em;">Anti-Phishing Toolkit</div>
-            <div style="font-size: 0.85em; font-weight: normal; margin-top: 8px; opacity: 0.9;">Practical tools and techniques</div>
-        </a>
-        
-        <a href="{{ url_for('static', filename='pdfs/Phishing awarebess material.pdf') }}" target="_blank"
-           style="display: block; background: #28a745; color: white; padding: 20px; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-            <div style="font-size: 2.5em; margin-bottom: 10px;">📑</div>
-            <div style="font-size: 1.1em;">Full Awareness Material</div>
-            <div style="font-size: 0.85em; font-weight: normal; margin-top: 8px; opacity: 0.9;">Comprehensive training resource</div>
-        </a>
+    <div>
+      <h3>Green flags</h3>
+      <ul>
+        <li>HTTPS and a valid certificate</li>
+        <li>Exact domain match</li>
+        <li>Personalized, expected content</li>
+        <li>No credential requests</li>
+        <li>Verifiable sender</li>
+      </ul>
     </div>
+  </div>
+</section>
 
-    <!-- Ransomware Protection Section -->
-    <h2 style="color: #dc3545; border-bottom: 3px solid #dc3545; padding-bottom: 10px; margin-bottom: 20px; margin-top: 50px;">
-        🔒 Ransomware Protection Resources
-    </h2>
-    
-    <p style="color: #ccc;">Ransomware can encrypt your files and hold them hostage for payment. Understanding how it spreads and how to defend against it is critical for digital safety.</p>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin: 30px 0;">
-        <a href="https://www.nomoreransom.org/" target="_blank" 
-           style="display: block; background: #dc3545; color: white; padding: 20px; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-            <div style="font-size: 2.5em; margin-bottom: 10px;">🔓</div>
-            <div style="font-size: 1.1em;">NoMoreRansom.org</div>
-            <div style="font-size: 0.85em; font-weight: normal; margin-top: 8px; opacity: 0.9;">Free Decryption Tools</div>
-        </a>
-        
-        <a href="https://www.cisa.gov/stopransomware" target="_blank"
-           style="display: block; background: #dc3545; color: white; padding: 20px; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-            <div style="font-size: 2.5em; margin-bottom: 10px;">🏛️</div>
-            <div style="font-size: 1.1em;">CISA StopRansomware</div>
-            <div style="font-size: 0.85em; font-weight: normal; margin-top: 8px; opacity: 0.9;">Government Guide & Resources</div>
-        </a>
-        
-        <a href="https://www.ic3.gov/" target="_blank"
-           style="display: block; background: #dc3545; color: white; padding: 20px; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;">
-            <div style="font-size: 2.5em; margin-bottom: 10px;">🚨</div>
-            <div style="font-size: 1.1em;">FBI IC3</div>
-            <div style="font-size: 0.85em; font-weight: normal; margin-top: 8px; opacity: 0.9;">Report Cybercrime</div>
-        </a>
-    </div>
+<section class="rs-card">
+  <h2>Cybersecurity organizations</h2>
+  <ul class="rs-grid-2">
+    <li><strong>CISA</strong> -- Cybersecurity &amp; Infrastructure Security Agency</li>
+    <li><strong>NIST</strong> -- National Institute of Standards and Technology</li>
+    <li><strong>FBI IC3</strong> -- Internet Crime Complaint Center</li>
+    <li><strong>SANS Institute</strong> -- Security awareness training</li>
+    <li><strong>Have I Been Pwned</strong> -- Check if data was breached</li>
+    <li><strong>US-CERT</strong> -- Computer Emergency Readiness Team</li>
+  </ul>
+</section>
 
-    <!-- General Security Best Practices -->
-    <h2 style="color: #28a745; border-bottom: 3px solid #28a745; padding-bottom: 10px; margin-bottom: 20px; margin-top: 50px;">
-        🌐 Essential Dark Web & Cybersecurity Safety
-    </h2>
-    
-    <div style="background: #1a3a1a; border-left: 5px solid #28a745; padding: 25px; border-radius: 8px; margin: 25px 0;">
-        <h3 style="color: #4CAF50; margin-top: 0;">10 Commandments of Digital Safety</h3>
-        
-        <ol style="color: #ccc; line-height: 2;">
-            <li><strong style="color: #4CAF50;">Never Enter Real Credentials</strong> - Don't use real passwords on suspicious sites, even for testing</li>
-            <li><strong style="color: #4CAF50;">Use Strong, Unique Passwords</strong> - Every account should have a different password managed by a password manager</li>
-            <li><strong style="color: #4CAF50;">Enable Two-Factor Authentication</strong> - Add an extra layer of security to all critical accounts</li>
-            <li><strong style="color: #4CAF50;">Keep Software Updated</strong> - Install security patches promptly to close vulnerabilities</li>
-            <li><strong style="color: #4CAF50;">Back Up Your Data Regularly</strong> - Follow the 3-2-1 rule: 3 copies, 2 different media, 1 offsite</li>
-            <li><strong style="color: #4CAF50;">Be Skeptical of Urgency</strong> - Scammers create false urgency to bypass your critical thinking</li>
-            <li><strong style="color: #4CAF50;">Verify Before You Click</strong> - Hover over links, check URLs, and confirm sender identities</li>
-            <li><strong style="color: #4CAF50;">Use Reputable Security Software</strong> - Install and maintain antivirus, anti-malware, and firewall protection</li>
-            <li><strong style="color: #4CAF50;">Educate Yourself Continuously</strong> - Cyber threats evolve; stay informed about new tactics</li>
-            <li><strong style="color: #4CAF50;">Report Suspicious Activity</strong> - Alert your IT team or authorities about potential threats</li>
-        </ol>
-    </div>
-
-    <!-- Quick Reference Cards -->
-    <h2 style="color: #17a2b8; border-bottom: 3px solid #17a2b8; padding-bottom: 10px; margin-bottom: 20px; margin-top: 50px;">
-        ⚡ Quick Reference
-    </h2>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 30px 0;">
-        
-        <div style="background: #2a1a1a; border: 2px solid #dc3545; border-radius: 10px; padding: 20px;">
-            <h3 style="color: #dc3545; margin-top: 0;">🚨 Red Flags</h3>
-            <ul style="line-height: 1.7; font-size: 0.95em; color: #ccc;">
-                <li>Urgent language</li>
-                <li>Misspelled URLs</li>
-                <li>Requests for credentials</li>
-                <li>Too-good-to-be-true offers</li>
-                <li>Generic greetings</li>
-                <li>Suspicious attachments</li>
-            </ul>
-        </div>
-
-        <div style="background: #1a3a1a; border: 2px solid #28a745; border-radius: 10px; padding: 20px;">
-            <h3 style="color: #28a745; margin-top: 0;">✅ Green Flags</h3>
-            <ul style="line-height: 1.7; font-size: 0.95em; color: #ccc;">
-                <li>HTTPS & padlock icon</li>
-                <li>Exact domain match</li>
-                <li>Personalized content</li>
-                <li>No credential requests</li>
-                <li>Professional formatting</li>
-                <li>Verifiable sender</li>
-            </ul>
-        </div>
-
-        <div style="background: #2a1a0a; border: 2px solid #ffc107; border-radius: 10px; padding: 20px;">
-            <h3 style="color: #ffc107; margin-top: 0;">⚠️ When In Doubt</h3>
-            <ul style="line-height: 1.7; font-size: 0.95em; color: #ccc;">
-                <li>Don't click or download</li>
-                <li>Contact sender directly</li>
-                <li>Report to IT/security</li>
-                <li>Use official website URL</li>
-                <li>Verify phone numbers</li>
-                <li>Trust your instincts</li>
-            </ul>
-        </div>
-
-    </div>
-
-    <!-- Additional External Resources -->
-    <h2 style="color: #6c757d; border-bottom: 3px solid #6c757d; padding-bottom: 10px; margin-bottom: 20px; margin-top: 50px;">
-        🔗 Additional Cybersecurity Organizations
-    </h2>
-
-    <div style="background: #1a1a1a; border-left: 5px solid #6c757d; padding: 25px; border-radius: 8px; margin: 25px 0;">
-        <ul style="line-height: 2; columns: 2; column-gap: 30px; color: #aaa;">
-            <li><strong style="color: #fff;">CISA</strong> - Cybersecurity & Infrastructure Security Agency</li>
-            <li><strong style="color: #fff;">NIST</strong> - National Institute of Standards and Technology</li>
-            <li><strong style="color: #fff;">FBI IC3</strong> - Internet Crime Complaint Center</li>
-            <li><strong style="color: #fff;">SANS Institute</strong> - Security awareness training</li>
-            <li><strong style="color: #fff;">KnowBe4</strong> - Phishing testing and training</li>
-            <li><strong style="color: #fff;">PhishTank</strong> - Verified phishing site database</li>
-            <li><strong style="color: #fff;">Have I Been Pwned</strong> - Check if your data was breached</li>
-            <li><strong style="color: #fff;">US-CERT</strong> - Computer Emergency Readiness Team</li>
-        </ul>
-    </div>
-
-    <!-- Call to Action -->
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin: 40px 0; text-align: center;">
-        <h2 style="margin: 0 0 15px 0;">🎓 Continue Your Training</h2>
-        <p style="margin: 0 0 20px 0; font-size: 1.05em;">
-            Knowledge is your strongest defense. Download these resources, share them with colleagues and friends, and practice safe browsing habits every day.
-        </p>
-        <a href="{{ url_for('index') }}" 
-           style="display: inline-block; background: rgba(255,255,255,0.2); border: 2px solid white; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; margin: 5px;">
-            🏠 Return to Simulator
-        </a>
-        <a href="{{ url_for('dashboard') }}" 
-           style="display: inline-block; background: rgba(255,255,255,0.2); border: 2px solid white; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; margin: 5px;">
-            📊 View Dashboard
-        </a>
-    </div>
-
-    <hr style="border: none; border-top: 2px solid #333; margin: 40px 0;">
-
-    <p style="text-align: center; color: #888; font-size: 0.95em;">
-        <strong>Disclaimer:</strong> This simulator is for educational purposes only. All scenarios, credentials, and threats are simulated. 
-        No real malware, hacking tools, or illegal materials are present. Stay safe, stay informed, and stay secure.
-    </p>
-
-</div>
-
+<section class="rs-hero">
+  <p class="rs-lead">Disclaimer: this simulator is for educational purposes
+  only. All scenarios, credentials and threats are simulated.</p>
+  <div class="rs-hero-actions">
+    <a class="rs-btn" href="{{ url_for('training.home') }}">Return to training</a>
+  </div>
+</section>
 {% endblock %}

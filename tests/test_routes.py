@@ -85,7 +85,7 @@ def test_events_can_be_filtered_by_scenario(instructor):
 def test_dashboard_renders_the_sandbox_panel(instructor):
     page = instructor.get("/dashboard")
     assert page.status_code == 200
-    assert b"Conference Sandbox" in page.data
+    assert b"Sandbox" in page.data
 
 
 def test_sessions_endpoint_lists_sandboxes(instructor):

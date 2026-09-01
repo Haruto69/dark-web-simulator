@@ -124,54 +124,18 @@ def test_every_destructive_manage_command_is_confirmation_gated():
 
 
 # -- the declared-but-never-emitted event now fires --------------------------
-
-def test_the_ransomware_debrief_emits_its_declared_event(client):
-    for path in ("/marketplace/tools", "/download/tool/1"):
-        assert client.get(path).status_code == 200
-    assert ransomware_post(client, "/ransomware/activate").status_code == 200
-    with client.session_transaction() as flask_session:
-        scenario_id = flask_session["ransomware_scenario_id"]
-
-    assert ransomware_post(client, "/ransomware/reveal").status_code == 200
-
-    import app as app_module
-    with app_module.app.app_context():
-        rows = (app_module.SecurityEvent.query
-                .filter_by(scenario_id=scenario_id)
-                .order_by(app_module.SecurityEvent.timestamp.asc(),
-                          app_module.SecurityEvent.id.asc()).all())
-    # Milestone 4.2: compare the progression milestones, not the raw stream --
-    # the same query also returns the repeatable PAGE_VIEW telemetry.
-    types = [r.event_type for r in drop_scoring_noise(rows)]
-    assert types == [EventType.RANSOMWARE_LURE_VIEWED,
-                     EventType.RANSOMWARE_DOWNLOAD_CLICKED,
-                     EventType.RANSOMWARE_TRIGGERED,
-                     EventType.RANSOMWARE_DEBRIEFED]
-    debrief = rows[-1]
-    assert debrief.session_id and debrief.scenario_id == scenario_id
-    assert debrief.source == "scenario:ransomware_awareness"
-
-
-def test_the_debrief_matches_the_frozen_specification(client):
-    from evaluation.specifications import evaluate
-
-    for path in ("/marketplace/tools", "/download/tool/1"):
-        assert client.get(path).status_code == 200
-    for path in ("/ransomware/activate", "/ransomware/reveal"):
-        assert ransomware_post(client, path).status_code == 200
-    with client.session_transaction() as flask_session:
-        scenario_id = flask_session["ransomware_scenario_id"]
-        session_id = flask_session["session_id"]
-
-    import app as app_module
-    with app_module.app.app_context():
-        rows = (app_module.SecurityEvent.query
-                .filter_by(scenario_id=scenario_id)
-                .order_by(app_module.SecurityEvent.timestamp.asc(),
-                          app_module.SecurityEvent.id.asc()).all())
-    verdict = evaluate(rows, "ransomware_awareness", scenario_id=scenario_id,
-                       session_id=session_id)
-    assert verdict.ok, verdict.as_dict()
+#
+# ``test_the_ransomware_debrief_emits_its_declared_event`` and
+# ``test_the_debrief_matches_the_frozen_specification`` used to drive the
+# *legacy* conference-simulator ransomware scenario through
+# ``/marketplace/tools``, ``/download/tool/<id>``, ``/ransomware/activate``
+# and ``/ransomware/reveal``. Those routes were the legacy learner-facing
+# pages removed by the UI consolidation pass and no longer exist (they are
+# distinct from the current R4 ransomware training module under
+# ``/training/ransomware/*``, which is untouched and has its own telemetry
+# coverage in test_ransomware_training_flow.py). Removed rather than ported:
+# the ``ransomware_awareness`` legacy telemetry specification they checked
+# against describes a scenario surface that no longer exists in the app.
 
 
 def test_every_declared_event_type_is_emitted_somewhere_in_the_codebase():

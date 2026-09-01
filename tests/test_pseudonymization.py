@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-from conftest import login_instructor, ransomware_post
+from conftest import login_instructor
 from sandbox.pseudonym import ABSENT, DEFAULT_LENGTH, session_label, short_id
 from sandbox.timeutil import utcnow
 
@@ -68,21 +68,52 @@ def test_the_label_is_domain_separated_from_a_plain_digest():
 
 # -- instructor HTML ----------------------------------------------------------
 
+def _seed_learner_history(flask_app, session_id, scenario_id="pseudo-test-scenario"):
+    """Write the rows ``/dashboard`` reads, directly at the model layer.
+
+    Milestone (UI consolidation): the legacy HTTP routes that used to produce
+    this data (``/product/<id>``, ``/phishing/*``, ``/marketplace/tools``,
+    ``/ransomware/activate``) have been removed along with the legacy
+    conference-simulator UI, and the instructor-only ``/deets`` view that
+    surfaced ``CredentialInteraction``/``RansomwareRunState`` rows has been
+    removed with it. The pseudonymization contract under test here -- that
+    ``/dashboard`` never renders a raw ``session_id`` and always shows
+    ``session_label(session_id)`` instead -- is a property of that
+    instructor view and the models it reads, not of any one route that used
+    to populate them, so the fixture now seeds the same rows directly rather
+    than driving a route that no longer exists.
+    """
+    import app as app_module
+    from sandbox.timeutil import utcnow
+
+    with flask_app.app_context():
+        app_module.db.session.add(app_module.SecurityEvent(
+            session_id=session_id, scenario_id=scenario_id,
+            event_type="CREDENTIAL_VALIDATED", source="tests:pseudonymization",
+            timestamp=utcnow()))
+        app_module.db.session.add(app_module.CredentialInteraction(
+            session_id=session_id, scenario_id=scenario_id,
+            synthetic_username="learner@lab.local", credential_valid=True,
+            event_type="CREDENTIAL_VALIDATED"))
+        app_module.db.session.add(app_module.RansomwareRunState(
+            session_id=session_id, scenario_id=scenario_id,
+            state=app_module.STATE_IMPACTED, variant="instructor"))
+        app_module.db.session.commit()
+
+
 @pytest.fixture
 def learner_with_history(flask_app):
-    """A client that has produced telemetry, run state and an interaction row."""
-    from test_phishing_scenario import run_full_scenario
-
+    """A client whose session has produced telemetry, run state and an
+    interaction row (seeded directly; see ``_seed_learner_history``)."""
     client = flask_app.test_client()
-    client.get("/product/1")
-    run_full_scenario(client)
-    client.get("/marketplace/tools")
-    ransomware_post(client, "/ransomware/activate")
+    client.get("/")
     with client.session_transaction() as flask_session:
-        return client, flask_session["session_id"]
+        session_id = flask_session["session_id"]
+    _seed_learner_history(flask_app, session_id)
+    return client, session_id
 
 
-@pytest.mark.parametrize("path", ["/deets", "/dashboard"])
+@pytest.mark.parametrize("path", ["/dashboard"])
 def test_instructor_html_never_renders_a_raw_session_id(flask_app,
                                                         learner_with_history,
                                                         path):
@@ -97,7 +128,7 @@ def test_instructor_html_never_renders_a_raw_session_id(flask_app,
     assert session_id[:8] not in body
 
 
-@pytest.mark.parametrize("path", ["/deets", "/dashboard"])
+@pytest.mark.parametrize("path", ["/dashboard"])
 def test_instructor_html_shows_the_pseudonymous_label(flask_app,
                                                       learner_with_history,
                                                       path):
@@ -111,14 +142,16 @@ def test_instructor_html_shows_the_pseudonymous_label(flask_app,
 
 def test_two_learners_stay_distinguishable_on_the_instructor_page(flask_app):
     clients = []
-    for _ in range(2):
+    for index in range(2):
         client = flask_app.test_client()
-        client.get("/marketplace/tools")
-        ransomware_post(client, "/ransomware/activate")
+        client.get("/")
         with client.session_transaction() as flask_session:
-            clients.append(flask_session["session_id"])
+            session_id = flask_session["session_id"]
+        _seed_learner_history(flask_app, session_id,
+                              scenario_id="pseudo-test-scenario-%d" % index)
+        clients.append(session_id)
 
-    body = login_instructor(flask_app.test_client()).get("/deets").data.decode()
+    body = login_instructor(flask_app.test_client()).get("/dashboard").data.decode()
     labels = {short_id(session_id) for session_id in clients}
     assert len(labels) == 2
     for label in labels:

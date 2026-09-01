@@ -1,10 +1,12 @@
-{% extends "base_stub.html" %}
+{% extends "training_base.html" %}
+{% block title %}Page not found — RewindSec{% endblock %}
 {% block content %}
-<div style="max-width:800px;margin:80px auto;padding:20px;border-left:4px solid #ff5b6a;background:rgba(255,255,255,0.01);border-radius:8px;">
-  <h1 style="color:#ff5b6a;margin:0 0 8px 0;">⚠️ 404 — Simulation Page Not Found</h1>
-  <p style="color:#c9d9d6;margin:0 0 12px 0;">
-    The mock page you requested does not exist in the simulator database.
-  </p>
-  <p><a class="btn" href="{{ url_for('index') }}">← Return to Home</a></p>
-</div>
+<section class="rs-card">
+  <h1>Page not found</h1>
+  <p class="rs-lead">The page you requested does not exist.</p>
+  <div class="rs-actions">
+    <a class="rs-btn" href="{{ url_for('index') }}">Return home</a>
+    <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Training modules</a>
+  </div>
+</section>
 {% endblock %}

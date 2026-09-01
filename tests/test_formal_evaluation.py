@@ -88,6 +88,70 @@ def test_the_profile_is_json_serialisable():
     json.loads(json.dumps(environment.experiment_profile("docker"), default=str))
 
 
+# -- cross-platform host-memory detection -------------------------------------
+
+def test_total_memory_bytes_returns_a_positive_int_on_this_platform():
+    value = environment.total_memory_bytes()
+    assert value is None or (isinstance(value, int) and value > 0)
+
+
+def test_posix_path_is_used_when_platform_is_not_windows(monkeypatch):
+    monkeypatch.setattr(environment.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(environment, "_posix_total_memory_bytes", lambda: 123456)
+    monkeypatch.setattr(
+        environment, "_windows_total_memory_bytes",
+        lambda: (_ for _ in ()).throw(AssertionError("should not be called")))
+    assert environment.total_memory_bytes() == 123456
+
+
+def test_posix_sysconf_failure_is_handled_safely(monkeypatch):
+    def _raise(_name):
+        raise OSError("sysconf not available")
+    monkeypatch.setattr(environment.os, "sysconf", _raise, raising=False)
+    assert environment._posix_total_memory_bytes() is None
+
+
+def test_windows_fallback_is_used_when_sysconf_is_unavailable(monkeypatch):
+    monkeypatch.setattr(environment.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(environment, "_windows_total_memory_bytes", lambda: 654321)
+    monkeypatch.setattr(
+        environment, "_posix_total_memory_bytes",
+        lambda: (_ for _ in ()).throw(AssertionError("should not be called")))
+    assert environment.total_memory_bytes() == 654321
+
+
+def test_windows_helper_handles_a_failing_win32_call(monkeypatch):
+    class _FakeKernel32:
+        def GlobalMemoryStatusEx(self, _ref):
+            return 0
+
+    class _FakeWindll:
+        kernel32 = _FakeKernel32()
+
+    monkeypatch.setattr(environment.ctypes, "windll", _FakeWindll(), raising=False)
+    assert environment._windows_total_memory_bytes() is None
+
+
+def test_a_zero_or_negative_measurement_is_rejected_not_returned(monkeypatch):
+    monkeypatch.setattr(environment.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(environment, "_posix_total_memory_bytes", lambda: 0)
+    assert environment.total_memory_bytes() is None
+
+    monkeypatch.setattr(environment, "_posix_total_memory_bytes", lambda: -1)
+    assert environment.total_memory_bytes() is None
+
+    monkeypatch.setattr(environment, "_posix_total_memory_bytes", lambda: None)
+    assert environment.total_memory_bytes() is None
+
+
+def test_docker_unavailable_does_not_erase_a_valid_host_memory_measurement(monkeypatch):
+    monkeypatch.setattr(environment, "total_memory_bytes", lambda: 999)
+    monkeypatch.setattr(environment, "docker_memory_bytes", lambda: None)
+    profile = environment.experiment_profile("docker")
+    assert profile["host_memory_bytes"] == 999
+    assert profile["docker_vm_memory_bytes"] is None
+
+
 def test_a_profile_field_the_machine_cannot_report_is_none_not_a_guess(monkeypatch):
     monkeypatch.setattr(environment, "_run", lambda *a, **k: None)
     profile = environment.experiment_profile("docker", image=DEFAULT_IMAGE)

@@ -10,6 +10,7 @@ Nothing here is inferred or defaulted: a field the machine cannot report is
 recorded as ``None`` rather than guessed.
 """
 
+import ctypes
 import os
 import platform
 import shutil
@@ -80,18 +81,63 @@ def cpu_count():
     return os.cpu_count()
 
 
-def total_memory_bytes():
-    """Physical RAM in bytes, or None if this platform will not say.
-
-    ``os.sysconf`` covers POSIX; on Windows the value is read back from Docker,
-    which reports the memory available to its Linux VM -- which is the figure
-    that actually bounds these experiments anyway. Both are labelled in
-    :func:`experiment_profile`.
-    """
+def _posix_total_memory_bytes():
+    """Physical RAM in bytes via POSIX ``sysconf``, or None if unavailable."""
     try:
         return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
     except (AttributeError, ValueError, OSError):
         return None
+
+
+def _windows_total_memory_bytes():
+    """Physical RAM in bytes via the Win32 ``GlobalMemoryStatusEx`` API.
+
+    Standard-library only (``ctypes``): no subprocess, no third-party
+    dependency, no network access. Returns None if the call fails.
+    """
+    class _MEMORYSTATUSEX(ctypes.Structure):
+        _fields_ = [
+            ("dwLength", ctypes.c_ulong),
+            ("dwMemoryLoad", ctypes.c_ulong),
+            ("ullTotalPhys", ctypes.c_ulonglong),
+            ("ullAvailPhys", ctypes.c_ulonglong),
+            ("ullTotalPageFile", ctypes.c_ulonglong),
+            ("ullAvailPageFile", ctypes.c_ulonglong),
+            ("ullTotalVirtual", ctypes.c_ulonglong),
+            ("ullAvailVirtual", ctypes.c_ulonglong),
+            ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+        ]
+
+    try:
+        stat = _MEMORYSTATUSEX()
+        stat.dwLength = ctypes.sizeof(_MEMORYSTATUSEX)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+            return None
+        return int(stat.ullTotalPhys)
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
+def total_memory_bytes():
+    """Physical host RAM in bytes, or None if this platform will not say.
+
+    ``os.sysconf`` covers POSIX; ``GlobalMemoryStatusEx`` covers Windows,
+    where ``os.sysconf`` does not exist at all. Both paths measure the same
+    quantity -- total physical memory of the host the measurement was taken
+    on -- so the field's meaning does not change across platforms. This is
+    independent of Docker: :func:`docker_memory_bytes` records the Linux VM's
+    memory separately, and the two are never conflated.
+
+    A result is only returned when it is a positive integer; anything else is
+    treated as "this platform will not say" rather than guessed at.
+    """
+    if platform.system() == "Windows":
+        value = _windows_total_memory_bytes()
+    else:
+        value = _posix_total_memory_bytes()
+    if not isinstance(value, int) or value <= 0:
+        return None
+    return value
 
 
 def docker_memory_bytes():

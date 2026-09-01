@@ -1,0 +1,150 @@
+{% extends "training_base.html" %}
+{% block title %}Study operations — RewindSec{% endblock %}
+{% block content %}
+{# Instructor-only descriptive reporting.
+
+   **Counts only.** There is no significance test, no p-value, no effect size,
+   no confidence interval and no statement anywhere on this page that one arm
+   did better than another. The existence of this infrastructure is not
+   evidence about the question it was built to test, and the software must not
+   imply otherwise.
+
+   No participant name, email address or other personal detail exists to show.
+   No raw Flask session id is rendered: `display_dict()` removes it from the
+   context rather than relying on this template to omit it. Participants are
+   shown by their pseudonymous study label, and the export is keyed on
+   `participant_id`. #}
+<section class="rs-card">
+  <h1>Study operations</h1>
+  <p class="rs-lead">Protocol <code>{{ report.protocol_key }}</code>,
+  version {{ report.protocol_version }} — {{ report.total }} enrolled.</p>
+  <p class="rs-meta">Descriptive operational counts only. No statistical test,
+  effect size or comparison between arms is computed here. Enabling research
+  mode is an operational setting and does not constitute ethics approval,
+  participant consent, or study registration.</p>
+  <div class="rs-actions">
+    <a class="rs-btn secondary" href="{{ export_url }}">Download CSV</a>
+  </div>
+</section>
+
+<section class="rs-card">
+  <h2>Participant flow</h2>
+  <p class="rs-meta">A descriptive flow table: how many participants reached
+  each step, per arm. Nothing is inferred from it.</p>
+  <div class="rs-table-scroll">
+    <table class="rs-diff">
+      <thead>
+        <tr>
+          <th scope="col">Step</th>
+          {% for arm in report.arms %}<th scope="col">{{ arm }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Assigned</th>
+          {% for arm in report.arms %}<td>{{ report.assigned[arm] }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Completed intervention</th>
+          {% for arm in report.arms %}<td>{{ report.intervention_completed[arm] }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Completed immediate transfer</th>
+          {% for arm in report.arms %}<td>{{ report.immediate_completed[arm] }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Eligible for retention</th>
+          {% for arm in report.arms %}<td>{{ report.retention_eligible[arm] }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Retention due now</th>
+          {% for arm in report.arms %}<td>{{ report.retention_due[arm] }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Completed retention</th>
+          {% for arm in report.arms %}<td>{{ report.retention_completed[arm] }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Retention window closed, no response</th>
+          {% for arm in report.arms %}<td>{{ report.retention_expired[arm] }}</td>{% endfor %}</tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="rs-meta">A participant who did not return is counted as not having
+  returned. Missing responses are never counted as risky ones.</p>
+</section>
+
+{% for section, title, note in [
+     ("baseline_quality", "First decision (pre-intervention)",
+      "The response recorded before any arm-specific content was shown."),
+     ("immediate_quality", "Immediate transfer response", ""),
+     ("retention_quality", "Retention transfer response", "")] %}
+<section class="rs-card">
+  <h2>{{ title }}</h2>
+  {% if note %}<p class="rs-meta">{{ note }}</p>{% endif %}
+  <div class="rs-table-scroll">
+    <table class="rs-diff">
+      <thead>
+        <tr>
+          <th scope="col">Arm</th>
+          {% for quality in report.qualities %}<th scope="col">{{ quality }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for arm in report.arms %}
+        <tr>
+          <th scope="row">{{ arm }}</th>
+          {% for quality in report.qualities %}
+          <td>{{ report[section][arm][quality] }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}
+
+<section class="rs-card">
+  <h2>Risky responses given with high stated confidence</h2>
+  <p class="rs-meta">A count of responses, using the authored confidence
+  threshold from the learning layer. It is a property of a response, not a
+  finding about a participant.</p>
+  <div class="rs-table-scroll">
+    <table class="rs-diff">
+      <thead>
+        <tr>
+          <th scope="col">Arm</th>
+          <th scope="col">First decision</th>
+          <th scope="col">Immediate</th>
+          <th scope="col">Retention</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for arm in report.arms %}
+        <tr>
+          <th scope="row">{{ arm }}</th>
+          <td>{{ report.high_confidence_risky["baseline"][arm] }}</td>
+          <td>{{ report.high_confidence_risky["immediate_transfer"][arm] }}</td>
+          <td>{{ report.high_confidence_risky["retention_transfer"][arm] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="rs-card">
+  <h2>Allocation</h2>
+  <div class="rs-table-scroll">
+    <table class="rs-diff">
+      <thead>
+        <tr>
+          <th scope="col">Slot</th><th scope="col">Participant</th>
+          <th scope="col">Arm</th><th scope="col">Phase</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.allocation_slot }}</td>
+          <td><code>{{ row.study_label }}</code></td>
+          <td>{{ row.arm_key }}</td>
+          <td>{{ row.phase }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="rs-meta">Allocation is written once, at enrollment, and is not
+  editable from this page or any other. Arms are what the participants were
+  assigned; no page in the participant-facing flow names one.</p>
+</section>
+{% endblock %}

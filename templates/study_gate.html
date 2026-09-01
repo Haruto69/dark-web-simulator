@@ -1,0 +1,41 @@
+{% extends "study_base.html" %}
+{% block title %}Decision exercise — RewindSec{% endblock %}
+{% block content %}
+{# The access gate.
+
+   The access code is compared server-side in constant time and is never
+   rendered, never stored on the enrollment row and never logged. This page
+   does not say what the code is, how long it is, or whether a submitted one
+   was close. #}
+<section class="rs-card">
+  <h1>Decision exercise</h1>
+  <p class="rs-lead">This exercise presents a short workplace situation and
+  asks what you would do. Every organisation, message and system in it is
+  invented.</p>
+  <p class="rs-meta">Responses are recorded against a randomly generated
+  identifier. You are not asked for your name, your email address, a student
+  number, or any other detail about you, and none is stored.</p>
+</section>
+
+<section class="rs-card">
+  <h2>Start</h2>
+  {% if error %}<p class="rs-error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ post_url }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="rs-field">
+      <label for="access_code">Access code</label>
+      <input type="text" id="access_code" name="access_code"
+             autocomplete="off" spellcheck="false" required>
+    </div>
+    <div class="rs-actions">
+      <button class="rs-btn" type="submit">Begin</button>
+    </div>
+  </form>
+</section>
+
+<section class="rs-card">
+  <h2>Already started?</h2>
+  <p>If you began this exercise before and were given a return code, you can
+  <a href="{{ resume_url }}">continue where you left off</a>.</p>
+</section>
+{% endblock %}

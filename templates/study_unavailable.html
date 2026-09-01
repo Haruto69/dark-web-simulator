@@ -1,0 +1,16 @@
+{% extends "study_base.html" %}
+{% block title %}Unavailable — RewindSec{% endblock %}
+{% block content %}
+{# Research mode is enabled but not fully configured: the allocation secret or
+   the access code is missing.
+
+   Failing closed is the point. Allocating without a configured secret would
+   make the allocation sequence either public or irreproducible, and serving
+   the flow without an access code would let ordinary learners wander into a
+   research protocol. Neither is a state to serve pages in, so the flow refuses
+   rather than degrading. #}
+<section class="rs-card">
+  <h1>Not available</h1>
+  <p class="rs-lead">This exercise is not available at the moment.</p>
+</section>
+{% endblock %}

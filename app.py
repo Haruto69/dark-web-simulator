@@ -14,7 +14,7 @@ from sandbox import (SYNTHETIC_RESOURCES, EventType, PhishingScenario,
                      new_scenario_id, stage_index)
 from sandbox.progression import (PHISHING_FUNNEL, RANSOMWARE_FUNNEL,
                                  STAGE_BY_EVENT, conversion_rates)
-from sandbox.pseudonym import session_label
+from sandbox.pseudonym import session_label, short_id
 from sandbox.ransomware_state import (BASELINE_REMARK, DEFAULT_MAX_AGE_SECONDS,
                                       MIN_MAX_AGE_SECONDS, RESTORED_REMARK,
                                       STATE_BASELINE, STATE_IMPACTED,
@@ -166,6 +166,12 @@ class CredentialInteraction(db.Model):
 # with ``python manage.py drop-legacy``. Every funnel figure the dashboard shows
 # is derived from ``SecurityEvent`` via ``sandbox/progression.py``. There is
 # exactly one authoritative telemetry model.
+
+
+def _iso(value):
+    """``datetime`` -> ISO 8601 string, or ``None``. One conversion, one place."""
+    return value.isoformat() if value else None
+
 
 class SecurityEvent(db.Model):
     """Structured telemetry from the conference sandbox subsystem.
@@ -534,6 +540,269 @@ class TransferAttempt(db.Model):
         return row
 
 
+
+# --- RewindSec research-study artifacts (Milestone R7) ---
+# Three tables supporting a randomised pilot of the phishing module. They are
+# *research* artifacts and are deliberately separate from everything above.
+#
+# The distinction that matters most: ``TrainingExecution`` keeps its R2 meaning
+# exactly -- **one paired counterfactual execution**. Only the
+# ``counterfactual_replay`` arm produces one. The awareness-debrief arm executes
+# no consequence at all and the factual-consequence arm executes one branch, so
+# neither has a pair to record; ``StudyIntervention`` exists precisely so that
+# neither has to be squeezed into a table whose name would then be a lie.
+#
+# Privacy: no name, email, student id, phone number, registration number, date
+# of birth, gender, demographic field, IP address or user agent appears in any
+# of these tables. A participant is a UUID4 and an allocation slot.
+#
+# Portability: plain columns and Text only, exactly as R6 -- everything here is
+# created by ``db.create_all()`` and the repository still carries no migrations.
+
+class StudyEnrollment(db.Model):
+    """One participant's allocation and progress through the pilot protocol.
+
+    **The allocation is written once, at enrollment, and never rewritten.** No
+    route updates ``arm_key`` or ``allocation_slot``; a learner cannot request
+    an arm, submit one, or change one by refreshing, and an instructor has no
+    surface that edits one. That is what makes the allocation auditable.
+
+    ``allocation_slot`` is unique *within a protocol version*, and that
+    uniqueness is how concurrent enrollment stays balanced: two simultaneous
+    enrollments cannot both take slot 7, because the second insert collides and
+    retries onto slot 8 (see ``study_service.enroll``). A count-then-choose
+    scheme with no constraint would hand both the same arm.
+
+    ``session_id`` is kept for authorisation only -- it says which browser
+    session currently owns this enrollment, and the return-code resume flow
+    rebinds it. It is deliberately **absent from the research export**;
+    ``participant_id`` is the correlation identifier for analysis.
+    """
+    __tablename__ = 'study_enrollment'
+
+    STATUS_ACTIVE = "active"
+    STATUS_COMPLETED = "completed"
+
+    __table_args__ = (
+        # Balanced allocation as a database constraint rather than a
+        # convention. See the class docstring.
+        db.UniqueConstraint('protocol_key', 'protocol_version',
+                            'allocation_slot',
+                            name='uq_study_enrollment_protocol_slot'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    # The research correlation identifier. Server-issued uuid4, derived from
+    # nothing: not the session, not the slot, not a clock.
+    participant_id = db.Column(db.String(64), unique=True, index=True,
+                               nullable=False)
+    # Authorisation only, and mutable: the resume flow points it at the
+    # participant's current browser session. Never exported.
+    session_id = db.Column(db.String(100), index=True)
+
+    protocol_key = db.Column(db.String(64), index=True, nullable=False)
+    protocol_version = db.Column(db.Integer, nullable=False, default=1)
+    arm_key = db.Column(db.String(32), index=True, nullable=False)
+    allocation_slot = db.Column(db.Integer, nullable=False)
+
+    # Keyed digest of the participant's return code. The raw code is shown once
+    # at enrollment and never stored, logged, exported or placed in a URL.
+    return_code_digest = db.Column(db.String(64), unique=True, index=True)
+
+    status = db.Column(db.String(16), nullable=False, default=STATUS_ACTIVE,
+                       index=True)
+    # Server-authoritative position in this arm's authored progression. Never
+    # read from a form, a hidden field or a query string.
+    phase = db.Column(db.String(40), nullable=False, index=True)
+
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+    intervention_started_at = db.Column(db.DateTime, nullable=True)
+    intervention_completed_at = db.Column(db.DateTime, nullable=True)
+    immediate_transfer_completed_at = db.Column(db.DateTime, nullable=True)
+    retention_open_at = db.Column(db.DateTime, nullable=True, index=True)
+    retention_close_at = db.Column(db.DateTime, nullable=True, index=True)
+    retention_completed_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self):
+        """Canonical internal form. Carries the real ``session_id``."""
+        return {
+            "participant_id": self.participant_id,
+            "session_id": self.session_id,
+            "protocol_key": self.protocol_key,
+            "protocol_version": self.protocol_version,
+            "arm_key": self.arm_key,
+            "allocation_slot": self.allocation_slot,
+            "status": self.status,
+            "phase": self.phase,
+            "created_at": _iso(self.created_at),
+            "intervention_started_at": _iso(self.intervention_started_at),
+            "intervention_completed_at": _iso(self.intervention_completed_at),
+            "immediate_transfer_completed_at": _iso(
+                self.immediate_transfer_completed_at),
+            "retention_open_at": _iso(self.retention_open_at),
+            "retention_close_at": _iso(self.retention_close_at),
+            "retention_completed_at": _iso(self.retention_completed_at),
+        }
+
+    def display_dict(self):
+        """Instructor-facing form.
+
+        Neither the raw ``session_id`` nor the return-code digest is present in
+        the returned mapping -- they are removed rather than merely omitted by a
+        template. ``participant_id`` stays, because it is the pseudonymous
+        research identifier the dashboard and the export are both keyed on.
+        """
+        row = self.to_dict()
+        row.pop("session_id", None)
+        row["study_label"] = "P-" + short_id(self.participant_id, 6)
+        return row
+
+
+class StudyIntervention(db.Model):
+    """What one participant's assigned intervention actually did.
+
+    One row per enrollment. It holds the **pre-intervention behavioural
+    measure** -- the first phishing decision, taken before any arm-specific
+    feedback and identical in presentation across all three arms -- plus
+    whatever technical evidence that arm produced.
+
+    Which columns are populated is the arm difference, made explicit:
+
+    ``awareness_debrief``    no digest, no state, no execution, no reflection.
+                             Nothing was executed, so nothing is recorded as
+                             though it had been.
+    ``factual_consequence``  ``baseline_digest``, ``factual_result_digest`` and
+                             ``factual_state_json`` from one real adapter run.
+                             Still no execution and no reflection: one branch is
+                             not a pair.
+    ``counterfactual_replay`` all of the above, plus ``training_execution_id``
+                             and ``reflection_id``. The paired result itself is
+                             **not** duplicated here -- ``TrainingExecution``
+                             already owns it, and two copies would eventually
+                             disagree.
+    """
+    __tablename__ = 'study_intervention'
+
+    id = db.Column(db.Integer, primary_key=True)
+    intervention_id = db.Column(db.String(64), unique=True, index=True,
+                                nullable=False)
+    # One intervention per enrollment, as a constraint: a repeated POST
+    # collides here rather than recording a second first-decision.
+    enrollment_id = db.Column(db.Integer, unique=True, index=True,
+                              nullable=False)
+    participant_id = db.Column(db.String(64), index=True, nullable=False)
+
+    scenario_key = db.Column(db.String(64), index=True)
+    arm_key = db.Column(db.String(32), index=True, nullable=False)
+
+    # -- the pre-intervention behavioural measure, recorded exactly once ----
+    factual_choice_id = db.Column(db.String(64))
+    factual_response_quality = db.Column(db.String(16), index=True)
+    factual_confidence = db.Column(db.Integer, nullable=True)
+    factual_response_time_ms = db.Column(db.Integer, nullable=True)
+
+    # -- technical evidence, where the arm produced any ---------------------
+    baseline_digest = db.Column(db.String(64), nullable=True)
+    factual_result_digest = db.Column(db.String(64), nullable=True)
+    factual_state_json = db.Column(db.Text, nullable=True)
+
+    # Populated only for ``counterfactual_replay``.
+    training_execution_id = db.Column(db.String(64), index=True, nullable=True)
+    reflection_id = db.Column(db.String(64), index=True, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self):
+        return {
+            "intervention_id": self.intervention_id,
+            "enrollment_id": self.enrollment_id,
+            "participant_id": self.participant_id,
+            "scenario_key": self.scenario_key,
+            "arm_key": self.arm_key,
+            "factual_choice_id": self.factual_choice_id,
+            "factual_response_quality": self.factual_response_quality,
+            "factual_confidence": self.factual_confidence,
+            "factual_response_time_ms": self.factual_response_time_ms,
+            "baseline_digest": self.baseline_digest,
+            "factual_result_digest": self.factual_result_digest,
+            "training_execution_id": self.training_execution_id,
+            "reflection_id": self.reflection_id,
+            "created_at": _iso(self.created_at),
+            "completed_at": _iso(self.completed_at),
+        }
+
+    def display_dict(self):
+        return self.to_dict()
+
+
+class StudyAssessmentAttempt(db.Model):
+    """One participant's **first** response to one study measurement probe.
+
+    Separate from ``TransferAttempt`` on purpose. That table keys an attempt to
+    a ``source_execution_id``, which only the counterfactual-replay arm has;
+    keying research measurements to it would have made the immediate probe
+    unreachable for two of the three arms, or forced a fake execution row into
+    existence for them. This table keys on the enrollment instead, which every
+    arm has.
+
+    No ``TrainingExecution`` is created by a probe, no ``CounterfactualRuntime``
+    runs, no adapter is prepared, no sandbox is touched and no ``TRAINING_*``
+    event is emitted.
+
+    The unique constraint is what makes "first response" true rather than
+    merely intended: a resubmission, a Back-button repost or a refresh re-reads
+    the stored row and cannot revise it.
+    """
+    __tablename__ = 'study_assessment_attempt'
+
+    __table_args__ = (
+        db.UniqueConstraint('enrollment_id', 'phase', 'probe_key',
+                            name='uq_study_attempt_enrollment_phase_probe'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    attempt_id = db.Column(db.String(64), unique=True, index=True,
+                           nullable=False)
+    enrollment_id = db.Column(db.Integer, index=True, nullable=False)
+    participant_id = db.Column(db.String(64), index=True, nullable=False)
+
+    # ``immediate_transfer`` or ``retention_transfer``.
+    phase = db.Column(db.String(32), index=True, nullable=False)
+    probe_key = db.Column(db.String(64), index=True, nullable=False)
+    probe_version = db.Column(db.Integer, nullable=False, default=1)
+
+    # An authored probe choice id, validated against that probe's own option
+    # list before it is written. Never free text.
+    choice_id = db.Column(db.String(64), nullable=False)
+    response_quality = db.Column(db.String(16), index=True)
+    confidence = db.Column(db.Integer, nullable=True)
+    # Measured server-side from when the probe was rendered, bounded, and null
+    # when implausible -- exactly as the training and R6 probe flows measure it.
+    response_time_ms = db.Column(db.Integer, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    def to_dict(self):
+        return {
+            "attempt_id": self.attempt_id,
+            "enrollment_id": self.enrollment_id,
+            "participant_id": self.participant_id,
+            "phase": self.phase,
+            "probe_key": self.probe_key,
+            "probe_version": self.probe_version,
+            "choice_id": self.choice_id,
+            "response_quality": self.response_quality,
+            "confidence": self.confidence,
+            "response_time_ms": self.response_time_ms,
+            "created_at": _iso(self.created_at),
+        }
+
+    def display_dict(self):
+        return self.to_dict()
+
+
+
 # --- Conference sandbox (instructor-only control surface) ---
 # All Docker / filesystem logic lives in the sandbox package; routes only
 # delegate. See README "Conference Sandbox Architecture".
@@ -622,6 +891,92 @@ app.register_blueprint(create_learning_blueprint(
     # The canonical session id, read server-side. Never a pseudonymous label:
     # a label is a display artifact and must not become an authenticator.
     lambda: session.get("session_id")))
+
+
+# --- RewindSec research study (Milestone R7) ---
+# A randomised pilot of the phishing module, built on top of R1-R6 and
+# **disabled by default**. With ``REWINDSEC_STUDY_ENABLED`` unset there is no
+# study surface at all: every route in the blueprint 404s, no enrollment can be
+# created, and the ordinary training and learning flows are untouched.
+#
+# Enabling it is an operational setting. It is not ethics approval, participant
+# consent, or study registration, and nothing in this codebase claims otherwise.
+# See docs/study-protocol.md.
+#
+# Two independent secrets -- one for arm allocation, one for return-code
+# continuity -- plus an access code are read here, and are deliberately *not*
+# Flask's ``secret_key``: that key has a documented random development
+# fallback and is rotated for reasons unrelated to the study, and neither an
+# allocation sequence nor a set of issued return codes may be invalidated by a
+# redeploy. The two study secrets are kept separate from each other as well:
+# allocation randomisation and return-code authentication are different
+# security domains.
+
+
+def _study_flag(value):
+    """Whether an environment value means "on". Absent means off."""
+    return str(value or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+app.config["STUDY_ENABLED"] = _study_flag(
+    os.environ.get("REWINDSEC_STUDY_ENABLED"))
+# No fallback for either. When research mode is on and one of them is missing,
+# the blueprint fails closed with a 503 rather than allocating under an empty
+# key or serving the flow with no gate.
+app.config["STUDY_ASSIGNMENT_SECRET"] = os.environ.get(
+    "REWINDSEC_STUDY_ASSIGNMENT_SECRET", "")
+app.config["STUDY_ACCESS_CODE"] = os.environ.get(
+    "REWINDSEC_STUDY_ACCESS_CODE", "")
+# Independent from the assignment secret: arm allocation and return-code
+# continuity are separate security domains and must not share key material.
+app.config["STUDY_CONTINUITY_SECRET"] = os.environ.get(
+    "REWINDSEC_STUDY_CONTINUITY_SECRET", "")
+
+
+def study_settings():
+    """The live research-mode configuration, read per request.
+
+    Read from ``app.config`` rather than captured at import, so a test (and an
+    operator restarting under a different environment) sees the current values
+    rather than whatever was true when the object graph was built. The access
+    code is returned for comparison only; it is never persisted on an
+    enrollment row, rendered, or logged.
+    """
+    return {
+        "enabled": bool(app.config.get("STUDY_ENABLED")),
+        "assignment_secret": app.config.get("STUDY_ASSIGNMENT_SECRET") or "",
+        "access_code": app.config.get("STUDY_ACCESS_CODE") or "",
+        "continuity_secret": app.config.get("STUDY_CONTINUITY_SECRET") or "",
+    }
+
+
+from study_service import StudyService  # noqa: E402
+
+
+def study_service():
+    """The configured StudyService for this app. One per process."""
+    service = getattr(app, "_study_service", None)
+    if service is None:
+        service = StudyService(
+            db, StudyEnrollment, StudyIntervention, StudyAssessmentAttempt,
+            TrainingExecution, LearningReflection,
+            # The third arm delegates its paired execution and its structured
+            # reflection to the existing services rather than reimplementing
+            # either. Passed as callables so nothing is constructed twice.
+            training_service, learning_service, study_settings,
+            logger=app.logger)
+        app._study_service = service
+    return service
+
+
+from study_routes import create_study_blueprint  # noqa: E402
+
+app.register_blueprint(create_study_blueprint(
+    study_service,
+    # The canonical session id, read server-side. The study flow uses it for
+    # authorisation only and never exports it.
+    lambda: session.get("session_id"),
+    study_settings))
 
 
 def record_event(event_type, scenario_id=None, source=None, target=None,

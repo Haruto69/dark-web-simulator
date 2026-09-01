@@ -1027,6 +1027,48 @@ See [docs/learning-layer.md](docs/learning-layer.md).
 
 ---
 
+## Research mode
+
+RewindSec ships the infrastructure for a randomised controlled pilot of the
+phishing module. It is **disabled by default** and adds nothing to a normal
+deployment: with it off, every `/study` route returns 404, no enrollment can be
+created, and the ordinary training and learning flows are untouched.
+
+```bash
+export REWINDSEC_STUDY_ENABLED=1
+export REWINDSEC_STUDY_ASSIGNMENT_SECRET=<high-entropy value>
+export REWINDSEC_STUDY_ACCESS_CODE=<code given to participants>
+```
+
+Both secrets are mandatory when research mode is on; without either, the flow
+fails closed rather than allocating under an empty key or serving without a
+gate. Neither is Flask's `secret_key`.
+
+The protocol compares three interventions on the same phishing scenario, with
+an identical first decision in every arm:
+
+- `awareness_debrief` — a concise conventional awareness debrief;
+- `factual_consequence` — the learner's own response executed and shown;
+- `counterfactual_replay` — factual consequence, verified rewind, paired
+  comparison and structured self-explanation.
+
+All three then answer the same immediate transfer probe, and a delayed one
+7–14 days later. Allocation is by keyed, reproducible, permuted blocks of six.
+Participants are identified only by a UUID4; no name, email, student id or
+demographic field is collected anywhere, and there is no free-text input in the
+flow. Instructor-only descriptive counts and a CSV export are available at
+`/study/admin`.
+
+**No efficacy claim is made.** This is infrastructure to test a question, not
+evidence about it: no participant has been recruited, and the application
+computes no p-value, effect size or significance test. Enabling research mode is
+an operational setting and does not constitute ethics approval, participant
+consent, or study registration.
+
+See [docs/study-protocol.md](docs/study-protocol.md).
+
+---
+
 ## Tests
 
 ```bash

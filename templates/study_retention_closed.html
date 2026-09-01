@@ -1,0 +1,27 @@
+{% extends "study_base.html" %}
+{% block title %}Not yet — RewindSec{% endblock %}
+{% block content %}
+{# The retention window, refused. Submission is impossible before it opens and
+   after it closes; this page is what a participant sees in either case.
+
+   An expired window is reported as expired, never quietly converted into a
+   recorded response. Representing the absence is the point: a missing
+   retention attempt is missing data, not a wrong answer. #}
+<section class="rs-card">
+  {% if state == "pending" %}
+  <h1>Not quite yet</h1>
+  <p class="rs-lead">The last part of this exercise opens on
+  <strong>{{ open_at.strftime('%d %B %Y') }}</strong>.</p>
+  <p>Please come back then, and before
+  <strong>{{ close_at.strftime('%d %B %Y') }}</strong>.</p>
+  {% elif state == "expired" %}
+  <h1>This part has closed</h1>
+  <p class="rs-lead">The last part of this exercise was open until
+  <strong>{{ close_at.strftime('%d %B %Y') }}</strong> and has now closed.</p>
+  <p>Nothing further is needed from you. Thank you for taking part.</p>
+  {% else %}
+  <h1>Nothing to do yet</h1>
+  <p class="rs-lead">There is nothing waiting for you at the moment.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "study_base.html" %}
+{% block title %}Response recorded — RewindSec{% endblock %}
+{% block content %}
+{# The neutral completion page after the immediate probe.
+
+   **This page says only that the response was recorded.** It deliberately
+   carries no response quality, no correct or preferred answer, no indication
+   of which option was protective, and no security principle.
+
+   The reason is the retention measurement that follows it. Feedback here would
+   be a further training intervention sitting between the intervention being
+   studied and the outcome being measured, and every arm would receive it
+   equally -- which would not make it harmless, only uniformly contaminating.
+
+   The ordinary, non-study transfer probe keeps its full feedback. This
+   suppression exists only inside the study flow. #}
+<section class="rs-card">
+  <h1>Response recorded.</h1>
+  <p class="rs-lead">Thank you. There is one short part left, and it comes
+  later.</p>
+  {% if open_at %}
+  <p>Please come back after
+  <strong>{{ open_at.strftime('%d %B %Y') }}</strong> and before
+  <strong>{{ close_at.strftime('%d %B %Y') }}</strong> to finish.</p>
+  {% endif %}
+  <p class="rs-meta">If your browser has forgotten you by then, use the return
+  code you were given at the start.</p>
+</section>
+{% endblock %}

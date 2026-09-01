@@ -1,0 +1,30 @@
+{% extends "study_base.html" %}
+{% block title %}Your return code — RewindSec{% endblock %}
+{% block content %}
+{# The one and only time the raw return code is rendered.
+
+   Only a keyed digest of it is stored, so this page cannot be regenerated and
+   the code cannot be recovered or resent. That is why the page is rendered
+   directly from the enrolment POST rather than after a redirect: there is
+   nothing for a subsequent GET to read. #}
+<section class="rs-card">
+  <h1>Write this down before you continue</h1>
+  <p class="rs-lead">You will be asked to come back to this exercise in about a
+  week. This code is how you get back to it if your browser has forgotten
+  you.</p>
+
+  <p class="rs-decision"><code>{{ return_code }}</code></p>
+
+  <p class="rs-meta">This code is shown once and cannot be sent to you again —
+  only a one-way digest of it is kept, so nobody, including us, can look it up
+  and tell you what it was. It identifies your responses and nothing about
+  you.</p>
+</section>
+
+<section class="rs-card">
+  <div class="rs-actions">
+    <a class="rs-btn" href="{{ continue_url }}">I have written it down —
+    continue</a>
+  </div>
+</section>
+{% endblock %}

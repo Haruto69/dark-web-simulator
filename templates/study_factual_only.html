@@ -1,0 +1,41 @@
+{% extends "study_base.html" %}
+{% block title %}What happened — RewindSec{% endblock %}
+{% block content %}
+{# Arm B: the real deterministic consequence of the participant's own response,
+   followed by the same concise authored debrief Arm A receives.
+
+   What is deliberately absent, and must stay absent: any rewind, any request
+   for an alternative decision, any second executed branch, any paired
+   comparison, any state diff, and any structured reflection. Arm B
+   demonstrates interactive consequence and stops there. #}
+<section class="rs-card">
+  <h1>What your response produced</h1>
+  <p class="rs-lead">Your response was carried out in this exercise's synthetic
+  environment. This is the state it left behind — not a description of what
+  might have happened.</p>
+  <p class="rs-decision">{{ factual_label }}</p>
+  <ul class="rs-outcomes">
+    {% for line in state_lines %}
+    <li class="{{ 'notable' if line.notable }}">{{ line.text }}</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="rs-card">
+  <h2>{{ debrief.heading }}</h2>
+  <p class="rs-lead">{{ debrief.lead }}</p>
+  {% for heading, body in debrief.points %}
+  <h3>{{ heading }}</h3>
+  <p>{{ body }}</p>
+  {% endfor %}
+</section>
+
+<section class="rs-card">
+  <form method="post" action="{{ post_url }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="rs-actions">
+      <button class="rs-btn" type="submit">Continue</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

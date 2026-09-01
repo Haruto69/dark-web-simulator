@@ -258,15 +258,25 @@ R6_LEARNING_TABLES = {
     "learning_reflection", "concept_evidence", "transfer_attempt",
 }
 
+#: R7 adds exactly three more, and every one is a *research artifact* keyed by
+#: an enrollment. None of them is an event table either: R7 declares no
+#: ``STUDY_*`` event type and opens no second event stream, because the study
+#: artifacts already carry the timestamps a study needs.
+R7_STUDY_TABLES = {
+    "study_enrollment", "study_intervention", "study_assessment_attempt",
+}
+
+ARTIFACT_TABLES = R6_LEARNING_TABLES | R7_STUDY_TABLES
+
 
 def test_no_new_event_table_exists(flask_app):
-    """BX. Still exactly one event stream; R6's additions are artifacts."""
+    """BX. Still exactly one event stream; R6's and R7's additions are artifacts."""
     import app as app_module
     tables = set(app_module.db.metadata.tables)
-    assert tables == PRE_R5_TABLES | R6_LEARNING_TABLES
+    assert tables == PRE_R5_TABLES | ARTIFACT_TABLES
     # security_event stays the one ordered timeline: no table added since R5
-    # is an event log, and R6 declares no new event types at all.
-    assert all("event" not in name for name in R6_LEARNING_TABLES)
+    # is an event log, and neither R6 nor R7 declares a new event type at all.
+    assert all("event" not in name for name in ARTIFACT_TABLES)
     for name in tables:
         assert not any(word in name for word in ("mfa", "bec", "payment",
                                                  "invoice"))

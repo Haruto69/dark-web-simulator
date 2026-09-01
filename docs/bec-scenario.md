@@ -172,3 +172,14 @@ no `BEC_*` or `PAYMENT_*` event family exists.
   confidence.
 * Session-scoped progress; an execution row is served only to the session that
   owns it, and execution ids are never accepted from a URL or a form.
+
+
+## After the comparison: the learning layer (R6)
+
+The technical comparison is followed by a structured learning review only — a
+structured self-explanation, then confidence-aware concept evidence and
+deterministic feedback, ending with "Return to training modules". This scenario
+has **no transfer probe** in R6; the two that ship belong to phishing and
+ransomware.
+
+See [the learning layer](learning-layer.md).

@@ -53,7 +53,15 @@ def test_events_endpoint_is_timestamp_ordered(instructor):
     post(instructor, "/sandbox/scenario/file-impact")
     post(instructor, "/sandbox/reset")
 
-    events = instructor.get("/sandbox/events?limit=500").get_json()["events"]
+    # Scoped to this client's own session. The shared test database now holds
+    # telemetry from every suite, so an unfiltered window of the *oldest* 500
+    # rows would stop containing this flow as the suite grows -- the same
+    # volume sensitivity the evaluation APIs were hardened against.
+    with instructor.session_transaction() as sess:
+        session_id = sess.get("session_id")
+    events = instructor.get(
+        "/sandbox/events?limit=500&session_id=%s" % session_id
+    ).get_json()["events"]
     assert events, "expected telemetry from the flow above"
     assert [e["timestamp"] for e in events] == sorted(e["timestamp"] for e in events)
 

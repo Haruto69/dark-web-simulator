@@ -1,0 +1,61 @@
+{% extends "training_base.html" %}
+{% block title %}{{ probe.title }} — RewindSec{% endblock %}
+{% block content %}
+{# An unseen transfer probe.
+
+   No feedback appears anywhere on this page: the learner's first response is
+   the measurement, and it is taken before they are told anything. There is no
+   rewind, no comparison and no authored principle here. #}
+<section class="rs-card">
+  <h1>{{ probe.title }}</h1>
+  <p class="rs-lead">{{ probe.prompt }}</p>
+  <p class="rs-meta">This one has no rewind. Answer as you would in the
+  moment.</p>
+</section>
+
+<section class="rs-card">
+  <div class="rs-message">
+    <div class="rs-message-body">
+      {% if qr_cells %}
+      {# A decorative figure only. It encodes nothing, links nowhere and cannot
+         be decoded; there is no destination anywhere in this exercise. #}
+      <svg class="rs-qr" viewBox="0 0 15 15" width="150" height="150"
+           role="img" aria-label="A printed code, shown as a decorative
+           pattern. It is inert and encodes nothing.">
+        <rect x="0" y="0" width="15" height="15" fill="#ffffff"></rect>
+        {% for cell in qr_cells %}<rect x="{{ cell[0] }}" y="{{ cell[1] }}"
+              width="1" height="1" fill="#1c2530"></rect>{% endfor %}
+      </svg>
+      <p class="rs-meta">Decorative only. This figure encodes nothing and there
+      is nothing to scan.</p>
+      {% endif %}
+      <ul class="rs-outcomes">
+        {% for line in probe.situation %}
+        <li>{{ line }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="rs-card">
+  <h2>What do you do?</h2>
+  {% if error %}<p class="rs-error">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ post_url }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for choice in choices %}
+    <label class="rs-choice">
+      <input type="radio" name="choice_id" value="{{ choice.choice_id }}"
+             {% if loop.first %}required{% endif %}>
+      {{ choice.label }}
+    </label>
+    {% endfor %}
+    {% with confidence_label = "How confident are you in this response?" %}
+      {% include "_training_confidence.html" %}
+    {% endwith %}
+    <div class="rs-actions">
+      <button class="rs-btn" type="submit">Record my response</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

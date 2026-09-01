@@ -11,7 +11,7 @@
   state, so the only difference between these two paths is the response.</p>
   {% endif %}
 </section>
-{% with restart_url = url_for('training.mfa_start') %}
+{% with restart_url = url_for('training.mfa_start'), learn_module = "mfa" %}
   {% include "_training_result_body.html" %}
 {% endwith %}
 {% endblock %}

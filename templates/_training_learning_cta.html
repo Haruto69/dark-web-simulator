@@ -1,0 +1,15 @@
+{# The primary call to action on every completed technical result.
+
+   The comparison above stays complete and visible; this is the step after it,
+   and it is deliberately the prominent action rather than something below the
+   legacy navigation. Expects ``learn_module``: one of the allow-listed
+   learning module names. #}
+<section class="rs-card">
+  <h2>Next: make sense of the comparison</h2>
+  <p>You have seen what each response produced. The learning review asks which
+  security principle the comparison demonstrates, then reflects your own first
+  response back to you.</p>
+  <div class="rs-actions">
+    <a class="rs-btn" href="{{ url_for('learning.reflection_page', module=learn_module) }}">Continue to learning review</a>
+  </div>
+</section>

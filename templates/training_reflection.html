@@ -1,0 +1,47 @@
+{% extends "training_base.html" %}
+{% block title %}Learning review — RewindSec{% endblock %}
+{% block content %}
+{# Structured self-explanation.
+
+   The learner selects the security principle that best accounts for what the
+   executed comparison shows. The prompt is scenario-level and must stay valid
+   for every allowed pair of distinct choices -- two protective responses can
+   differ in technical state while the major outcome does not -- so nothing
+   here claims that a particular outcome differed. Options are the authored
+   list for *this* scenario and nothing else; there is no text input on this
+   page, by design. #}
+<section class="rs-card">
+  <h1>What does this comparison show?</h1>
+  <p class="rs-lead">You have seen what each response actually produced. Before
+  the review, put the security principle behind that comparison into words by
+  choosing the account that fits it best.</p>
+  <p class="rs-meta">
+    Your path: {{ factual_label }} &nbsp;·&nbsp;
+    Rewind path: {{ counterfactual_label }} &nbsp;·&nbsp;
+    <a href="{{ result_url }}">Back to the comparison</a>
+  </p>
+</section>
+
+<section class="rs-card">
+  <h2>{{ prompt }}</h2>
+  {% if error %}<p class="rs-error">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ post_url }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for option in options %}
+    <label class="rs-choice">
+      <input type="radio" name="explanation_id"
+             value="{{ option.explanation_id }}"
+             {% if loop.first %}required{% endif %}>
+      {{ option.text }}
+    </label>
+    {% endfor %}
+    <div class="rs-actions">
+      <button class="rs-btn" type="submit">Continue to learning review</button>
+    </div>
+  </form>
+  <p class="rs-meta">This question is about the principle the scenario turns
+  on, not about which response you happened to make first. Your selection is
+  recorded once, and stored as the identifier of the option you chose — nothing
+  you write, and nothing about you.</p>
+</section>
+{% endblock %}

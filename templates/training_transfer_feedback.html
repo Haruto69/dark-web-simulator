@@ -1,0 +1,45 @@
+{% extends "training_base.html" %}
+{% block title %}{{ probe.title }} — RewindSec{% endblock %}
+{% block content %}
+{# Feedback for a recorded transfer attempt.
+
+   Reachable only once an attempt exists, and rendered from that stored row.
+   The response shown is always the first one recorded; a resubmission cannot
+   replace it, so this page cannot be used to try again. #}
+<section class="rs-card">
+  <h1>{{ probe.title }}</h1>
+  <p class="rs-lead">Your response was recorded before any feedback was
+  shown.</p>
+</section>
+
+<section class="rs-card">
+  <h2>Your response</h2>
+  <p class="rs-decision"><strong>{{ choice.label }}</strong></p>
+  {% if confidence_statement %}<p>{{ confidence_statement }}</p>{% endif %}
+  <p><strong>{{ quality_label }}.</strong> {{ quality_summary }}</p>
+</section>
+
+<section class="rs-card">
+  <h2>The principle</h2>
+  <p>{{ principle }}</p>
+</section>
+
+<section class="rs-card">
+  <h2>Record</h2>
+  <p class="rs-meta">
+    Attempt <code>{{ attempt.attempt_id }}</code><br>
+    Probe <code>{{ attempt.probe_key }}@{{ attempt.probe_version }}</code><br>
+    Following <code>{{ attempt.source_scenario_key }}</code>
+  </p>
+  <p class="rs-meta">This was an unseen situation, answered once. It is
+  recorded as a response to an authored exercise — not as a score, and not as a
+  statement about you.</p>
+  <div class="rs-actions">
+    <a class="rs-btn" href="{{ url_for('training.home') }}">Return to training modules</a>
+    {% if module %}
+    <a class="rs-btn secondary"
+       href="{{ url_for('learning.feedback', module=module.name) }}">Back to the learning review</a>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

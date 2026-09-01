@@ -1,0 +1,77 @@
+{% extends "training_base.html" %}
+{% block title %}Learning review — RewindSec{% endblock %}
+{% block content %}
+{# The deterministic learning review.
+
+   Every sentence here is authored and every value is recomputed server-side
+   from the persisted execution and reflection. There is no grade, no
+   percentage, no mastery bar and no psychological label anywhere on the page,
+   and no raw state JSON is rendered. #}
+<section class="rs-card">
+  <h1>Learning review</h1>
+  <p class="rs-lead">{{ module.title }}. Drawn from what you actually did in
+  this exercise, and from the explanation you selected.</p>
+</section>
+
+<section class="rs-card">
+  <h2>Your first response</h2>
+  <p class="rs-decision"><strong>{{ factual_label }}</strong></p>
+  <p><strong>{{ quality_label }}.</strong> {{ quality_summary }}</p>
+  <p class="rs-meta">This is the response you made before the rewind. The
+  alternative you explored afterwards was part of the exercise, not a second
+  measurement of what you would have done.</p>
+</section>
+
+<section class="rs-card">
+  <h2>Confidence check</h2>
+  {% if confidence_statement %}
+  <p>{{ confidence_statement }}</p>
+  {% endif %}
+  <p>{{ confidence_sentence }}</p>
+</section>
+
+{# Neutral heading on purpose. Two protective responses can differ in
+   technical state while producing the same high-level outcome, so this section
+   must not claim the major outcome necessarily differed. The truthful state
+   diff stays on the technical comparison page, unchanged. #}
+<section class="rs-card">
+  <h2>What the comparison shows</h2>
+  <p class="rs-meta">{{ prompt }}</p>
+  <p><strong>The principle that fits best:</strong>
+  {{ preferred_explanation.text }}</p>
+  {% if selection_matched_preferred %}
+  <p class="rs-verified">✓ That matches the explanation you selected.</p>
+  {% else %}
+  <p>You selected: {{ selected_explanation.text }}</p>
+  <p class="rs-meta">Worth comparing the two: the difference between them is
+  where the reasoning turns.</p>
+  {% endif %}
+</section>
+
+<section class="rs-card">
+  <h2>Concepts to carry forward</h2>
+  <p class="rs-meta">{{ signal_note }}</p>
+  <ul class="rs-outcomes">
+    {% for item in carry_forward %}
+    <li>{{ item.statement }}</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="rs-card">
+  {% if probe %}
+  <h2>One more situation</h2>
+  <p>A different setting, on the same principle. There is no rewind this
+  time — your first response is what is recorded.</p>
+  <div class="rs-actions">
+    <a class="rs-btn" href="{{ probe_url }}">Continue</a>
+    <a class="rs-btn secondary" href="{{ result_url }}">Back to the comparison</a>
+  </div>
+  {% else %}
+  <div class="rs-actions">
+    <a class="rs-btn" href="{{ url_for('training.home') }}">Return to training modules</a>
+    <a class="rs-btn secondary" href="{{ result_url }}">Back to the comparison</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

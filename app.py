@@ -322,6 +322,218 @@ class TrainingExecution(db.Model):
         return row
 
 
+# --- RewindSec learning artifacts (Milestone R6) ---
+# Three small tables, deliberately *separate* from TrainingExecution.
+#
+# TrainingExecution stays exactly what R2 made it: the technical paired-execution
+# result artifact. Nothing about reflection, concept evidence, a transfer probe
+# or a learning score is added to it, because a technical record that also
+# carried pedagogical interpretation would have two owners and no clear meaning.
+# These tables link to it by ``execution_id`` and nothing else.
+#
+# Portability: plain columns and Text only. No vendor JSON type, no server-side
+# default, nothing SQLite cannot create through ``db.create_all()`` -- the
+# repository still has no migration machinery and R6 does not introduce any.
+
+class LearningReflection(db.Model):
+    """One learner's structured self-explanation of a completed comparison.
+
+    **Exactly one per completed TrainingExecution**, enforced by a unique
+    constraint on ``execution_id`` rather than by route discipline alone. The
+    first recorded explanation is the research datum; a refresh, a Back-button
+    resubmission or a repeated POST re-reads it and never overwrites it.
+
+    Data minimisation is the whole design: what is stored is the *identifier*
+    of an authored option the learner selected. There is no free-text column
+    here and no free-text input anywhere in the R6 flow, so a learner cannot
+    write personal information into the research record even by accident.
+    """
+    __tablename__ = 'learning_reflection'
+
+    id = db.Column(db.Integer, primary_key=True)
+    # Server-issued uuid4. Never derived from a timestamp, safe to quote.
+    reflection_id = db.Column(db.String(64), unique=True, index=True,
+                              nullable=False)
+    # The completed technical execution this explains. Unique: the one-per-
+    # execution rule is a database constraint, not a convention.
+    execution_id = db.Column(db.String(64), unique=True, index=True,
+                             nullable=False)
+    session_id = db.Column(db.String(100), index=True)
+
+    scenario_key = db.Column(db.String(64), index=True)
+    prompt_key = db.Column(db.String(64))
+    # An authored explanation id from learning/reflection.py. Validated against
+    # that scenario's own option list before it is ever written.
+    selected_explanation_id = db.Column(db.String(64), nullable=False)
+    # Derived server-side from the authored definition at write time, and
+    # recomputable from it; stored so an analysis need not re-resolve the
+    # definition version that was live.
+    preferred_explanation = db.Column(db.Boolean, nullable=False, default=False)
+
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    def to_dict(self):
+        """Canonical internal form. Carries the real ``session_id``."""
+        return {
+            "reflection_id": self.reflection_id,
+            "execution_id": self.execution_id,
+            "session_id": self.session_id,
+            "scenario_key": self.scenario_key,
+            "prompt_key": self.prompt_key,
+            "selected_explanation_id": self.selected_explanation_id,
+            "preferred_explanation": bool(self.preferred_explanation),
+            "created_at": (self.created_at.isoformat()
+                           if self.created_at else None),
+        }
+
+    def display_dict(self):
+        """Instructor-facing form: pseudonymous label instead of session id."""
+        row = self.to_dict()
+        row["session_label"] = session_label(row.pop("session_id"))
+        return row
+
+
+class ConceptEvidence(db.Model):
+    """One authored signal, about one concept, from one learner act.
+
+    **What a row means.** "In this exercise, this response was authored as
+    evidence of this kind about this concept." That is the whole claim.
+
+    **What a row is not.** Not a psychological diagnosis, not a permanent
+    learner trait, not a validated mastery score, and not a clinical or
+    educational assessment. R6 deliberately computes no global mastery
+    percentage and averages nothing: rows are counted and grouped, never summed
+    into a number about a person.
+
+    ``evidence_source`` separates the two kinds of act, and the distinction
+    matters for the paper. ``factual_decision`` is the learner's behaviour
+    before the intervention; ``structured_reflection`` is their explanation
+    after seeing it. The counterfactual branch produces neither -- it is part
+    of the intervention, and is never recorded as behavioural evidence.
+    """
+    __tablename__ = 'concept_evidence'
+
+    #: Evidence sources, mirroring ``learning``'s constants. Declared here so a
+    #: query can be written against the model without importing the domain.
+    SOURCE_FACTUAL_DECISION = "factual_decision"
+    SOURCE_STRUCTURED_REFLECTION = "structured_reflection"
+    SOURCE_TRANSFER_PROBE = "transfer_probe"
+
+    __table_args__ = (
+        # Idempotency as a constraint. Re-deriving evidence for an execution --
+        # on a refresh, a repeated POST, or a second visit to the feedback page
+        # -- collides here rather than appending a duplicate row.
+        db.UniqueConstraint('execution_id', 'evidence_source', 'concept_tag',
+                            name='uq_concept_evidence_execution_source_tag'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), index=True)
+    # The technical execution the evidence was derived from. For transfer-probe
+    # evidence this is the *source* execution that unlocked the probe.
+    execution_id = db.Column(db.String(64), index=True, nullable=False)
+
+    scenario_key = db.Column(db.String(64), index=True)
+    concept_tag = db.Column(db.String(64), index=True, nullable=False)
+    evidence_source = db.Column(db.String(32), index=True, nullable=False)
+    evidence_signal = db.Column(db.String(32), index=True, nullable=False)
+    response_quality = db.Column(db.String(16), index=True)
+    # The raw 0..100 reading, kept as the measurement it is. Null where the act
+    # carried no confidence (a structured reflection does not ask for one).
+    confidence = db.Column(db.Integer, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    def to_dict(self):
+        """Canonical internal form. Carries the real ``session_id``."""
+        return {
+            "session_id": self.session_id,
+            "execution_id": self.execution_id,
+            "scenario_key": self.scenario_key,
+            "concept_tag": self.concept_tag,
+            "evidence_source": self.evidence_source,
+            "evidence_signal": self.evidence_signal,
+            "response_quality": self.response_quality,
+            "confidence": self.confidence,
+            "created_at": (self.created_at.isoformat()
+                           if self.created_at else None),
+        }
+
+    def display_dict(self):
+        """Instructor-facing form: pseudonymous label instead of session id."""
+        row = self.to_dict()
+        row["session_label"] = session_label(row.pop("session_id"))
+        return row
+
+
+class TransferAttempt(db.Model):
+    """A learner's first response to an unseen transfer probe.
+
+    This is the one measurement in RewindSec taken *after* the intervention and
+    *without* it: no rewind, no comparison, no feedback until it is recorded.
+    The first response is therefore the datum, and the unique constraint below
+    is what makes that true rather than merely intended -- a resubmission, a
+    Back-button repost or a refresh cannot replace it.
+
+    No ``TrainingExecution`` row is created by a probe, no
+    ``CounterfactualRuntime`` runs, no sandbox is touched and no ``TRAINING_*``
+    lifecycle event is emitted. ``source_execution_id`` is a reference to the
+    training execution that unlocked the probe, resolved server-side from the
+    session; it is never accepted from a browser.
+    """
+    __tablename__ = 'transfer_attempt'
+
+    __table_args__ = (
+        # Exactly one attempt per source execution and probe.
+        db.UniqueConstraint('source_execution_id', 'probe_key',
+                            name='uq_transfer_attempt_source_probe'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    attempt_id = db.Column(db.String(64), unique=True, index=True,
+                           nullable=False)
+    session_id = db.Column(db.String(100), index=True)
+    source_execution_id = db.Column(db.String(64), index=True, nullable=False)
+    source_scenario_key = db.Column(db.String(64), index=True)
+
+    probe_key = db.Column(db.String(64), index=True, nullable=False)
+    probe_version = db.Column(db.Integer, nullable=False, default=1)
+
+    # An authored probe choice id, validated against that probe's own option
+    # list before it is written. Never free text.
+    choice_id = db.Column(db.String(64), nullable=False)
+    response_quality = db.Column(db.String(16), index=True)
+    confidence = db.Column(db.Integer, nullable=True)
+    # Measured server-side from when the probe was rendered, bounded, and null
+    # when implausible -- exactly as the training flow measures latency.
+    response_time_ms = db.Column(db.Integer, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    def to_dict(self):
+        """Canonical internal form. Carries the real ``session_id``."""
+        return {
+            "attempt_id": self.attempt_id,
+            "session_id": self.session_id,
+            "source_execution_id": self.source_execution_id,
+            "source_scenario_key": self.source_scenario_key,
+            "probe_key": self.probe_key,
+            "probe_version": self.probe_version,
+            "choice_id": self.choice_id,
+            "response_quality": self.response_quality,
+            "confidence": self.confidence,
+            "response_time_ms": self.response_time_ms,
+            "created_at": (self.created_at.isoformat()
+                           if self.created_at else None),
+        }
+
+    def display_dict(self):
+        """Instructor-facing form: pseudonymous label instead of session id."""
+        row = self.to_dict()
+        row["session_label"] = session_label(row.pop("session_id"))
+        return row
+
+
 # --- Conference sandbox (instructor-only control surface) ---
 # All Docker / filesystem logic lives in the sandbox package; routes only
 # delegate. See README "Conference Sandbox Architecture".
@@ -378,6 +590,38 @@ app.register_blueprint(create_training_blueprint(
     # session->sandbox id function, never a sandbox id from a request.
     sandbox_manager=sandbox_manager,
     sandbox_id_for_session=session_sandbox_id))
+
+
+# --- RewindSec learning layer (Milestone R6) ---
+# The layer *after* the technical comparison: structured self-explanation,
+# confidence-aware concept evidence and unseen transfer probes.
+#
+# It consumes completed executions and never alters them. No adapter, no
+# CounterfactualRuntime, no sandbox and no TRAINING_* event is reachable from
+# this blueprint; the pure authored pedagogy lives in ``learning/``, which -- like
+# ``training/`` -- imports nothing but the standard library.
+
+from learning_service import LearningService  # noqa: E402
+
+
+def learning_service():
+    """The configured LearningService for this app. One per process."""
+    service = getattr(app, "_learning_service", None)
+    if service is None:
+        service = LearningService(db, TrainingExecution, LearningReflection,
+                                  ConceptEvidence, TransferAttempt,
+                                  logger=app.logger)
+        app._learning_service = service
+    return service
+
+
+from learning_routes import create_learning_blueprint  # noqa: E402
+
+app.register_blueprint(create_learning_blueprint(
+    TrainingExecution, learning_service,
+    # The canonical session id, read server-side. Never a pseudonymous label:
+    # a label is a display artifact and must not become an authenticator.
+    lambda: session.get("session_id")))
 
 
 def record_event(event_type, scenario_id=None, source=None, target=None,

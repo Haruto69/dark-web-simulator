@@ -998,6 +998,35 @@ FILE_IMPACT  target=/workspace/finance_report.txt
                       finance_report.txt.demo_locked"
 ```
 
+## Learning layer
+
+Beyond the deterministic paired replay, RewindSec supports a learning review
+after the technical comparison:
+
+- **deterministic paired replay** — both branches really executed, the second
+  from a rewound state whose baseline fingerprint was verified first;
+- **structured self-explanation** — the learner selects, from authored options,
+  the security principle that best accounts for what the comparison shows. The
+  prompt is scenario-level, so it stays valid even when both compared responses
+  were protective. No free text is written or stored;
+- **confidence-aware concept evidence** — the learner's stated confidence is
+  read alongside the authored quality of their *factual* first response, and
+  recorded as per-concept evidence;
+- **unseen transfer probes** — two authored situations on different surfaces
+  (QR phishing; an unexpected update package) that record the learner's first
+  response before any feedback or replay.
+
+Everything in this layer is authored and deterministic. There is no language
+model anywhere in it, at import time or at runtime, and no free-text grading.
+
+Concept evidence is an authored training signal, not a validated psychological
+diagnosis or mastery score. RewindSec computes no global mastery percentage,
+and **no claim of improved learning is made** — there is no human data yet.
+
+See [docs/learning-layer.md](docs/learning-layer.md).
+
+---
+
 ## Tests
 
 ```bash

@@ -49,7 +49,18 @@ def run_full_scenario(client):
 
 
 def scenario_events(instructor_client, session_client=None):
-    body = instructor_client.get("/sandbox/events?limit=500").get_json()
+    """This run's telemetry, read through the instructor API.
+
+    Scoped to ``session_client``'s session when one is given. The shared test
+    database accumulates every suite's telemetry, so an unfiltered window of
+    the oldest 500 rows would eventually stop containing the run under test --
+    the volume sensitivity the evaluation APIs were hardened against.
+    """
+    query = "limit=500"
+    if session_client is not None:
+        with session_client.session_transaction() as sess:
+            query += "&session_id=%s" % sess.get("session_id")
+    body = instructor_client.get("/sandbox/events?" + query).get_json()
     return body["events"]
 
 
@@ -166,7 +177,7 @@ def test_full_scenario_emits_the_expected_ordered_sequence(client, other_client)
     run_full_scenario(client)
 
     instructor_client = login_instructor(other_client)
-    events = scenario_events(instructor_client)
+    events = scenario_events(instructor_client, client)
 
     # Correlate on the scenario that contains the completion event.
     completed = [e for e in events
@@ -186,7 +197,8 @@ def test_failed_validation_emits_its_own_event(client, other_client):
     submit(client, "employee01@lab.local", "definitely-wrong")
 
     instructor_client = login_instructor(other_client)
-    types = [e["event_type"] for e in scenario_events(instructor_client)]
+    types = [e["event_type"]
+             for e in scenario_events(instructor_client, client)]
     assert EventType.CREDENTIAL_VALIDATION_FAILED in types
 
 

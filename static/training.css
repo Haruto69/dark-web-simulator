@@ -164,3 +164,9 @@ legend { font-weight: 600; padding: 0 0.4rem; }
 .rs-files th { color: var(--muted); font-weight: 600; }
 .rs-files tr.impacted td { color: var(--notable); }
 .rs-files tr.impacted code { text-decoration: line-through; }
+
+/* -- R6 learning layer ---------------------------------------------------
+   The transfer probe's code figure. Decorative only: it is drawn from a fixed
+   arithmetic rule, encodes nothing and links nowhere. */
+.rs-qr { display: block; border: 1px solid var(--line); border-radius: 6px;
+         margin: 0 0 0.6rem; image-rendering: pixelated; }

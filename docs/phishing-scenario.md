@@ -227,3 +227,15 @@ No new `EventType` was added in R3, and no legacy `PHISHING_*` event is emitted
 by the new flow — duplicating the same causal progression into two event
 families would leave two timelines to reconcile. `TRAINING_*` is the
 authoritative timeline here; the legacy events remain for the legacy routes.
+
+
+## After the comparison: the learning layer (R6)
+
+The technical comparison is followed by a structured learning review — a
+structured self-explanation, then confidence-aware concept evidence and
+deterministic feedback. This scenario is also the source of the
+**quishing / QR phishing** unseen transfer probe, which is unlocked once this
+module's execution and its reflection are both recorded, and which measures the
+learner's first response on a different surface with no rewind.
+
+See [the learning layer](learning-layer.md).

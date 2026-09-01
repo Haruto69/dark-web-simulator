@@ -304,3 +304,16 @@ note, no countdown, no payment address and no hacker terminal — the workstatio
 view is a neutral file list, an alert line and four responses. Removing the
 legacy flow is a later cleanup milestone, once both new core scenarios are
 stable.
+
+
+## After the comparison: the learning layer (R6)
+
+The technical comparison is followed by a structured learning review — a
+structured self-explanation, then confidence-aware concept evidence and
+deterministic feedback. This scenario is also the source of the **malicious
+update / attachment** unseen transfer probe, which is unlocked once this
+module's execution and its reflection are both recorded. The probe contains no
+attachment, no download and no executable, needs no Docker, and triggers no
+sandbox operation or file impact.
+
+See [the learning layer](learning-layer.md).

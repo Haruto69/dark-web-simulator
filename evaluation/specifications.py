@@ -1,5 +1,11 @@
 """Frozen, independent correctness specifications for the evaluated scenarios.
 
+HISTORICAL: this is the oracle for the earlier conference-simulator
+architecture's milestone-4 measurements, preserved untouched and functionally
+unmodified. The newer paired-counterfactual RewindSec architecture has its own,
+separate, independent oracle in ``evaluation/rewindsec_specifications.py``
+(``REWINDSEC_SPECIFICATION_VERSION``) -- the two are never merged or conflated.
+
 WHY THIS FILE EXISTS
 --------------------
 The production code already knows what a scenario is supposed to emit: see

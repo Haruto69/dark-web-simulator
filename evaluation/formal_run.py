@@ -1,5 +1,13 @@
 """Formal experiment suite for the conference paper (Milestone 4).
 
+HISTORICAL: this harness measures the earlier conference-simulator
+architecture (single-branch scenarios: credential_reuse_phishing,
+ransomware_awareness, file_impact). It is preserved as-is -- untouched,
+functionally unmodified -- and is intentionally distinct from the newer
+paired-counterfactual RewindSec architecture measured by
+``evaluation/rewindsec_formal_run.py``. Do not retarget, rename, or bump
+``SPECIFICATION_VERSION`` in this module to describe the newer architecture.
+
     python -m evaluation.formal_run                  # everything, default sizes
     python -m evaluation.formal_run --experiments A,D
     python -m evaluation.formal_run --dry-run        # profile + containment only

@@ -1,0 +1,179 @@
+{
+  "manifest_version": 1,
+  "purpose": "Freezes the RewindSec v1 historical evaluation artifacts. These files measure the v1 architecture and must stay attributable to it. See PROVENANCE.md.",
+  "note": "evaluation/results/ is gitignored (.gitignore: 'evaluation/results/'), so git cannot detect a change to these files. This manifest is the only integrity record. tests/test_provenance.py verifies it, and skips when the directory is absent (a fresh clone or CI machine legitimately has no results tree).",
+  "recorded_at_commit": "0421c8ae7e4c8316203ec3da7ad75f253c31465b",
+  "excluded_patterns": {
+    "directories": [
+      ".ipynb_checkpoints",
+      "__pycache__"
+    ],
+    "filenames": [
+      ".DS_Store",
+      ".gitkeep",
+      "Thumbs.db"
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "evaluation/results/formal/concurrency.csv",
+      "sha256": "53cea27c6e70e0add2dcba58102ae7908232cc1be4bb6e1b855d2b576bd4075e",
+      "size_bytes": 6515
+    },
+    {
+      "path": "evaluation/results/formal/concurrency.json",
+      "sha256": "8775a95b372867b247cf36171c0c3a87a89dd75916ec36e1adb8ea7d897e8b7e",
+      "size_bytes": 29286
+    },
+    {
+      "path": "evaluation/results/formal/containment.csv",
+      "sha256": "d75e9aa10a7af4b414b773f12fbab4d684d81c5cab339835f0598a5eec3f72df",
+      "size_bytes": 3124
+    },
+    {
+      "path": "evaluation/results/formal/containment.json",
+      "sha256": "99db213d47fdc8db113d38e451ae869c4054dc6e0aac3be9685fb10e36d95b14",
+      "size_bytes": 7675
+    },
+    {
+      "path": "evaluation/results/formal/isolation.csv",
+      "sha256": "b33330495a5587b6678dbb55d04e8f8c2bc4bfd692ede5743701a247d675053b",
+      "size_bytes": 2622
+    },
+    {
+      "path": "evaluation/results/formal/isolation.json",
+      "sha256": "04b994d7a56c214c2c5b05d05131296be437501299160810c2eda59a25ae5756",
+      "size_bytes": 20425
+    },
+    {
+      "path": "evaluation/results/formal/metadata.json",
+      "sha256": "e4b90a6105b73b223a12dfb91455aa424e77f36d9773d845e5e76fa066103a31",
+      "size_bytes": 5624
+    },
+    {
+      "path": "evaluation/results/formal/performance.csv",
+      "sha256": "072ce4c2827585e5aa58fc8c1b2a761c67039984e5cf9a3294d85abd962481ce",
+      "size_bytes": 5092
+    },
+    {
+      "path": "evaluation/results/formal/performance.json",
+      "sha256": "bae4cc27c8506b4c7037aea7a038c1df690373fb339fbb456226e20293e50c91",
+      "size_bytes": 16186
+    },
+    {
+      "path": "evaluation/results/formal/reproducibility.csv",
+      "sha256": "d90867dff676b53aa63b92d88f97829c8addf4d525c65716cf2b40ecca4476d5",
+      "size_bytes": 8306
+    },
+    {
+      "path": "evaluation/results/formal/reproducibility.json",
+      "sha256": "949da46fedcea9ec6a1f181b20536298bc3e75fd4f45fdfed8150e0a7eb631dd",
+      "size_bytes": 30566
+    },
+    {
+      "path": "evaluation/results/formal/scaling.csv",
+      "sha256": "eca2617c143d4451fe5457ff959bd223f6207de0e788b8ecd310b9d761ddff1c",
+      "size_bytes": 975
+    },
+    {
+      "path": "evaluation/results/formal/scaling.json",
+      "sha256": "57e82163b7f88f50b12ab26906735f1eea3ebe02987e2869135d6aea41022939",
+      "size_bytes": 5002
+    },
+    {
+      "path": "evaluation/results/formal/summary.json",
+      "sha256": "a780545a7c7ce0d53e65fdf3c00dd2a919c2696ad65f14834c2f6d0349beb85b",
+      "size_bytes": 17224
+    },
+    {
+      "path": "evaluation/results/formal/telemetry.csv",
+      "sha256": "2f53d9661760516f1ee08d7a618d89c246a1056d7fa077c2394cdb00e774f91e",
+      "size_bytes": 18735
+    },
+    {
+      "path": "evaluation/results/formal/telemetry.json",
+      "sha256": "77056795e8e12f622a7275a412dc82f247ab2122c2dc397296a2419eded97427",
+      "size_bytes": 61772
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/concurrency.csv",
+      "sha256": "6cb43575ad700106a28bb3fb0a4d07321c8bb1e6fe3752dd9111bdf8d6da6496",
+      "size_bytes": 2961
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/concurrency.json",
+      "sha256": "c1ed694da77adf53d4c838f9548fb314bfdfd60a0260d5ff8a45ec9b783febe1",
+      "size_bytes": 7789
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/containment.csv",
+      "sha256": "d75e9aa10a7af4b414b773f12fbab4d684d81c5cab339835f0598a5eec3f72df",
+      "size_bytes": 3124
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/containment.json",
+      "sha256": "e3f83fa396bf2a9cd3c1495f2fd54008a600d99e8b8f166f1f108c509a78c4a7",
+      "size_bytes": 8932
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/metadata.json",
+      "sha256": "380ce942b8f6962af99abef171055bf16b285c35a38fdb888b38031846279bbe",
+      "size_bytes": 3972
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/pair_matrix.csv",
+      "sha256": "6bd18a1867e490492955ae4337bb99d0f03587b6357184389f53685b24927f1b",
+      "size_bytes": 42421
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/pair_matrix.json",
+      "sha256": "bf7451d007594f09a91fecfaa73401874126700b222b8b207e76b58528d5233f",
+      "size_bytes": 72447
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/performance.csv",
+      "sha256": "9ee6fbf78d8ad0fe7464707bd9c3ca029a85805896fcc2654475bd9fbbfbbd27",
+      "size_bytes": 7252
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/performance.json",
+      "sha256": "70a66ced4f4f0dbb6c2d748c1486a15ed89281c44b8063459d8ab6d0116a96d1",
+      "size_bytes": 15962
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/repeatability.csv",
+      "sha256": "35689bce4834cb7b1b3f12407abe067ba04ba8e2080bf2957c1b0fdd7c7990a8",
+      "size_bytes": 7248
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/repeatability.json",
+      "sha256": "e541a292a50de9f22a23c9963f5cb6fc6387846563495d45c65f930500b94a57",
+      "size_bytes": 16135
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/rewind_integrity.json",
+      "sha256": "a6eef082acc1527a473c385d9ea63c83d261d39753961f30417e85d72b252156",
+      "size_bytes": 3526
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/staging.csv",
+      "sha256": "e60cd7b5d1f3bf9a80ccc3ed5c531d223257266f5a617d4f23f3ac801cb4a196",
+      "size_bytes": 2741
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/staging.json",
+      "sha256": "da5b89ef72601891d15d95898741641d777191fbbbb586a5b8aa81c8ab576107",
+      "size_bytes": 8160
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/summary.json",
+      "sha256": "16d9c018ca131bf9f07857457dc42bd560870a854476bf4c3242d5a826d4fb65",
+      "size_bytes": 12695
+    },
+    {
+      "path": "evaluation/results/rewindsec-formal/smoke/telemetry.json",
+      "sha256": "2baea7a9f8c8f3ee550d74cab698415e77e7d09758c80590fa8e4a710118eb3e",
+      "size_bytes": 4162
+    }
+  ]
+}

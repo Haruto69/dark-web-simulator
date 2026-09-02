@@ -10,14 +10,14 @@
 
 <h2>Available modules</h2>
 <ul class="rs-modules">
-  <li class="rs-module">
+  <li class="rs-module scenario-phishing">
     <span class="rs-tag">Available</span>
     <h3><a href="{{ url_for('training.phishing_brief') }}">Phishing &amp; Credential Compromise</a></h3>
     <p>An urgent message arrives about your account. Decide how to respond,
     then compare your decision against one you did not take.</p>
     <p><a class="rs-btn" href="{{ url_for('training.phishing_brief') }}">Open module</a></p>
   </li>
-  <li class="rs-module{{ '' if ransomware_available else ' soon' }}">
+  <li class="rs-module scenario-ransomware{{ '' if ransomware_available else ' soon' }}">
     <span class="rs-tag">{{ 'Available' if ransomware_available else 'Unavailable here' }}</span>
     {% if ransomware_available %}
     <h3><a href="{{ url_for('training.ransomware_brief') }}">Ransomware Incident Response</a></h3>
@@ -32,7 +32,7 @@
     sandbox. It is not offered on a reduced-isolation fallback.</p>
     {% endif %}
   </li>
-  <li class="rs-module">
+  <li class="rs-module scenario-mfa">
     <span class="rs-tag">Available</span>
     <h3><a href="{{ url_for('training.mfa_brief') }}">MFA Fatigue</a></h3>
     <p>An approval request you did not ask for keeps arriving, with someone
@@ -40,7 +40,7 @@
     against one you did not take.</p>
     <p><a class="rs-btn" href="{{ url_for('training.mfa_brief') }}">Open module</a></p>
   </li>
-  <li class="rs-module">
+  <li class="rs-module scenario-bec">
     <span class="rs-tag">Available</span>
     <h3><a href="{{ url_for('training.bec_brief') }}">Business Email Compromise</a></h3>
     <p>A supplier asks for an overdue invoice to be paid to a different

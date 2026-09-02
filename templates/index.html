@@ -14,39 +14,86 @@
 </section>
 
 <section class="rs-card">
-  <h2>How it works</h2>
-  <ol class="rs-steps">
-    <li><strong>Observe</strong> a realistic scenario -- an email, a prompt, a workstation.</li>
-    <li><strong>Decide</strong> what you would actually do, in the moment.</li>
-    <li><strong>Experience the consequence</strong> your decision leads to.</li>
-    <li><strong>Rewind</strong> to the same decision point.</li>
-    <li><strong>Compare</strong> your path against the one you didn't take.</li>
-    <li><strong>Reflect</strong> on what changed your judgment.</li>
+  <h2>How a deterministic rewind works</h2>
+  <p class="rs-lead">Every module runs the same underlying sequence. The
+  starting state <code>S0</code> is fixed and recorded; the "rewind" is not a
+  restart, it is a return to that exact recorded state, verified before your
+  second decision is allowed to run.</p>
+  <ol class="rs-timeline">
+    <li class="rs-timeline-item">
+      <span class="rs-timeline-node" aria-hidden="true">S0</span>
+      <div class="rs-timeline-body">
+        <h3>Starting state <code>S0</code></h3>
+        <p>A fixed scenario state -- inbox, prompt or workstation -- identical for every learner and recorded before any decision is made.</p>
+      </div>
+    </li>
+    <li class="rs-timeline-item is-factual">
+      <span class="rs-timeline-node" aria-hidden="true">1</span>
+      <div class="rs-timeline-body">
+        <h3>Factual decision <span class="rs-timeline-tag">Your path</span></h3>
+        <p>You make a real decision from <code>S0</code> -- the one you would actually make.</p>
+      </div>
+    </li>
+    <li class="rs-timeline-item is-factual">
+      <span class="rs-timeline-node" aria-hidden="true">2</span>
+      <div class="rs-timeline-body">
+        <h3>Factual consequence</h3>
+        <p>That decision plays out to a real, simulated technical consequence.</p>
+      </div>
+    </li>
+    <li class="rs-timeline-item is-rewind">
+      <span class="rs-timeline-node" aria-hidden="true">&#8635;</span>
+      <div class="rs-timeline-body">
+        <h3>Rewind <span class="rs-timeline-tag">Deterministic</span></h3>
+        <p>The system returns to <code>S0</code> and verifies it matches the originally recorded state exactly, before continuing.</p>
+      </div>
+    </li>
+    <li class="rs-timeline-item is-counterfactual">
+      <span class="rs-timeline-node" aria-hidden="true">3</span>
+      <div class="rs-timeline-body">
+        <h3>Alternative decision <span class="rs-timeline-tag">Rewind path</span></h3>
+        <p>From the same verified <code>S0</code>, you take a different decision.</p>
+      </div>
+    </li>
+    <li class="rs-timeline-item is-counterfactual">
+      <span class="rs-timeline-node" aria-hidden="true">4</span>
+      <div class="rs-timeline-body">
+        <h3>Alternative consequence</h3>
+        <p>That different decision produces its own consequence, from the identical starting point.</p>
+      </div>
+    </li>
+    <li class="rs-timeline-item is-compare">
+      <span class="rs-timeline-node" aria-hidden="true">&#8801;</span>
+      <div class="rs-timeline-body">
+        <h3>Compare <span class="rs-timeline-tag">Side by side</span></h3>
+        <p>Both paths, both consequences, and exactly what differed between them -- laid out together.</p>
+      </div>
+    </li>
   </ol>
 </section>
 
 <section class="rs-card">
   <h2>Training modules</h2>
   <ul class="rs-modules">
-    <li class="rs-module">
+    <li class="rs-module scenario-phishing">
       <span class="rs-tag accent">Module</span>
       <h3>Phishing &amp; Credential Compromise</h3>
       <p class="rs-lead">A credential-reuse lure, and what happens if you fall for it.</p>
       <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Open training</a>
     </li>
-    <li class="rs-module">
+    <li class="rs-module scenario-ransomware">
       <span class="rs-tag accent">Module</span>
       <h3>Ransomware Incident Response</h3>
       <p class="rs-lead">A synthetic workstation, an impact event, and the choices that follow it.</p>
       <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Open training</a>
     </li>
-    <li class="rs-module">
+    <li class="rs-module scenario-mfa">
       <span class="rs-tag accent">Module</span>
       <h3>MFA Fatigue</h3>
       <p class="rs-lead">A wave of push prompts, and the decision to approve or verify.</p>
       <a class="rs-btn secondary" href="{{ url_for('training.home') }}">Open training</a>
     </li>
-    <li class="rs-module">
+    <li class="rs-module scenario-bec">
       <span class="rs-tag accent">Module</span>
       <h3>Business Email Compromise</h3>
       <p class="rs-lead">An urgent request from "the top", and what verifying it actually costs.</p>

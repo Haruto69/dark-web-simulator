@@ -2,9 +2,13 @@
 
    Rendered entirely from the persisted TrainingExecution row. Branch order is
    the learner's own: "Your path" is always the response they made first. #}
+<p class="rs-rewind-marker">
+  <span class="rs-verified">Rewind verified &mdash; identical starting state</span>
+</p>
+
 <div class="rs-compare">
-  <section class="rs-path">
-    <h2>Your path</h2>
+  <section class="rs-path rs-path-factual">
+    <h2>Your path &mdash; factual</h2>
     <p class="rs-decision">{{ factual_label }}</p>
     {% if row.factual_confidence is not none %}
     <p class="rs-meta">Confidence {{ row.factual_confidence }}/100</p>
@@ -16,8 +20,8 @@
     </ul>
   </section>
 
-  <section class="rs-path">
-    <h2>Rewind path</h2>
+  <section class="rs-path rs-path-counterfactual">
+    <h2>Rewind path &mdash; alternative</h2>
     <p class="rs-decision">{{ counterfactual_label }}</p>
     {% if row.counterfactual_confidence is not none %}
     <p class="rs-meta">Confidence {{ row.counterfactual_confidence }}/100</p>

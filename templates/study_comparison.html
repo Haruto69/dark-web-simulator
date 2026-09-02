@@ -17,7 +17,7 @@
 </section>
 
 <div class="rs-compare">
-  <section class="rs-path">
+  <section class="rs-path rs-path-factual">
     <h2>Your path</h2>
     <p class="rs-decision">{{ factual_label }}</p>
     {% if row.factual_confidence is not none %}
@@ -30,7 +30,7 @@
     </ul>
   </section>
 
-  <section class="rs-path">
+  <section class="rs-path rs-path-counterfactual">
     <h2>Rewind path</h2>
     <p class="rs-decision">{{ counterfactual_label }}</p>
     {% if row.counterfactual_confidence is not none %}

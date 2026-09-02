@@ -7,7 +7,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='rewindsec.css') }}">
   <meta name="robots" content="noindex,nofollow">
 </head>
-<body class="rs">
+<body class="rs {% block body_class %}{% endblock %}">
+  <a class="rs-skip-link" href="#main">Skip to content</a>
   <header class="rs-header">
     <div class="rs-brand"><a href="{{ url_for('index') }}">RewindSec</a>
       <span>Deterministic counterfactual cybersecurity training</span></div>

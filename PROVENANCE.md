@@ -175,6 +175,8 @@ Everything 2.0 owns lives under `rewindsec/`.
 |---|---|
 | `rewindsec/core/rng.py` | `SeededRandom`: the single randomness owner, with independently derived named streams and full state capture/restore. |
 | `rewindsec/core/simtime.py` | `SimClock`: integer-millisecond simulation time, independent of the wall clock. |
+| `rewindsec/core/events.py` | `Event` and `EventSpec`: the canonical event model, with SHA-256-derived event identity and behavioural (never threat-family) type names. |
+| `rewindsec/core/scheduler.py` | `EventScheduler`: the deterministic delayed-event queue, ordered by `(fire_at_ms, priority, insertion_seq)`. |
 
 Rules for anything added here:
 

@@ -83,7 +83,8 @@ def test_core_package_exists_and_has_modules():
     assert CORE_ROOT.is_dir(), "rewindsec/core/ is missing"
     assert MODULES, "rewindsec/core/ contains no Python modules"
     names = {p.name for p in MODULES}
-    assert {"__init__.py", "rng.py", "simtime.py"} <= names, names
+    assert {"__init__.py", "rng.py", "simtime.py", "events.py",
+            "scheduler.py"} <= names, names
 
 
 # -- framework and v1 independence -------------------------------------------

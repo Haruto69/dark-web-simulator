@@ -16,7 +16,26 @@ Wall-clock timestamps are not banned from the project, only from here. They
 belong in diagnostic and telemetry layers, outside deterministic state.
 """
 
+from rewindsec.core.events import (Event, EventSource, EventVisibility,
+                                   derive_event_id)
 from rewindsec.core.rng import SeededRandom
+from rewindsec.core.scheduler import (EventScheduler, EventSpec,
+                                      ScheduledEntry, derive_schedule_id)
 from rewindsec.core.simtime import SimClock
 
-__all__ = ["SeededRandom", "SimClock"]
+#: Only the primitives callers outside the core are meant to build with. The
+#: error classes, validators and state helpers stay reachable from their own
+#: modules -- a wide top-level namespace makes every internal helper feel like
+#: supported API, and then it is.
+__all__ = [
+    "Event",
+    "EventScheduler",
+    "EventSource",
+    "EventSpec",
+    "EventVisibility",
+    "ScheduledEntry",
+    "SeededRandom",
+    "SimClock",
+    "derive_event_id",
+    "derive_schedule_id",
+]

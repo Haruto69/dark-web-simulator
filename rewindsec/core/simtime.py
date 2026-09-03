@@ -38,6 +38,7 @@ import json
 
 __all__ = [
     "SimClock",
+    "validate_sim_time_ms",
     "SimTimeError",
     "InvalidDurationError",
     "InvalidSimTimeError",
@@ -81,8 +82,14 @@ class InvalidClockStateError(SimTimeError, ValueError):
     """A captured-state payload is malformed or unrestorable."""
 
 
-def _validate_sim_time(value, what="simulation time"):
-    """Return *value* if it is a valid simulation timestamp, else raise."""
+def validate_sim_time_ms(value, what="simulation time"):
+    """Return *value* if it is a valid simulation timestamp, else raise.
+
+    Public so that every module holding a simulation timestamp -- events and
+    the scheduler included -- validates it identically. One definition of
+    "a valid point on the clock" is worth more than three that agree today
+    and drift apart later.
+    """
     if isinstance(value, bool):
         raise InvalidSimTimeError(
             "%s must be an int, not a bool; got %r" % (what, value))
@@ -138,7 +145,7 @@ class SimClock:
     __slots__ = ("_now_ms",)
 
     def __init__(self, start_ms=0):
-        self._now_ms = _validate_sim_time(start_ms, "start time")
+        self._now_ms = validate_sim_time_ms(start_ms, "start time")
 
     @property
     def now_ms(self):
@@ -182,7 +189,7 @@ class SimClock:
         Refuses a target in the past for the same reason :meth:`advance`
         refuses a negative duration.
         """
-        target_ms = _validate_sim_time(target_ms, "target time")
+        target_ms = validate_sim_time_ms(target_ms, "target time")
         if target_ms < self._now_ms:
             raise InvalidSimTimeError(
                 "cannot advance to %d: the clock is already at %d"
@@ -242,7 +249,7 @@ class SimClock:
                 "unsupported clock state version %r (this build writes %d)"
                 % (version, STATE_VERSION))
         try:
-            return _validate_sim_time(state["now_ms"], "clock state now_ms")
+            return validate_sim_time_ms(state["now_ms"], "clock state now_ms")
         except InvalidSimTimeError as exc:
             raise InvalidClockStateError(str(exc)) from exc
 

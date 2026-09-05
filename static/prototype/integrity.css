@@ -5,6 +5,10 @@
  * anything new: a quiet notice at the foot of the screen, and one modal for
  * the screenshot message. Nothing here changes the approved workstation or
  * trainer visual direction, and neither component exists on a trainer page.
+ *
+ * This file is presentation only. The behaviour it dresses -- what is
+ * blocked, what is exempt, what is detected, what is never read -- lives
+ * entirely in integrity.js and is unaffected by anything here.
  */
 
 /* -- the clipboard notice --------------------------------------------------
@@ -15,19 +19,24 @@
 .pw-int-notice {
   position: fixed;
   left: 50%;
-  bottom: 18px;
+  bottom: var(--s-7);
   z-index: var(--z-blocking);
 
   max-width: min(30rem, calc(100vw - 32px));
-  padding: .5rem .8rem;
-  border: 1px solid var(--p-line-strong);
-  border-radius: var(--p-r);
-  background: var(--p-surface);
-  box-shadow: var(--p-shadow-2);
+  padding: var(--s-5) var(--s-6);
+  border: 1px solid var(--d-line-2);
+  border-radius: var(--p-r-lg);
+  /* Chrome, like the toast stack it sits beside: this is the workstation
+     stating a workspace rule, not an application reporting a problem. It is
+     deliberately not tinted amber or red -- nothing has gone wrong. */
+  background: linear-gradient(180deg, rgba(22, 58, 73, .96) 0%, rgba(6, 18, 26, .96) 100%);
+  box-shadow: var(--d-edge), 0 18px 44px -18px rgba(2, 8, 12, .95);
+  -webkit-backdrop-filter: blur(10px) saturate(130%);
+  backdrop-filter: blur(10px) saturate(130%);
 
-  color: var(--p-ink-2);
-  font-size: .78rem;
-  line-height: 1.45;
+  color: var(--d-ink-2);
+  font-size: var(--t-xs);
+  line-height: 1.55;
   text-align: left;
 
   /* Present in the accessibility tree the whole time so the live region is
@@ -35,7 +44,7 @@
      changes. */
   opacity: 0;
   visibility: hidden;
-  transform: translate(-50%, 6px);
+  transform: translate(-50%, 10px) scale(.98);
   transition: opacity var(--p-med) var(--p-ease),
               transform var(--p-med) var(--p-ease),
               visibility 0s linear var(--p-med);
@@ -44,7 +53,7 @@
 .pw-int-notice.is-on {
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, 0);
+  transform: translate(-50%, 0) scale(1);
   transition-delay: 0s;
 }
 
@@ -56,32 +65,52 @@
   z-index: var(--z-blocking);
   display: grid;
   place-items: center;
-  padding: 1.25rem;
-  background: rgba(22, 26, 32, .34);
+  padding: var(--s-7);
+  background:
+    radial-gradient(88% 68% at 50% 36%, rgba(16, 42, 55, .58) 0%,
+                    rgba(2, 8, 12, .84) 100%);
+  -webkit-backdrop-filter: blur(8px) saturate(130%);
+  backdrop-filter: blur(8px) saturate(130%);
+  animation: pw-fade var(--p-med) var(--p-ease);
 }
 
 .pw-int-scrim[hidden] { display: none; }
 
 .pw-int-dialog {
+  position: relative;
   width: min(30rem, 100%);
-  padding: 1.15rem 1.25rem 1.05rem;
-  border: 1px solid var(--p-line);
-  border-radius: var(--p-r-lg);
+  padding: var(--s-8) var(--s-8) var(--s-7);
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: var(--p-r-2xl);
   background: var(--p-surface);
-  box-shadow: var(--p-shadow-3);
+  box-shadow: var(--p-edge),
+              0 0 0 1px rgba(6, 18, 26, .1),
+              0 0 0 9px rgba(63, 220, 216, .07),
+              0 0 60px -10px rgba(63, 220, 216, .2),
+              0 36px 90px -28px rgba(2, 8, 12, .9);
+  animation: pw-dialog-in var(--p-slow) var(--p-ease-soft);
+  overflow: hidden;
+}
+/* One hairline of accent along the top edge, the same cue the workstation
+   uses to mark a chrome surface. It identifies where the message came
+   from -- the workstation itself -- and nothing more. */
+.pw-int-dialog::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: var(--g-accent);
 }
 
 .pw-int-dialog h2 {
-  margin: 0 0 .5rem;
-  font-size: 1rem;
+  margin: 0 0 var(--s-4);
+  font-size: var(--t-xl);
   line-height: 1.35;
+  letter-spacing: -0.016em;
   color: var(--p-ink);
 }
 
 .pw-int-dialog p {
-  margin: 0 0 .6rem;
-  font-size: .84rem;
-  line-height: 1.55;
+  margin: 0 0 var(--s-4);
+  font-size: var(--t-sm);
+  line-height: 1.6;
   color: var(--p-ink-2);
 }
 
@@ -90,16 +119,21 @@
    have. */
 .pw-int-dialog .pw-int-limit {
   margin: 0;
-  padding-top: .6rem;
+  padding-top: var(--s-4);
   border-top: 1px solid var(--p-line-soft);
-  font-size: .75rem;
+  font-size: var(--t-xs);
   color: var(--p-muted);
 }
 
 .pw-int-foot {
   display: flex;
   justify-content: flex-end;
-  margin-top: .95rem;
+  margin-top: var(--s-6);
+}
+
+@media (max-width: 720px) {
+  .pw-int-notice { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .pw-int-scrim { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,208 +2,541 @@
  *
  * Everything that is not the workstation and not the trainer console: the
  * prototype entry point, the learner entry flow (focus + mode), and the
- * learner results/debrief. Same design system, ordinary page layout.
+ * learner results/debrief. Same design system, ordinary document layout —
+ * these are pages a person reads, so they get a measure and a column, not a
+ * dashboard.
  */
 
-/* -- framed page header -------------------------------------------------------- */
+/* -- framed page header --------------------------------------------------------
+ * Chrome, like the workstation's status strip and for the same reason: this
+ * bar belongs to the product, not to the document under it. Making it deep
+ * also gives the header slab below it something to be continuous with. */
 
 .pw-frame-top {
-  background: var(--p-surface);
-  border-bottom: 1px solid var(--p-line);
+  position: sticky; top: 0; z-index: var(--z-topbar);
+  background: linear-gradient(180deg, rgba(21, 56, 71, .78) 0%,
+                              rgba(7, 22, 30, .84) 100%);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgba(140, 214, 226, .12);
+  box-shadow: inset 0 1px 0 rgba(176, 236, 246, .13),
+              0 12px 34px -18px rgba(2, 8, 12, .8);
+  color: var(--d-ink-2);
 }
+.pw-frame-top::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(63, 220, 216, .5) 0%,
+                              rgba(63, 220, 216, .1) 38%,
+                              rgba(63, 220, 216, 0) 74%);
+}
+.pw-frame-top { position: sticky; }
+.pw-frame-top :focus-visible { outline-color: var(--p-focus-lift); }
 .pw-frame-top-inner {
   max-width: 74rem; margin: 0 auto;
-  padding: .7rem 1.35rem;
-  display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+  padding: var(--s-5) var(--s-7);
+  display: flex; align-items: center; gap: var(--s-5); flex-wrap: wrap;
 }
-.pw-frame-brand { display: flex; align-items: center; gap: .55rem; }
-.pw-frame-brand b { font-size: .93rem; font-weight: 600; letter-spacing: -0.01em; }
-.pw-frame-brand span { font-size: .755rem; color: var(--p-muted-2); }
-.pw-frame-nav { margin-left: auto; display: flex; gap: .35rem; flex-wrap: wrap; }
+.pw-frame-brand { display: flex; align-items: center; gap: var(--s-5); }
+.pw-frame-brand b {
+  font-size: var(--t-lg); font-weight: 650; letter-spacing: -0.016em;
+  display: block; line-height: 1.25; color: #ffffff;
+}
+.pw-frame-brand span { font-size: var(--t-xs); color: var(--d-muted); display: block; line-height: 1.3; }
+.pw-frame-nav { margin-left: auto; display: flex; gap: var(--s-3); flex-wrap: wrap; }
+.pw-frame-nav .pw-btn.is-quiet { color: var(--d-muted); }
+.pw-frame-nav .pw-btn.is-quiet:hover {
+  background: rgba(140, 214, 226, .13); color: var(--d-ink);
+}
+
 
 /* -- entry: focus and mode ------------------------------------------------------ */
 
-.pw-entry { max-width: 60rem; margin: 0 auto; padding: 2.4rem 1.35rem 4rem; }
-.pw-entry-head { margin-bottom: 2rem; max-width: 46rem; }
-.pw-entry-head h1 { font-size: 1.7rem; }
-.pw-entry-head p { color: var(--p-muted); font-size: .96rem; margin-top: .45rem; }
+.pw-entry { max-width: 62rem; margin: 0 auto; padding: var(--s-9) var(--s-7) var(--s-11); }
+
+/* The head and the identity card are drawn as one slab: the head is its
+ * upper half, the identity card its lower. Two elements, one object -- which
+ * is what stops the learner's own record reading as a detached widget. */
+.pw-entry-head {
+  position: relative;
+  background: var(--g-deep);
+  border: 1px solid rgba(2, 8, 12, .7); border-bottom: 0;
+  border-radius: var(--p-r-xl) var(--p-r-xl) 0 0;
+  box-shadow: var(--d-edge);
+  color: var(--d-ink-2);
+  padding: var(--s-10) var(--s-9) var(--s-8);
+  overflow: hidden;
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
+}
+.pw-entry-head::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(66% 150% at 6% -20%, rgba(63, 220, 216, .22) 0%,
+                    rgba(63, 220, 216, 0) 62%),
+    radial-gradient(46% 120% at 102% 120%, rgba(99, 192, 240, .1) 0%,
+                    rgba(99, 192, 240, 0) 66%);
+}
+.pw-entry-head > * { position: relative; }
+.pw-entry-head .pw-kicker { color: var(--p-accent-lift); }
+.pw-entry-head h1 {
+  font-size: var(--t-3xl); letter-spacing: -0.028em; color: var(--d-ink);
+  max-width: 22ch;
+}
+.pw-entry-head p {
+  color: var(--d-muted); font-size: var(--t-lg); margin-top: var(--s-5);
+  line-height: 1.65; max-width: 56ch;
+}
 
 .pw-entry-who {
-  display: flex; align-items: center; gap: .8rem;
-  border: 1px solid var(--p-line); border-radius: var(--p-r);
-  background: var(--p-surface); padding: .8rem .95rem;
-  margin-bottom: 1.9rem;
+  position: relative;
+  display: flex; align-items: center; gap: var(--s-6);
+  border: 1px solid rgba(2, 8, 12, .7); border-top: 0;
+  border-radius: 0 0 var(--p-r-2xl) var(--p-r-2xl);
+  /* Opaque, deliberately. This panel is the lower half of the slab above it
+   * and runs past the point where the page canvas resolves from the deep
+   * band into the light document ground. A translucent fill here let that
+   * light ground through and put near-white type on it, which is how the
+   * learner name became the least readable thing on the screen. It now
+   * carries its own ground and cannot be undermined by what is behind it. */
+  background: linear-gradient(180deg, #102a37 0%, #0a1c26 100%);
+  box-shadow: inset 0 1px 0 rgba(176, 236, 246, .12),
+              0 24px 60px -30px rgba(2, 8, 12, .7);
+  color: var(--d-ink-2);
+  padding: var(--s-7) var(--s-9);
+  margin-bottom: var(--s-10);
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
+  animation-delay: 60ms;
 }
-.pw-entry-who-main b { font-size: .93rem; display: block; }
-.pw-entry-who-main span { font-size: .8rem; color: var(--p-muted); }
-.pw-entry-who-meta { margin-left: auto; text-align: right; font-size: .775rem; color: var(--p-muted); }
+.pw-entry-who .pw-avatar {
+  background: rgba(63, 220, 216, .18); color: #b9f2ef;
+  border-color: rgba(63, 220, 216, .32);
+  box-shadow: var(--d-edge);
+}
+.pw-entry-who-main b {
+  font-size: var(--t-xl); font-weight: 650; letter-spacing: -0.016em;
+  display: block; line-height: 1.3; color: #ffffff;
+}
+.pw-entry-who-main span { font-size: var(--t-sm); color: var(--d-ink-2); }
+.pw-entry-who-meta {
+  margin-left: auto; text-align: right; font-size: var(--t-xs); color: var(--d-muted);
+  line-height: 1.55;
+}
+.pw-entry-who .pw-avatar {
+  width: 44px; height: 44px; font-size: var(--t-sm); border-radius: var(--p-r-lg);
+}
 
-.pw-choicegroup { margin-bottom: 2rem; border: 0; padding: 0; }
+.pw-choicegroup { margin-bottom: var(--s-9); border: 0; padding: 0; }
 .pw-choicegroup legend {
-  padding: 0; font-size: .715rem; font-weight: 700; letter-spacing: .09em;
-  text-transform: uppercase; color: var(--p-muted-2); margin-bottom: .2rem;
+  padding: 0; font-size: var(--t-2xs); font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--p-accent-ink); margin-bottom: var(--s-2);
 }
 .pw-choicegroup .pw-choicegroup-hint {
-  font-size: .845rem; color: var(--p-muted); margin: 0 0 .85rem; max-width: 54ch;
+  font-size: var(--t-md); color: var(--p-muted); margin: 0 0 var(--s-6);
+  max-width: 56ch; line-height: 1.6;
 }
 
-.pw-choices { display: grid; gap: .65rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+.pw-choices { display: grid; gap: var(--s-5); grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr)); }
 
+/* A card that is genuinely a radio. The selected state is a tinted face plus
+ * an inner accent rule; there is no tick, because a tick invites the reading
+ * that one of these options is the right answer. */
 .pw-choice { position: relative; display: block; }
-.pw-choice input {
-  position: absolute; opacity: 0; width: 1px; height: 1px;
-}
+.pw-choice input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .pw-choice-face {
-  display: block; height: 100%;
-  border: 1px solid var(--p-line-strong); border-radius: var(--p-r);
-  background: var(--p-surface); padding: .85rem .95rem;
+  position: relative; display: block; height: 100%;
+  border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
+  background: linear-gradient(180deg, var(--p-surface) 0%, var(--p-surface-2) 100%);
+  padding: var(--s-7) var(--s-7);
+  box-shadow: var(--p-edge), var(--p-shadow-1);
   cursor: pointer;
-  transition: border-color var(--p-fast) var(--p-ease),
-              background var(--p-fast) var(--p-ease),
+  transition: border-color var(--p-med) var(--p-ease),
+              background var(--p-med) var(--p-ease),
+              box-shadow var(--p-med) var(--p-ease),
               transform var(--p-fast) var(--p-ease);
 }
-.pw-choice-face:hover { border-color: var(--p-muted-2); background: var(--p-surface-2); }
-.pw-choice-face:active { transform: translateY(1px); }
-.pw-choice input:checked + .pw-choice-face {
-  border-color: var(--p-accent); background: var(--p-accent-soft);
-  box-shadow: inset 0 0 0 1px var(--p-accent);
+/* The card lifts a little on hover and settles under the pointer on press.
+ * Two pixels: enough to feel like a physical control, not enough to make a
+ * grid of options move about while someone reads it. */
+.pw-choice-face:hover {
+  border-color: var(--p-accent-line);
+  box-shadow: var(--p-edge), var(--p-shadow-2);
+  transform: translateY(-2px);
 }
-.pw-choice input:focus-visible + .pw-choice-face { box-shadow: var(--p-focus); }
-.pw-choice-face b { display: block; font-size: .93rem; font-weight: 600; margin-bottom: .12rem; }
-.pw-choice-face .pw-choice-sum { display: block; font-size: .82rem; color: var(--p-ink-2); }
-.pw-choice-face .pw-choice-detail { display: block; font-size: .775rem; color: var(--p-muted); margin-top: .4rem; }
+.pw-choice-face:active { transform: translateY(0); box-shadow: var(--p-edge); }
+/* Selection is a lit azure edge along the top and a tinted face -- no tick,
+ * because a tick invites the reading that one of these options is the right
+ * answer, and none of them is. */
+.pw-choice input:checked + .pw-choice-face {
+  border-color: var(--p-accent-line);
+  background: linear-gradient(180deg, var(--p-accent-soft) 0%, var(--p-accent-wash) 100%);
+  box-shadow: inset 0 2px 0 var(--p-accent),
+              inset 0 0 0 1px var(--p-accent-line),
+              0 6px 18px -6px rgba(10, 108, 123, .35);
+  transform: translateY(-2px);
+}
+.pw-choice input:focus-visible + .pw-choice-face {
+  outline: 2px solid var(--p-accent); outline-offset: 2px;
+}
+.pw-choice-face b {
+  display: block; font-family: var(--p-font-display);
+  font-size: var(--t-lg); font-weight: 600; letter-spacing: -0.014em;
+  margin-bottom: var(--s-2);
+}
+.pw-choice-face .pw-choice-sum { display: block; font-size: var(--t-sm); color: var(--p-ink-2); line-height: 1.55; }
+.pw-choice-face .pw-choice-detail { display: block; font-size: var(--t-xs); color: var(--p-muted); margin-top: var(--s-4); line-height: 1.55; }
 
 .pw-mode-semantics {
-  margin-top: .6rem; border-top: 1px solid var(--p-line); padding-top: .55rem;
+  margin-top: var(--s-5); border-top: 1px solid var(--p-line); padding-top: var(--s-4);
 }
-.pw-mode-semantics ul { margin: 0; padding-left: 1rem; }
-.pw-mode-semantics li { font-size: .775rem; color: var(--p-muted); margin-bottom: .18rem; line-height: 1.45; }
+.pw-choice input:checked + .pw-choice-face .pw-mode-semantics { border-top-color: var(--p-accent-line); }
+.pw-mode-semantics ul { margin: 0; padding-left: var(--s-6); }
+.pw-mode-semantics li { font-size: var(--t-xs); color: var(--p-muted); margin-bottom: var(--s-1); line-height: 1.5; }
 .pw-choice input:checked + .pw-choice-face .pw-mode-semantics li { color: var(--p-ink-2); }
-.pw-mode-cadence { font-size: .755rem; color: var(--p-muted); margin-top: .5rem; font-style: italic; }
+.pw-mode-cadence {
+  font-size: var(--t-xs); color: var(--p-muted); margin-top: var(--s-4);
+  font-style: italic;
+}
 
 .pw-entry-actions {
-  display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
-  border-top: 1px solid var(--p-line); padding-top: 1.3rem;
+  display: flex; align-items: center; gap: var(--s-5); flex-wrap: wrap;
+  border-top: 1px solid var(--p-line); padding-top: var(--s-8);
 }
-.pw-entry-summary { font-size: .855rem; color: var(--p-muted); flex: 1; min-width: 14rem; }
+.pw-entry-summary { font-size: var(--t-sm); color: var(--p-muted); flex: 1; min-width: 14rem; line-height: 1.55; }
 
-/* -- results -------------------------------------------------------------------- */
+/* -- results --------------------------------------------------------------------
+ * An analytical document. The overall figure is present because the
+ * architecture asks for one, but it is set in a light weight and given no
+ * badge, ring or celebration — it is a summary statistic, not a prize. */
 
-.pw-results { max-width: 68rem; margin: 0 auto; padding: 2.2rem 1.35rem 4rem; }
+.pw-results { max-width: 70rem; margin: 0 auto; padding: var(--s-9) var(--s-7) var(--s-11); }
 
+/* The debrief opens on the same chrome slab the entry screen uses. The
+ * figure is set large and very light on it, with no ring, badge, grade or
+ * colour band -- it is a summary statistic in a report, and the report is
+ * the point. */
 .pw-results-hero {
+  position: relative;
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1.5rem; align-items: start;
-  border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
-  background: var(--p-surface); padding: 1.4rem 1.5rem;
-  margin-bottom: 1.6rem;
+  gap: var(--s-10); align-items: center;
+  border: var(--glass-line); border-radius: var(--p-r-2xl);
+  /* Glass over an opaque ground: the material reads the same, but the panel
+   * stays legible wherever it lands on the page canvas. */
+  background: var(--glass-fill),
+              linear-gradient(180deg, #0f2733 0%, #071722 100%);
+  color: var(--d-ink-2);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  padding: var(--s-11) var(--s-10);
+  box-shadow: var(--glass-edge), var(--glass-rim), var(--glass-shadow);
+  margin-bottom: var(--s-10);
+  overflow: hidden;
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
 }
-.pw-results-hero h1 { font-size: 1.42rem; }
-.pw-results-hero .pw-results-sub { color: var(--p-muted); font-size: .9rem; margin-top: .3rem; }
-.pw-results-meta { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .8rem; }
+.pw-results-hero::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(62% 140% at 4% -20%, rgba(63, 220, 216, .22) 0%,
+                    rgba(63, 220, 216, 0) 62%),
+    radial-gradient(52% 130% at 96% 118%, rgba(99, 192, 240, .13) 0%,
+                    rgba(99, 192, 240, 0) 66%);
+}
+.pw-results-hero > * { position: relative; }
+.pw-results-hero :focus-visible { outline-color: var(--p-focus-lift); }
+.pw-results-hero .pw-kicker { color: var(--p-accent-lift); }
+.pw-results-hero h1 {
+  font-size: var(--t-3xl); letter-spacing: -0.03em; color: #ffffff;
+}
+.pw-results-hero .pw-results-sub {
+  color: var(--d-ink-2); font-size: var(--t-md); margin-top: var(--s-4);
+  line-height: 1.65; max-width: 58ch;
+}
+.pw-results-meta { display: flex; gap: var(--s-3); flex-wrap: wrap; margin-top: var(--s-7); }
+.pw-results-hero .pw-chip {
+  background: rgba(140, 214, 226, .1); border-color: var(--d-line-2);
+  color: var(--d-ink-2);
+}
 
 .pw-overall { text-align: right; }
 .pw-overall-num {
-  font-size: 2.9rem; font-weight: 300; line-height: 1;
-  letter-spacing: -0.04em; color: var(--p-ink);
+  font-family: var(--p-font-display);
+  font-size: 4.75rem; font-weight: 200; line-height: .9;
+  letter-spacing: -0.05em; color: #ffffff;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 40px rgba(63, 220, 216, .3);
 }
-.pw-overall-num small { font-size: 1.1rem; color: var(--p-muted-2); font-weight: 400; }
-.pw-overall-label { font-size: .715rem; letter-spacing: .08em; text-transform: uppercase; color: var(--p-muted-2); margin-top: .3rem; }
+.pw-overall-num small {
+  font-size: 1.15rem; color: var(--d-muted-2); font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.pw-overall-label {
+  font-size: var(--t-2xs); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--p-accent-lift); margin-top: var(--s-5); font-weight: 700;
+}
 
-.pw-dims { display: grid; gap: .7rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); margin-bottom: 1.6rem; }
+/* Dimension cards. The gauge sits at the foot of the card rather than under
+ * the title, so the card reads as a paragraph with a measurement beneath it
+ * instead of a scoreboard tile. */
+.pw-dims { display: grid; gap: var(--s-5); grid-template-columns: repeat(auto-fit, minmax(16.5rem, 1fr)); margin-bottom: var(--s-9); }
+/* Each dimension carries a quiet hue of its own along the top edge. It is an
+ * index colour -- it identifies which measure this card is, the way a tab
+ * colour does, and it never varies with the value underneath it. The value
+ * itself is carried by the figure and the gauge. */
 .pw-dim {
-  border: 1px solid var(--p-line); border-radius: var(--p-r);
-  background: var(--p-surface); padding: .85rem .95rem;
+  position: relative;
+  display: flex; flex-direction: column;
+  border: 1px solid var(--p-line); border-radius: var(--p-r-xl);
+  background: linear-gradient(180deg, var(--p-surface) 0%, var(--p-surface-2) 100%);
+  padding: var(--s-8) var(--s-7) var(--s-7);
+  box-shadow: var(--p-edge), var(--p-shadow-2);
+  overflow: hidden;
+  transition: box-shadow var(--p-med) var(--p-ease),
+              transform var(--p-med) var(--p-ease);
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
 }
-.pw-dim-top { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .45rem; }
-.pw-dim-top b { font-size: .875rem; font-weight: 600; flex: 1; }
-.pw-dim-value { font-size: 1.02rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--p-ink); }
-.pw-dim-value.is-na { font-size: .8rem; font-weight: 600; color: var(--p-muted-2); letter-spacing: .05em; }
-.pw-dim p { font-size: .775rem; color: var(--p-muted); margin: .5rem 0 0; line-height: 1.45; }
+.pw-dim:hover { box-shadow: var(--p-edge), var(--p-shadow-3); transform: translateY(-3px); }
+.pw-dim::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, var(--dim-hue, var(--p-accent)) 0%,
+                              transparent 140%);
+  opacity: .9;
+}
+.pw-dim:nth-child(1) { --dim-hue: #0a6c7b; animation-delay: 0ms; }
+.pw-dim:nth-child(2) { --dim-hue: #1a6a9c; animation-delay: 45ms; }
+.pw-dim:nth-child(3) { --dim-hue: #14776c; animation-delay: 90ms; }
+.pw-dim:nth-child(4) { --dim-hue: #3f6fa8; animation-delay: 135ms; }
+.pw-dim:nth-child(5) { --dim-hue: #5b6fb0; animation-delay: 180ms; }
+.pw-dim:nth-child(6) { --dim-hue: #26707e; animation-delay: 225ms; }
+.pw-dim:nth-child(n+7) { --dim-hue: var(--p-muted); animation-delay: 260ms; }
+.pw-dim-top { display: flex; align-items: baseline; gap: var(--s-4); margin-bottom: var(--s-2); }
+.pw-dim-top b { font-size: var(--t-sm); font-weight: 600; flex: 1; letter-spacing: -0.005em; }
+.pw-dim-value {
+  font-family: var(--p-font-display);
+  font-size: 2rem; font-weight: 250; letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums; color: var(--p-ink); line-height: 1;
+}
+.pw-dim-value.is-na {
+  font-size: var(--t-xs); font-weight: 600; color: var(--p-muted-2);
+  letter-spacing: .07em; text-transform: uppercase;
+}
+.pw-dim p { font-size: var(--t-xs); color: var(--p-muted); margin: 0 0 var(--s-5); line-height: 1.55; }
+/* The gauge is the last child, so `auto` pushes it to the foot of the card
+ * and every card in the row lines its gauge up regardless of how long its
+ * description runs. */
+.pw-dim .pw-meter { margin-top: auto; }
 
-.pw-timeline { list-style: none; margin: 0; padding: 0 0 0 1.35rem; position: relative; }
+/* Timeline. A single hairline with small markers — the shape of a log, which
+ * is what it is. */
+.pw-timeline { list-style: none; margin: 0; padding: 0 0 0 var(--s-7); position: relative; }
 .pw-timeline::before {
-  content: ""; position: absolute; left: 5px; top: .6rem; bottom: .6rem;
-  width: 1px; background: var(--p-line);
+  content: ""; position: absolute; left: 4px; top: var(--s-4); bottom: var(--s-4);
+  width: 2px; border-radius: 1px;
+  background: linear-gradient(180deg,
+    var(--p-accent-line) 0%, var(--p-line) 45%, var(--p-line-soft) 100%);
 }
 .pw-tl {
-  position: relative; padding: .18rem 0 .8rem;
-  display: grid; grid-template-columns: 4.1rem minmax(0, 1fr); gap: .8rem;
+  position: relative; padding: var(--s-1) 0 var(--s-6);
+  display: grid; grid-template-columns: 4rem minmax(0, 1fr); gap: var(--s-5);
 }
+.pw-tl {
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
+  animation-delay: calc(var(--i, 0) * 1ms);
+}
+.pw-tl:nth-child(1) { --i: 0; }
+.pw-tl:nth-child(2) { --i: 40; }
+.pw-tl:nth-child(3) { --i: 80; }
+.pw-tl:nth-child(4) { --i: 120; }
+.pw-tl:nth-child(5) { --i: 160; }
+.pw-tl:nth-child(n+6) { --i: 190; }
 .pw-tl::before {
-  content: ""; position: absolute; left: -1.35rem; top: .52rem;
-  width: 9px; height: 9px; border-radius: 50%;
+  content: ""; position: absolute; left: calc(var(--s-7) * -1 - 1px); top: 6px;
+  width: 11px; height: 11px; border-radius: 50%;
   background: var(--p-surface); border: 2px solid var(--p-line-strong);
+  box-shadow: 0 0 0 3px var(--p-surface);
 }
-.pw-tl.is-decision::before { border-color: var(--p-accent); }
-.pw-tl.is-consequence::before { border-color: var(--p-alert); }
+.pw-tl.is-decision::before {
+  border-color: var(--p-accent);
+  box-shadow: 0 0 0 3px var(--p-surface), 0 0 0 5px rgba(10, 108, 123, .12);
+}
+.pw-tl.is-consequence::before {
+  border-color: var(--p-alert);
+  box-shadow: 0 0 0 3px var(--p-surface), 0 0 0 5px rgba(173, 58, 52, .1);
+}
 .pw-tl.is-investigation::before { border-color: var(--p-muted-2); background: var(--p-muted-2); }
-.pw-tl-time { font-size: .755rem; color: var(--p-muted-2); font-variant-numeric: tabular-nums; padding-top: .12rem; }
-.pw-tl-main b { font-size: .865rem; font-weight: 500; display: block; color: var(--p-ink-2); }
-.pw-tl-main span { font-size: .785rem; color: var(--p-muted); display: block; margin-top: .1rem; }
+.pw-tl-time {
+  font-size: var(--t-xs); color: var(--p-muted-2);
+  font-variant-numeric: tabular-nums; padding-top: 2px;
+}
+.pw-tl-main b { font-size: var(--t-sm); font-weight: 600; display: block; color: var(--p-ink-2); line-height: 1.45; }
+.pw-tl-main span { font-size: var(--t-xs); color: var(--p-muted); display: block; margin-top: 1px; line-height: 1.5; }
 .pw-tl-cause {
-  font-size: .74rem; color: var(--p-muted-2); margin-top: .25rem;
-  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: var(--t-2xs); color: var(--p-muted-2); margin-top: var(--s-2);
+  display: inline-flex; align-items: center; gap: var(--s-2);
 }
 
-.pw-causal { border: 1px solid var(--p-line); border-radius: var(--p-r); background: var(--p-surface); overflow: hidden; }
-.pw-causal-head { padding: .7rem .95rem; border-bottom: 1px solid var(--p-line); background: var(--p-surface-2); }
-.pw-causal-head b { font-size: .875rem; }
-.pw-causal-head span { font-size: .78rem; color: var(--p-muted); display: block; margin-top: .1rem; }
-.pw-causal-body { padding: .85rem .95rem; }
-.pw-causal-node { position: relative; padding-left: 1.1rem; margin-bottom: .55rem; font-size: .85rem; color: var(--p-ink-2); }
+.pw-causal {
+  border: 1px solid var(--p-line); border-radius: var(--p-r-xl);
+  background: var(--p-surface); overflow: hidden;
+  box-shadow: var(--p-edge), var(--p-shadow-2);
+}
+.pw-causal { animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both; }
+.pw-causal-head {
+  padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--p-line);
+  background: linear-gradient(180deg, var(--p-surface-2) 0%, var(--p-surface-3) 100%);
+  box-shadow: var(--p-edge);
+}
+.pw-causal-head b { font-size: var(--t-sm); font-weight: 600; }
+.pw-causal-head span { font-size: var(--t-xs); color: var(--p-muted); display: block; margin-top: 1px; }
+.pw-causal-body { padding: var(--s-6); }
+.pw-causal-node {
+  position: relative; padding-left: var(--s-6); margin-bottom: var(--s-4);
+  font-size: var(--t-sm); color: var(--p-ink-2); line-height: 1.5;
+}
 .pw-causal-node:last-child { margin-bottom: 0; }
 .pw-causal-node::before {
-  content: ""; position: absolute; left: 2px; top: .5rem;
+  content: ""; position: absolute; left: 2px; top: 7px;
   width: 6px; height: 6px; border-radius: 50%; background: var(--p-line-strong);
 }
-.pw-causal-node.is-depth-1 { margin-left: 1.1rem; }
-.pw-causal-node.is-depth-2 { margin-left: 2.2rem; }
+.pw-causal-node.is-depth-1 { margin-left: var(--s-6); }
+.pw-causal-node.is-depth-2 { margin-left: var(--s-9); }
 .pw-causal-node.is-root::before { background: var(--p-accent); }
-.pw-causal-node span { color: var(--p-muted); font-size: .77rem; display: block; }
+.pw-causal-node span { color: var(--p-muted); font-size: var(--t-xs); display: block; }
 
-.pw-evtable-cell { display: flex; align-items: center; gap: .45rem; }
+.pw-evtable-cell { display: flex; align-items: center; gap: var(--s-3); }
 
 .pw-results-actions {
-  display: flex; gap: .6rem; flex-wrap: wrap; align-items: center;
-  border-top: 1px solid var(--p-line); margin-top: 1.9rem; padding-top: 1.3rem;
+  display: flex; gap: var(--s-4); flex-wrap: wrap; align-items: center;
+  border-top: 1px solid var(--p-line); margin-top: var(--s-10); padding-top: var(--s-8);
 }
 
 @media (max-width: 720px) {
-  .pw-results-hero { grid-template-columns: minmax(0, 1fr); }
+  .pw-results-hero {
+    grid-template-columns: minmax(0, 1fr); gap: var(--s-7);
+    padding: var(--s-8) var(--s-7);
+  }
   .pw-overall { text-align: left; }
-  .pw-tl { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
+  .pw-overall-num { font-size: 3.25rem; }
+  .pw-tl { grid-template-columns: minmax(0, 1fr); gap: var(--s-1); }
+  .pw-entry, .pw-results { padding-left: var(--s-6); padding-right: var(--s-6); }
+  .pw-entry-head { padding: var(--s-8) var(--s-7) var(--s-7); }
+  .pw-entry-head h1 { max-width: none; }
+  .pw-entry-who { padding: var(--s-6); flex-wrap: wrap; }
+  .pw-entry-who-meta { margin-left: 0; text-align: left; width: 100%; }
+  .pw-index-hero { padding: var(--s-8) var(--s-7); }
+  /* Lifting a card under a finger just makes it flicker on tap. */
+  .pw-choice-face:hover, .pw-dim:hover, .pw-launch:hover { transform: none; }
 }
+
+/* The debrief arrives as a cascade rather than all at once: the hero, then
+ * each section in reading order. The delays are set here rather than at the
+ * call sites so the document keeps its rhythm as sections are added or
+ * removed, and the cascade is capped -- past about half a second the reader
+ * is waiting rather than being led. */
+.pw-results > section,
+.pw-results > .pw-grid,
+.pw-results > .pw-results-actions {
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
+}
+.pw-results > .pw-results-hero { animation-delay: 0ms; }
+.pw-results > *:nth-child(3) { animation-delay: 70ms; }
+.pw-results > *:nth-child(4) { animation-delay: 130ms; }
+.pw-results > *:nth-child(5) { animation-delay: 185ms; }
+.pw-results > *:nth-child(n+6) { animation-delay: 230ms; }
 
 /* -- prototype index ------------------------------------------------------------- */
 
-.pw-index-hero { max-width: 46rem; margin-bottom: 2rem; }
-.pw-index-hero h1 { font-size: 1.85rem; }
-.pw-index-hero p { color: var(--p-muted); font-size: .98rem; margin-top: .5rem; }
+.pw-index-hero {
+  position: relative;
+  margin-bottom: var(--s-9);
+  padding: var(--s-10) var(--s-9);
+  background: var(--g-deep); color: var(--d-ink-2);
+  border: 1px solid rgba(2, 8, 12, .7); border-radius: var(--p-r-xl);
+  box-shadow: var(--d-edge), 0 24px 60px -30px rgba(2, 8, 12, .7);
+  overflow: hidden;
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
+}
+.pw-index-hero::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(60% 140% at 5% -20%, rgba(63, 220, 216, .2) 0%,
+                    rgba(63, 220, 216, 0) 62%),
+    radial-gradient(48% 120% at 98% 120%, rgba(99, 192, 240, .1) 0%,
+                    rgba(99, 192, 240, 0) 66%);
+}
+.pw-index-hero > * { position: relative; }
+.pw-index-hero h1 {
+  font-size: var(--t-3xl); letter-spacing: -0.028em; color: var(--d-ink);
+  max-width: 20ch;
+}
+.pw-index-hero p {
+  color: var(--d-muted); font-size: var(--t-lg); margin-top: var(--s-5);
+  line-height: 1.7; max-width: 62ch;
+}
 
 .pw-launch {
+  position: relative;
   display: flex; flex-direction: column; height: 100%;
-  border: 1px solid var(--p-line); border-radius: var(--p-r);
-  background: var(--p-surface); padding: 1.1rem 1.2rem 1.15rem;
-  text-decoration: none; color: inherit;
-  transition: border-color var(--p-fast) var(--p-ease),
-              box-shadow var(--p-fast) var(--p-ease),
-              transform var(--p-fast) var(--p-ease);
+  border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
+  background: linear-gradient(180deg, var(--p-surface) 0%, var(--p-surface-2) 100%);
+  padding: var(--s-7);
+  box-shadow: var(--p-edge), var(--p-shadow-1);
+  text-decoration: none; color: inherit; overflow: hidden;
+  transition: border-color var(--p-med) var(--p-ease),
+              box-shadow var(--p-med) var(--p-ease),
+              transform var(--p-med) var(--p-ease);
 }
-.pw-launch:hover { border-color: var(--p-muted-2); box-shadow: var(--p-shadow-1); color: inherit; }
-.pw-launch:active { transform: translateY(1px); }
-.pw-launch h2 { font-size: 1rem; margin-bottom: .25rem; }
-.pw-launch p { font-size: .84rem; color: var(--p-muted); flex: 1; }
-.pw-launch-go { font-size: .82rem; font-weight: 600; color: var(--p-accent); margin-top: .75rem; }
+.pw-launch::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: var(--g-accent); opacity: 0;
+  transition: opacity var(--p-med) var(--p-ease);
+}
+.pw-launch:hover {
+  border-color: var(--p-accent-line);
+  box-shadow: var(--p-edge), var(--p-shadow-2);
+  transform: translateY(-3px);
+  color: inherit;
+}
+.pw-launch:hover::before { opacity: 1; }
+.pw-launch:active { transform: translateY(-1px); box-shadow: var(--p-edge); }
+.pw-launch:hover .pw-launch-go { transform: translateX(3px); }
+.pw-launch-go { transition: transform var(--p-med) var(--p-ease); }
+.pw-launch h2 { font-size: var(--t-lg); margin-bottom: var(--s-3); }
+.pw-launch p { font-size: var(--t-sm); color: var(--p-muted); flex: 1; line-height: 1.6; }
+.pw-launch-go {
+  font-size: var(--t-sm); font-weight: 600; color: var(--p-accent);
+  margin-top: var(--s-6);
+}
 
-.pw-safety-list { margin: 0; padding-left: 1.05rem; }
-.pw-safety-list li { font-size: .84rem; color: var(--p-ink-2); margin-bottom: .3rem; }
-.pw-hostlist {
-  display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .55rem;
-}
+.pw-safety-list { margin: 0; padding-left: var(--s-6); }
+.pw-safety-list li { font-size: var(--t-sm); color: var(--p-ink-2); margin-bottom: var(--s-3); line-height: 1.55; }
+.pw-hostlist { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-top: var(--s-4); }
 .pw-hostlist code {
-  font-family: var(--p-mono); font-size: .735rem;
-  background: var(--p-surface-3); border: 1px solid var(--p-line);
-  border-radius: var(--p-r-xs); padding: .1rem .35rem; color: var(--p-ink-2);
+  font-family: var(--p-mono); font-size: var(--t-xs); letter-spacing: -0.01em;
+  background: var(--p-surface-2); border: 1px solid var(--p-line);
+  border-radius: var(--p-r-xs); padding: 1px var(--s-3); color: var(--p-ink-2);
 }
+
+/* A callout that sits in the dark band at the top of a framed page. The
+ * light version is correct on the document below, but on the deep ground it
+ * reads as a white box pasted over the atmosphere -- the exact thing the
+ * chrome register exists to avoid. Same notice, same prominence, restated in
+ * the dark register.
+ *
+ * Scoped to the first child so it only ever applies to a callout that is
+ * genuinely on the dark band; anything further down the page is on the light
+ * canvas and keeps the light treatment. */
+.pw-results > .pw-note:first-child,
+.pw-entry > .pw-note:first-child,
+.pw-page > .pw-note:first-child {
+  background: linear-gradient(180deg, rgba(30, 76, 93, .5) 0%,
+                              rgba(8, 26, 36, .62) 100%);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: var(--glass-line);
+  border-left: 3px solid rgba(240, 215, 155, .55);
+  border-radius: var(--p-r-lg);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+  color: #e8d5a8;
+}
+.pw-results > .pw-note:first-child strong,
+.pw-entry > .pw-note:first-child strong,
+.pw-page > .pw-note:first-child strong { color: #f7e8c2; }

@@ -9,155 +9,233 @@
  *
  * Design constraints this file exists to enforce:
  *   - it must read as an incident review, not a quiz result;
- *   - no green/red answer cards, no "correct answer", no score, no points;
- *   - no rewind vocabulary and no visual suggestion that state was restored;
+ *   - no green/red answer cards, no score, no counters, no celebration;
+ *   - no vocabulary and no visual suggestion that state was undone;
  *   - it blocks until Continue, because a consequence you can dismiss without
  *     reading is not a consequence.
+ *
+ * Visually it takes the register of a written review: a measured column, a
+ * clear section rhythm, one accent used once. Its header is chrome -- the
+ * same deep, lit material as the workstation shell -- because this is the
+ * workstation speaking about the session, not another application window.
+ * Below the header it is a light document, and it stays the calmest reading
+ * surface in the product.
  */
 
 .pwc-scrim {
   position: fixed; inset: 0; z-index: var(--z-blocking);
-  background: rgba(18, 22, 28, .55);
+  background:
+    radial-gradient(100% 80% at 50% 30%, rgba(16, 42, 55, .62) 0%,
+                    rgba(2, 8, 12, .88) 100%);
+  -webkit-backdrop-filter: blur(10px) saturate(130%);
+  backdrop-filter: blur(10px) saturate(130%);
   display: flex; align-items: center; justify-content: center;
-  padding: 1.5rem;
+  padding: var(--s-8);
   animation: pw-fade var(--p-slow) var(--p-ease);
 }
 .pwc-scrim[hidden] { display: none !important; }
 
 .pwc {
-  width: min(50rem, 100%);
+  width: min(52rem, 100%);
   max-height: min(88vh, 50rem);
   display: flex; flex-direction: column;
   background: var(--p-surface);
-  border: 1px solid var(--p-line-strong);
-  border-radius: var(--p-r-lg);
-  box-shadow: var(--p-shadow-3);
-  animation: pw-rise var(--p-slow) var(--p-ease);
+  border: 1px solid rgba(255, 255, 255, .45);
+  border-radius: var(--p-r-2xl);
+  box-shadow: var(--p-edge),
+              0 0 0 1px rgba(6, 18, 26, .12),
+              0 0 0 10px rgba(63, 220, 216, .07),
+              0 0 70px -10px rgba(63, 220, 216, .2),
+              0 40px 100px -30px rgba(2, 8, 12, .9);
+  overflow: hidden;
+  animation: pw-dialog-in var(--p-xslow) var(--p-ease-soft);
 }
 
 .pwc-head {
-  flex: none;
-  padding: 1.15rem 1.5rem 1rem;
+  position: relative; flex: none;
+  padding: var(--s-9) var(--s-10) var(--s-8);
+  background: var(--g-deep); color: var(--d-ink-2);
+  border-bottom: 1px solid rgba(2, 8, 12, .8);
+  overflow: hidden;
+}
+.pwc-head::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(60% 160% at 5% -30%, rgba(63, 220, 216, .22) 0%,
+                    rgba(63, 220, 216, 0) 62%),
+    radial-gradient(48% 140% at 98% 130%, rgba(99, 192, 240, .1) 0%,
+                    rgba(99, 192, 240, 0) 66%);
+}
+.pwc-head > * { position: relative; }
+.pwc-eyebrow {
+  display: flex; align-items: center; gap: var(--s-3);
+  font-size: var(--t-2xs); font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--p-accent-lift);
+  margin-bottom: var(--s-5);
+}
+.pwc-head h2 {
+  font-size: var(--t-3xl); letter-spacing: -0.028em; line-height: 1.22;
+  color: var(--d-ink);
+}
+.pwc-head p {
+  font-size: var(--t-md); color: var(--d-muted); margin: var(--s-5) 0 0;
+  max-width: 56ch; line-height: 1.65;
+}
+
+.pwc-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: var(--s-9) var(--s-10) var(--s-10);
+  background: linear-gradient(180deg, var(--p-surface-2) 0%, var(--p-surface) 90px);
+}
+/* Sections arrive as a short cascade, the way paragraphs of a report settle
+ * onto a page. Capped at five so the last section is never waiting. */
+.pwc-section { animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both; }
+.pwc-section:nth-of-type(1) { animation-delay: 40ms; }
+.pwc-section:nth-of-type(2) { animation-delay: 90ms; }
+.pwc-section:nth-of-type(3) { animation-delay: 140ms; }
+.pwc-section:nth-of-type(4) { animation-delay: 190ms; }
+.pwc-section:nth-of-type(n+5) { animation-delay: 230ms; }
+
+/* Sections are separated by space and by a small tracked label, not by
+ * boxes. Boxing each one would turn a piece of writing into a form. */
+.pwc-section { margin-bottom: var(--s-9); max-width: 64ch; }
+.pwc-section:last-child { margin-bottom: 0; }
+/* The section label sits on its own rule, so a section reads as a chapter
+ * of a report rather than as a field in a form. */
+.pwc-section > h3 {
+  position: relative;
+  font-size: var(--t-2xs); font-weight: 700; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--p-accent-ink);
+  padding-bottom: var(--s-4); margin-bottom: var(--s-5);
   border-bottom: 1px solid var(--p-line);
 }
-.pwc-eyebrow {
-  display: flex; align-items: center; gap: .45rem;
-  font-size: .69rem; font-weight: 700; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--p-muted-2);
-  margin-bottom: .45rem;
+.pwc-section > h3::after {
+  content: ""; position: absolute; left: 0; bottom: -1px; width: 2.2rem; height: 1px;
+  background: var(--p-accent);
 }
-.pwc-head h2 { font-size: 1.22rem; letter-spacing: -0.018em; }
-.pwc-head p { font-size: .875rem; color: var(--p-muted); margin: .3rem 0 0; max-width: 54ch; }
+.pwc-section > p { font-size: var(--t-md); color: var(--p-ink-2); line-height: 1.68; }
 
-.pwc-body { flex: 1; min-height: 0; overflow-y: auto; padding: 1.15rem 1.5rem 1.35rem; }
-
-.pwc-section { margin-bottom: 1.35rem; }
-.pwc-section:last-child { margin-bottom: 0; }
-.pwc-section > h3 {
-  font-size: .715rem; font-weight: 700; letter-spacing: .085em;
-  text-transform: uppercase; color: var(--p-muted-2);
-  margin-bottom: .45rem;
-}
-.pwc-section > p { font-size: .9rem; color: var(--p-ink-2); line-height: 1.6; max-width: 62ch; }
-
-/* The factual chain. Rendered as a sequence with a rule down the left, not
- * as a scoreboard. */
-.pwc-chain { list-style: none; margin: 0; padding: 0 0 0 1.1rem; position: relative; }
+/* The factual chain. A sequence with a rule down the left; each step is a
+ * thing that happened, in the order it happened. */
+.pwc-chain { list-style: none; margin: 0; padding: 0 0 0 var(--s-6); position: relative; }
 .pwc-chain::before {
-  content: ""; position: absolute; left: 3px; top: .5rem; bottom: .5rem;
-  width: 1px; background: var(--p-line-strong);
+  content: ""; position: absolute; left: 3px; top: .55rem; bottom: .55rem;
+  width: 1px; background: var(--p-line);
 }
 .pwc-chain li {
-  position: relative; font-size: .875rem; color: var(--p-ink-2);
-  line-height: 1.55; margin-bottom: .5rem;
+  position: relative; font-size: var(--t-md); color: var(--p-ink-2);
+  line-height: 1.6; margin-bottom: var(--s-4);
 }
 .pwc-chain li:last-child { margin-bottom: 0; }
 .pwc-chain li::before {
-  content: ""; position: absolute; left: -1.1rem; top: .52rem;
+  content: ""; position: absolute; left: calc(var(--s-6) * -1); top: .55rem;
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--p-surface); border: 1.5px solid var(--p-muted-2);
 }
 
 /* Evidence: available versus actually inspected. This is the part that makes
- * the Evidence Model idea legible, so it gets the most structure. */
-.pwc-evidence { border: 1px solid var(--p-line); border-radius: var(--p-r); overflow: hidden; }
+ * the Evidence Model idea legible, so it gets the most structure. The state
+ * marker is accent-or-neutral rather than tick-or-cross: not looking at
+ * something is a fact about the session, not a mark against the learner. */
+.pwc-evidence {
+  border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
+  background: var(--p-surface);
+  overflow: hidden; box-shadow: var(--p-edge), var(--p-shadow-1);
+}
 .pwc-ev {
-  display: flex; align-items: flex-start; gap: .65rem;
-  padding: .58rem .8rem;
+  display: flex; align-items: flex-start; gap: var(--s-5);
+  padding: var(--s-4) var(--s-5);
   border-bottom: 1px solid var(--p-line-soft);
-  font-size: .855rem;
+  font-size: var(--t-sm);
 }
 .pwc-ev:last-child { border-bottom: 0; }
 .pwc-ev-state {
-  flex: none; width: 17px; height: 17px; margin-top: 1px;
+  flex: none; width: 18px; height: 18px; margin-top: 1px;
   border-radius: var(--p-r-xs);
   display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--p-line-strong); background: var(--p-surface-2);
+  border: 1px solid var(--p-line); background: var(--p-surface-2);
   color: var(--p-muted-2);
 }
 .pwc-ev-state svg { width: 11px; height: 11px; }
 .pwc-ev.is-seen .pwc-ev-state {
   border-color: var(--p-accent-line); background: var(--p-accent-soft);
-  color: var(--p-accent);
+  color: var(--p-accent-ink);
 }
 .pwc-ev-main { flex: 1; min-width: 0; }
-.pwc-ev-main b { font-weight: 600; font-size: .855rem; display: block; color: var(--p-ink-2); }
-.pwc-ev-main span { font-size: .77rem; color: var(--p-muted); display: block; }
+.pwc-ev-main b { font-weight: 600; font-size: var(--t-sm); display: block; color: var(--p-ink-2); line-height: 1.45; }
+.pwc-ev-main span { font-size: var(--t-xs); color: var(--p-muted); display: block; line-height: 1.5; }
 .pwc-ev-tag {
-  flex: none; font-size: .69rem; font-weight: 600; letter-spacing: .05em;
+  flex: none; font-size: var(--t-2xs); font-weight: 600; letter-spacing: .06em;
   text-transform: uppercase; color: var(--p-muted-2);
   padding-top: 2px; white-space: nowrap;
 }
-.pwc-ev.is-seen .pwc-ev-tag { color: var(--p-accent); }
+.pwc-ev.is-seen .pwc-ev-tag { color: var(--p-accent-ink); }
 
+/* The process. Numbered, because it is a sequence someone could follow next
+ * time — not ranked, and not scored. */
 .pwc-steps { list-style: none; margin: 0; padding: 0; counter-reset: pwc-step; }
 .pwc-steps li {
-  position: relative; padding-left: 1.85rem; margin-bottom: .6rem;
-  font-size: .885rem; color: var(--p-ink-2); line-height: 1.58;
+  position: relative; padding-left: var(--s-9); margin-bottom: var(--s-5);
+  font-size: var(--t-md); color: var(--p-ink-2); line-height: 1.65;
 }
 .pwc-steps li:last-child { margin-bottom: 0; }
 .pwc-steps li::before {
   counter-increment: pwc-step; content: counter(pwc-step);
-  position: absolute; left: 0; top: .1rem;
-  width: 1.25rem; height: 1.25rem; border-radius: var(--p-r-xs);
-  background: var(--p-surface-3); border: 1px solid var(--p-line);
-  color: var(--p-muted); font-size: .7rem; font-weight: 700;
+  position: absolute; left: 0; top: 2px;
+  width: 1.3rem; height: 1.3rem; border-radius: var(--p-r-xs);
+  background: var(--p-surface-3);
+  box-shadow: inset 0 0 0 1px var(--p-line);
+  color: var(--p-muted); font-size: var(--t-2xs); font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   font-variant-numeric: tabular-nums;
 }
 
+/* The one place the accent is used as a surface in this screen. It marks
+ * the likely outcome as the load-bearing paragraph -- it is not a verdict,
+ * and it is deliberately neither green nor red. */
 .pwc-outcome {
   border-left: 3px solid var(--p-accent);
-  background: var(--p-accent-soft);
-  border-radius: 0 var(--p-r-sm) var(--p-r-sm) 0;
-  padding: .75rem .95rem;
-  font-size: .885rem; color: var(--p-ink-2); line-height: 1.6;
+  background: linear-gradient(90deg, var(--p-accent-soft) 0%, var(--p-accent-wash) 70%);
+  border-radius: 0 var(--p-r) var(--p-r) 0;
+  padding: var(--s-6) var(--s-7);
+  font-size: var(--t-md); color: var(--p-ink-2); line-height: 1.68;
+  box-shadow: var(--p-edge);
 }
 
-/* The standing reminder that nothing was undone. This is the line that keeps
- * the screen honest about persistent consequences. */
+/* The standing reminder that the workstation is unchanged. This is the line
+ * that keeps the screen honest about persistent consequences, so it sits
+ * apart from the argument above it rather than inside it. */
 .pwc-persists {
-  display: flex; gap: .6rem; align-items: flex-start;
-  margin-top: 1.15rem; padding: .7rem .85rem;
+  display: flex; gap: var(--s-4); align-items: flex-start;
+  margin-top: var(--s-8); padding: var(--s-5) var(--s-6);
   border: 1px solid var(--p-line); border-radius: var(--p-r-sm);
   background: var(--p-surface-2);
-  font-size: .835rem; color: var(--p-ink-2);
+  font-size: var(--t-sm); color: var(--p-ink-2); line-height: 1.6;
 }
 .pwc-persists svg { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--p-muted); }
 
 .pwc-foot {
   flex: none;
-  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
-  padding: .9rem 1.5rem;
+  display: flex; align-items: center; gap: var(--s-5); flex-wrap: wrap;
+  padding: var(--s-6) var(--s-10);
   border-top: 1px solid var(--p-line);
-  background: var(--p-surface-2);
-  border-radius: 0 0 var(--p-r-lg) var(--p-r-lg);
+  background: linear-gradient(180deg, var(--p-surface-2) 0%, var(--p-surface-3) 100%);
+  box-shadow: var(--p-edge);
 }
-.pwc-foot .pwc-foot-note { font-size: .78rem; color: var(--p-muted); flex: 1; min-width: 12rem; }
+.pwc-foot .pwc-foot-note { font-size: var(--t-xs); color: var(--p-muted); flex: 1; min-width: 12rem; line-height: 1.5; }
 
-@media (max-width: 640px) {
-  .pwc-scrim { padding: 0; }
+/* The prototype tooling toggle is fixed to the bottom of the viewport and on
+ * a narrow screen it lands on this screen's footer. It is not product, so it
+ * steps aside while the review is open and comes back with it. The rule lives
+ * here rather than in workstation.css so that removing this feature removes
+ * it too. */
+body:has(.pwc-scrim:not([hidden])) .pw-dev-toggle { visibility: hidden; }
+
+@media (max-width: 720px) {
+  .pwc-scrim { padding: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .pwc { max-height: 100vh; height: 100dvh; border-radius: 0; border: 0; width: 100%; }
-  .pwc-head, .pwc-body, .pwc-foot { padding-left: 1.1rem; padding-right: 1.1rem; }
+  .pwc-head, .pwc-body, .pwc-foot { padding-left: var(--s-6); padding-right: var(--s-6); }
+  .pwc-head { padding-top: var(--s-8); padding-bottom: var(--s-6); }
   .pwc-foot { border-radius: 0; }
+  .pwc-head h2 { font-size: var(--t-2xl); }
 }

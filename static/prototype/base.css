@@ -1,78 +1,283 @@
-/* RewindSec 2.0 UI prototype — shared foundation.
+/* RewindSec 2.0 UI prototype -- shared foundation.
  *
  * Separate from static/rewindsec.css on purpose. The v1 product stylesheet
- * keeps serving the v1 surfaces untouched; this file and its two siblings are
- * the whole visual layer of the prototype and are removed with it.
+ * keeps serving the v1 surfaces untouched; this file and its siblings are the
+ * whole visual layer of the prototype and are removed with it.
  *
- * Direction: a restrained enterprise workstation. One cool-neutral grey
- * family, one accent, semantic colour used only where it carries meaning,
- * hairline borders, shadows tinted with the ink hue rather than pure black,
- * no gradients as decoration, no glass, no ambient motion. System fonts only
- * — nothing is fetched.
+ * Direction -- "deep current". The product has two registers and they are
+ * deliberately different materials:
+ *
+ *   CHROME   -- everything that belongs to the workstation itself: the status
+ *               strip, the application rail, the desk, the notification
+ *               centre, toasts, the results and trainer headers, the incident
+ *               review shell. Deep teal-black, lit from above, with a cyan
+ *               accent that reads as a light source rather than as paint,
+ *               and glass wherever a chrome surface floats over another.
+ *   DOCUMENT -- everything a person reads or works inside: application
+ *               windows, cards, tables, forms. Light, cool-tinted, quiet.
+ *
+ * Putting a bright document on a deep desk is what makes the workstation read
+ * as an environment rather than as a web page with panels drawn on it, and it
+ * costs nothing in legibility because every reading surface stays light.
+ *
+ * Colour carries identity, hierarchy, depth and system state. It never
+ * carries the correctness of a learner decision: no message, link, file,
+ * attachment or authentication prompt is drawn differently because of what it
+ * turns out to be.
+ *
+ * Everything downstream composes from five scales declared here -- space,
+ * type, radius, elevation, motion. A component that needs a value not on a
+ * scale is usually a component that has not been thought through.
  */
 
 :root {
-  /* -- neutrals: one family, cool ------------------------------------- */
-  --p-canvas: #e9ecf1;
-  --p-canvas-deep: #dfe3ea;
-  --p-surface: #ffffff;
-  --p-surface-2: #f7f8fa;
-  --p-surface-3: #f0f2f6;
-  --p-line: #dfe3e9;
-  --p-line-soft: #eaedf2;
-  --p-line-strong: #c7ced9;
-  --p-ink: #161a20;
-  --p-ink-2: #39414d;
-  --p-muted: #616b7a;
-  --p-muted-2: #868f9d;
+  /* -- chrome ramp ------------------------------------------------------
+   * Deep teal-black rather than blue-slate. The ramp is pulled toward the
+   * green end of the blues so the accent, which is cyan, sits *inside* the
+   * family instead of on top of it. 950 is the void behind everything, 900
+   * the rail, 850 the status strip, 800 the desk floor, 700 a raised chrome
+   * panel, 600 a control inside one. Never #000: a true black has no
+   * atmosphere, and every glow laid on it reads as a sticker.
+   */
+  --d-950: #030a0f;
+  --d-900: #06121a;
+  --d-850: #081a24;
+  --d-800: #0b212c;
+  --d-700: #102b38;
+  --d-600: #163a49;
+  --d-500: #1e4c5d;
 
-  /* -- one accent ------------------------------------------------------ */
-  --p-accent: #2c5c8a;
-  --p-accent-hover: #244d75;
-  --p-accent-press: #1e4162;
-  --p-accent-soft: #eaf0f6;
-  --p-accent-line: #c2d4e5;
+  --d-line: rgba(140, 214, 226, .12);
+  --d-line-2: rgba(140, 214, 226, .2);
+  --d-line-3: rgba(140, 214, 226, .3);
+  --d-edge: inset 0 1px 0 rgba(176, 236, 246, .11);
+
+  --d-ink: #eaf7f9;
+  --d-ink-2: #c3dde3;
+  --d-muted: #93b3bc;
+  --d-muted-2: #6d8b95;
+
+  /* -- light ramp -------------------------------------------------------
+   * One family, tinted very slightly toward the chrome hue so the two
+   * registers belong to the same product. The canvas is darker than any
+   * surface so a card reads as sitting *on* something. */
+  --p-canvas: #dde6ea;
+  --p-canvas-deep: #c8d6dc;
+  --p-surface: #ffffff;
+  --p-surface-2: #f4f8fa;
+  --p-surface-3: #eaf1f4;
+  --p-surface-4: #dee8ed;      /* inset wells: tab strips, meters, keys */
+  --p-line-soft: #e8eff2;      /* row separators inside a list */
+  --p-line: #d4e0e6;           /* component and panel edges */
+  --p-line-strong: #b6c7cf;    /* control edges, things you can click */
+
+  --p-ink: #0d1a1f;
+  --p-ink-2: #2f4048;
+  --p-muted: #566970;
+  --p-muted-2: #7e939b;
+
+  /* -- accent: teal / cyan ----------------------------------------------
+   * One hue, two grounds. `--p-accent` is that hue darkened until white type
+   * clears AA on it, which is what a light surface needs; `--p-accent-lift`
+   * is the same hue raised until it glows on the chrome ramp, which is what
+   * a dark surface needs. Treating these as one accent rather than as two
+   * is what keeps the product from looking like two products.
+   *
+   * `wash` is far quieter than `soft` and is what an ordinary selected row
+   * uses, because selection happens constantly and must not shout. */
+  --p-accent: #0a6c7b;
+  --p-accent-hover: #085b68;
+  --p-accent-press: #064b56;
+  --p-accent-ink: #0a6270;     /* accent text on a light tint, contrast-safe */
+  --p-accent-lift: #3fdcd8;    /* accent on the chrome ramp */
+  --p-accent-lift-2: #7ef0ea;  /* the brightest step, for glyphs and rules */
+  --p-accent-soft: #ddf2f4;
+  --p-accent-wash: #eff9fa;
+  --p-accent-line: #a3d8de;
   --p-on-accent: #ffffff;
 
-  /* -- semantic, deliberately desaturated ------------------------------ */
-  --p-alert: #9d3b32;
-  --p-alert-soft: #fbeeec;
-  --p-alert-line: #ebcdc8;
+  /* Accent as light rather than as paint: the rim glow on chrome. */
+  --d-glow: rgba(63, 220, 216, .5);
+  --d-glow-soft: rgba(63, 220, 216, .16);
+
+  /* -- secondary: deep sea blue -----------------------------------------
+   * System state only -- a live session, a connected device, an internal
+   * host. Pulled to the blue side of the accent so the two never read as
+   * the same signal. Never applied to anything a learner is being asked to
+   * judge. */
+  --p-teal: #1a6a9c;
+  --p-teal-lift: #63c0f0;
+  --p-teal-soft: #e2f0f9;
+  --p-teal-line: #b1d7ec;
+
+  /* -- semantic, deliberately desaturated -------------------------------
+   * These describe *system* outcomes: a blocked host, an expired code, a
+   * completed upload. They are never used to mark a message, link, file,
+   * attachment or authentication prompt as safe or dangerous. */
+  --p-alert: #ab3a37;
+  --p-alert-soft: #fbecea;
+  --p-alert-line: #eecfcb;
   --p-caution: #85610f;
-  --p-caution-soft: #fbf4e3;
-  --p-caution-line: #e6d5ab;
-  --p-good: #2c6a4a;
-  --p-good-soft: #eaf4ee;
-  --p-good-line: #c1dccc;
+  --p-caution-soft: #fcf3e1;
+  --p-caution-line: #e9d8ab;
+  --p-good: #1d6852;
+  --p-good-soft: #e3f3ee;
+  --p-good-line: #b9dbcf;
 
-  /* -- shape ------------------------------------------------------------ */
-  --p-r-xs: 3px;
-  --p-r-sm: 5px;
-  --p-r: 8px;
-  --p-r-lg: 12px;
+  /* -- gradients as material -------------------------------------------
+   * Every one of these is a lighting model: a surface lit from above, or a
+   * pool of light on a desk. None is decoration, none is more than three
+   * stops of one hue, and none is applied to a scrolling container. */
+  --g-chrome: linear-gradient(180deg, #0f2935 0%, #081a24 100%);
+  --g-rail: linear-gradient(180deg, #0e2733 0%, #05111a 100%);
+  --g-deep: linear-gradient(180deg, #102a37 0%, #050f17 100%);
+  --g-desk:
+    radial-gradient(118% 78% at 50% -16%, rgba(63, 220, 216, .16) 0%,
+                    rgba(63, 220, 216, 0) 56%),
+    radial-gradient(74% 56% at 92% 112%, rgba(99, 192, 240, .11) 0%,
+                    rgba(99, 192, 240, 0) 62%),
+    radial-gradient(58% 44% at 6% 96%, rgba(63, 220, 216, .07) 0%,
+                    rgba(63, 220, 216, 0) 60%),
+    linear-gradient(176deg, #0c2430 0%, #071722 58%, #040d14 100%);
+  --g-accent: linear-gradient(180deg, #0d7f8f 0%, #085d6a 100%);
+  --g-accent-lift: linear-gradient(180deg, #7ef0ea 0%, #2ab9bb 100%);
+  --g-titlebar: linear-gradient(180deg, #ffffff 0%, #f3f8fa 100%);
 
-  /* Tinted with the ink hue, never pure black. */
-  --p-shadow-1: 0 1px 1px rgba(22, 26, 32, .04), 0 1px 3px rgba(22, 26, 32, .05);
-  --p-shadow-2: 0 1px 2px rgba(22, 26, 32, .05), 0 6px 16px rgba(22, 26, 32, .07);
-  --p-shadow-3: 0 2px 6px rgba(22, 26, 32, .06), 0 18px 40px rgba(22, 26, 32, .12);
-  --p-focus: 0 0 0 2px #fff, 0 0 0 4px rgba(44, 92, 138, .6);
-  --p-focus-tight: 0 0 0 2px rgba(44, 92, 138, .65);
+  /* -- glass ------------------------------------------------------------
+   * Chrome material, not a decoration to be sprinkled on cards. A glass
+   * surface is four things at once: a translucent fill, a blur behind it, a
+   * hairline that is lighter along its top edge than its bottom, and a cast
+   * shadow. All four are needed -- a blur without a top highlight looks
+   * like a smudge, and a highlight without a blur looks like a border.
+   *
+   * Rule of use: glass belongs to surfaces that FLOAT over something -- the
+   * rail, the status strip, overlays, dialog shells, toasts, the
+   * notification centre. Reading surfaces stay opaque, because type on a
+   * moving translucent ground is harder to read and the whole product is
+   * reading. */
+  --glass-blur: blur(20px) saturate(150%);
+  --glass-blur-sm: blur(12px) saturate(140%);
+  --glass-fill: linear-gradient(180deg, rgba(30, 76, 93, .58) 0%,
+                                rgba(8, 26, 36, .72) 100%);
+  --glass-fill-2: linear-gradient(180deg, rgba(22, 58, 73, .5) 0%,
+                                  rgba(6, 18, 26, .68) 100%);
+  --glass-line: 1px solid rgba(140, 214, 226, .16);
+  --glass-edge: inset 0 1px 0 rgba(176, 236, 246, .16),
+                inset 0 -1px 0 rgba(3, 10, 15, .5);
+  --glass-shadow: 0 1px 2px rgba(3, 10, 15, .4),
+                  0 18px 44px -18px rgba(3, 10, 15, .8);
+  /* The rim of light an accented glass surface carries. */
+  --glass-rim: 0 0 0 1px rgba(63, 220, 216, .18),
+               0 0 26px -6px rgba(63, 220, 216, .3);
 
-  /* -- motion ----------------------------------------------------------- */
-  --p-ease: cubic-bezier(.2, .7, .3, 1);
-  --p-fast: 110ms;
-  --p-med: 180ms;
-  --p-slow: 280ms;
+  /* -- space ------------------------------------------------------------
+   * A 4px base. Component padding, gaps and margins come from here so that
+   * things line up down a column without anyone measuring. */
+  --s-1: 2px;
+  --s-2: 4px;
+  --s-3: 6px;
+  --s-4: 8px;
+  --s-5: 12px;
+  --s-6: 16px;
+  --s-7: 20px;
+  --s-8: 24px;
+  --s-9: 32px;
+  --s-10: 40px;
+  --s-11: 56px;
 
-  /* -- type -------------------------------------------------------------- */
+  /* -- type -------------------------------------------------------------
+   * Eight steps. The interface is dense, so the range is narrow and the
+   * hierarchy is carried by weight and colour rather than by size. */
+  --t-2xs: .6875rem;   /* 11px -- chips, badges, eyebrow labels */
+  --t-xs: .75rem;      /* 12px -- metadata, timestamps, captions */
+  --t-sm: .8125rem;    /* 13px -- dense UI: rows, table cells, controls */
+  --t-md: .875rem;     /* 14px -- body */
+  --t-lg: .9375rem;    /* 15px -- emphasised body, card titles */
+  --t-xl: 1.0625rem;   /* 17px -- section and window-level headings */
+  --t-2xl: 1.3125rem;  /* 21px -- page headings */
+  --t-3xl: 1.625rem;   /* 26px -- the one display size */
+
   --p-font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system,
             "Helvetica Neue", Arial, sans-serif;
+  --p-font-display: "Segoe UI Variable Display", "Segoe UI Variable Text",
+            "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial,
+            sans-serif;
   --p-mono: "Cascadia Mono", "Cascadia Code", "SFMono-Regular", Consolas,
             "Liberation Mono", Menlo, monospace;
 
+  /* -- shape ------------------------------------------------------------
+   * Concentric, and considerably softer than before. A control inside a
+   * panel takes the next radius down, so curves stay parallel instead of
+   * fighting. `--p-r-pill` is for things that are genuinely capsule-shaped
+   * -- counts, dots, segmented controls -- and nothing else. */
+  --p-r-xs: 6px;
+  --p-r-sm: 9px;
+  --p-r: 12px;
+  --p-r-lg: 17px;
+  --p-r-xl: 24px;
+  --p-r-2xl: 30px;
+  --p-r-pill: 999px;
+
+  /* -- elevation --------------------------------------------------------
+   * Tinted with the chrome hue, never pure black; a tight contact shadow
+   * plus a wide ambient one, which is what makes a raised surface read as
+   * lifted rather than outlined. */
+  --p-shadow-1: 0 1px 1px rgba(6, 18, 26, .05),
+                0 1px 3px rgba(6, 18, 26, .06);
+  --p-shadow-2: 0 1px 2px rgba(6, 18, 26, .06),
+                0 4px 10px -2px rgba(6, 18, 26, .08),
+                0 10px 26px -6px rgba(6, 18, 26, .09);
+  --p-shadow-3: 0 1px 2px rgba(6, 18, 26, .08),
+                0 8px 20px -4px rgba(6, 18, 26, .14),
+                0 26px 56px -12px rgba(6, 18, 26, .2);
+  --p-shadow-4: 0 2px 4px rgba(6, 18, 26, .1),
+                0 16px 36px -8px rgba(6, 18, 26, .2),
+                0 44px 90px -20px rgba(6, 18, 26, .34);
+
+  /* A window standing on the deep desk. It needs a much longer, darker cast
+   * than a card on a light page, or it looks pasted on. */
+  --p-shadow-window: 0 1px 2px rgba(2, 8, 12, .4),
+                     0 16px 34px -8px rgba(2, 8, 12, .5),
+                     0 50px 96px -28px rgba(2, 8, 12, .68);
+  --p-shadow-window-flat: 0 1px 2px rgba(2, 8, 12, .3),
+                          0 6px 16px -6px rgba(2, 8, 12, .36),
+                          0 22px 48px -22px rgba(2, 8, 12, .48);
+
+  /* A hairline drawn *inside* the top edge. On a light surface sitting on
+   * a darker ground this is what separates "a rectangle" from "a physical
+   * panel", and it costs nothing. */
+  --p-edge: inset 0 1px 0 rgba(255, 255, 255, .85);
+  --p-hair: inset 0 0 0 1px rgba(6, 18, 26, .04);
+
+  /* -- focus ------------------------------------------------------------
+   * Two rings, because one ring cannot serve both registers: `--p-focus-ink`
+   * on light surfaces, `--p-focus-lift` on the chrome ramp. */
+  --p-focus-ink: #0a6c7b;
+  --p-focus-lift: #7ef0ea;
+  --p-focus-tight: 0 0 0 3px rgba(10, 108, 123, .22);
+
+  /* -- motion -----------------------------------------------------------
+   * One decelerating curve with weight to it, a softer one for larger
+   * travel, an accelerating one for exits -- a thing leaving should not
+   * decelerate, it should get out of the way -- and one gently overshooting
+   * curve reserved for state that snaps into place: a rail selection, a
+   * toggle, a chip. Nothing here bounces twice. */
+  --p-ease: cubic-bezier(.32, .72, 0, 1);
+  --p-ease-soft: cubic-bezier(.16, 1, .3, 1);
+  --p-ease-exit: cubic-bezier(.4, 0, 1, 1);
+  --p-ease-snap: cubic-bezier(.34, 1.4, .5, 1);
+  --p-fast: 110ms;
+  --p-med: 190ms;
+  --p-slow: 280ms;
+  --p-xslow: 440ms;
+
   /* -- structure --------------------------------------------------------- */
-  --p-topbar: 46px;
-  --p-rail: 216px;
+  --p-topbar: 54px;
+  --p-rail: 232px;
+  /* The gutter the floating chrome panels stand in. Giving the rail and the
+   * work area a margin rather than a shared border is what lets both be
+   * rounded, and is the single structural change behind the new shell. */
+  --p-gutter: 10px;
 
   /* -- one z-index scale, no arbitrary numbers -------------------------- */
   --z-window: 10;
@@ -93,49 +298,78 @@ body.pw {
   background: var(--p-canvas);
   color: var(--p-ink);
   font-family: var(--p-font);
-  font-size: 14px;
+  font-size: var(--t-md);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Proportional figures read better in prose; every number that belongs to
+   * a column opts into tabular ones explicitly. */
+  font-variant-numeric: proportional-nums;
 }
 
 body.pw.is-fixed { height: 100vh; overflow: hidden; }
 
+/* -- headings ---------------------------------------------------------------
+ * Larger sizes take tighter tracking, because default tracking is set for
+ * body copy and looks slack the moment type grows. */
+
 h1, h2, h3, h4 {
   margin: 0;
+  font-family: var(--p-font-display);
   font-weight: 600;
-  letter-spacing: -0.012em;
+  letter-spacing: -0.011em;
   text-wrap: balance;
   color: var(--p-ink);
 }
-h1 { font-size: 1.55rem; line-height: 1.24; letter-spacing: -0.02em; }
-h2 { font-size: 1.12rem; line-height: 1.32; }
-h3 { font-size: .96rem; line-height: 1.38; }
-h4 { font-size: .84rem; line-height: 1.4; }
+h1 { font-size: var(--t-2xl); line-height: 1.22; letter-spacing: -0.021em; }
+h2 { font-size: var(--t-xl); line-height: 1.3; letter-spacing: -0.015em; }
+h3 { font-size: var(--t-lg); line-height: 1.36; }
+h4 { font-size: var(--t-sm); line-height: 1.4; }
 p { margin: 0 0 .7em; text-wrap: pretty; }
 p:last-child { margin-bottom: 0; }
 
 a { color: var(--p-accent); text-underline-offset: 2px; }
 a:hover { color: var(--p-accent-hover); }
 
-.pw-num { font-variant-numeric: tabular-nums; }
-.pw-mono { font-family: var(--p-mono); font-size: .84em; }
+/* Numbers that sit in a column, a clock or a measurement. */
+.pw-num, .pw-tnum { font-variant-numeric: tabular-nums; }
+.pw-mono { font-family: var(--p-mono); font-size: .84em; letter-spacing: -0.01em; }
 
 .pw-measure { max-width: 66ch; }
 
 /* -- focus ---------------------------------------------------------------- */
 
 :focus { outline: none; }
+
+/* An outline rather than a ring of box-shadows: it follows the element's own
+ * border-radius, works on any background — the rail, a tinted row, the dark
+ * developer panel — and is never clipped by an `overflow: hidden` ancestor,
+ * which the old two-tone shadow ring was. */
 :focus-visible {
-  outline: none;
-  box-shadow: var(--p-focus);
-  border-radius: var(--p-r-sm);
+  outline: 2px solid var(--p-focus-ink);
+  outline-offset: 2px;
+}
+
+/* The chrome register is far too dark for the ink-coloured ring to register
+ * against. Anything drawn on it -- the status strip, the rail, the
+ * notification centre, a toast, a dark page header, the incident review
+ * shell -- switches to the lifted ring instead. This is one declaration
+ * rather than a per-component override precisely so a new chrome surface
+ * cannot forget it. */
+.pw-onchrome :focus-visible,
+.pw-top :focus-visible,
+.pw-rail :focus-visible,
+.pw-notifpanel :focus-visible,
+.pw-toasts :focus-visible {
+  outline-color: var(--p-focus-lift);
 }
 
 .pw-skip {
   position: absolute; left: -9999px; top: 0; z-index: var(--z-dev);
-  background: var(--p-ink); color: #fff; padding: .55rem .95rem;
-  border-radius: 0 0 var(--p-r-sm) 0; text-decoration: none; font-size: .84rem;
+  background: var(--p-ink); color: #fff;
+  padding: var(--s-4) var(--s-6);
+  border-radius: 0 0 var(--p-r-sm) 0;
+  text-decoration: none; font-size: var(--t-sm); font-weight: 500;
 }
 .pw-skip:focus { left: 0; }
 
@@ -150,12 +384,29 @@ a:hover { color: var(--p-accent-hover); }
   }
 }
 
+/* Entrance animations use `fill-mode: both`, which means an element sits at
+ * its starting opacity until its animation runs. That is correct on screen --
+ * a hidden tab pauses the animation and resumes it when it is shown -- but a
+ * printed page never runs one, so printing is given the finished state
+ * outright. Reduced motion is handled by the rule above, which collapses
+ * every duration to effectively zero rather than removing the animation. */
+@media print {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Short travel distances. A panel that slides a long way reads as an
+ * animation; one that moves 6px reads as the interface responding. */
 @keyframes pw-rise {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(6px) scale(.994); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes pw-slide-in {
-  from { opacity: 0; transform: translateX(10px); }
+  from { opacity: 0; transform: translateX(12px); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes pw-fade {
@@ -163,22 +414,88 @@ a:hover { color: var(--p-accent-hover); }
   to   { opacity: 1; }
 }
 
-/* -- buttons -------------------------------------------------------------- */
+/* A window arriving. It comes up and forward, from slightly small, which is
+ * the only motion in the product with any real travel in it -- opening an
+ * application is the largest thing that happens on the desk. */
+@keyframes pw-window-in {
+  from { opacity: 0; transform: translateY(10px) scale(.975); }
+  to   { opacity: 1; transform: none; }
+}
+/* Leaving is faster than arriving and goes back the way it came. */
+@keyframes pw-window-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(6px) scale(.97); }
+}
+/* Minimising is directional: the window collapses toward the rail rather
+ * than simply vanishing, so the learner can see where it went. */
+@keyframes pw-window-min {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translate(-6%, 14%) scale(.82); }
+}
+
+/* Content changing inside a pane that is already on screen. Very short
+ * travel: this fires whenever a learner selects a different message, file or
+ * contact, so it has to feel like the pane responding, not like a page
+ * loading. */
+@keyframes pw-view-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pw-toast-in {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pw-toast-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateX(14px) scale(.98); }
+}
+
+/* The reveal used by the results and trainer documents. Elements carry an
+ * `--i` index and inherit their delay from it, so a section arrives as a
+ * short cascade instead of all at once. The cascade is capped in the rule
+ * that uses it: a list that staggers past about ten items stops reading as
+ * polish and starts reading as a wait. */
+@keyframes pw-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.pw-reveal {
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* A gauge filling from zero. Width is a layout property, so this animates
+ * `transform` on an inner element instead -- see `.pw-meter`. */
+@keyframes pw-meter-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* -- buttons --------------------------------------------------------------
+ * One shape, four intents. Every state is defined: rest, hover, pressed,
+ * focused, disabled. The press is a real 1px displacement plus a flattened
+ * shadow, which is the cheapest way to make a control feel physical. */
 
 .pw-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  gap: .45rem;
-  font: inherit; font-size: .875rem; font-weight: 500;
-  padding: .46rem .85rem;
+  gap: var(--s-3);
+  font: inherit; font-size: var(--t-sm); font-weight: 500;
+  letter-spacing: -0.003em;
+  min-height: 30px;
+  padding: var(--s-3) var(--s-5);
   border-radius: var(--p-r-sm);
   border: 1px solid var(--p-line-strong);
   background: var(--p-surface);
   color: var(--p-ink-2);
+  box-shadow: 0 1px 1px rgba(20, 23, 28, .035);
   cursor: pointer;
   text-decoration: none;
+  white-space: nowrap;
   transition: background var(--p-fast) var(--p-ease),
               border-color var(--p-fast) var(--p-ease),
               color var(--p-fast) var(--p-ease),
+              box-shadow var(--p-fast) var(--p-ease),
               transform var(--p-fast) var(--p-ease);
 }
 /* Every icon inside a button gets a size. Without this an inline <use>
@@ -186,60 +503,93 @@ a:hover { color: var(--p-accent-hover); }
  * not pass its own dimensions -- invisible on desktop where the control is
  * hidden, enormous on the narrow layout where it is not. */
 .pw-btn svg { width: 14px; height: 14px; flex: none; }
-.pw-btn:hover { background: var(--p-surface-3); border-color: var(--p-muted-2); color: var(--p-ink); }
-.pw-btn:active { transform: translateY(1px); background: var(--p-surface-3); }
+.pw-btn:hover {
+  background: var(--p-surface-2);
+  border-color: var(--p-muted-2);
+  color: var(--p-ink);
+}
+.pw-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+  background: var(--p-surface-3);
+}
 .pw-btn[disabled], .pw-btn[aria-disabled="true"] {
-  opacity: .5; cursor: not-allowed; transform: none;
+  background: var(--p-surface-2);
+  border-color: var(--p-line);
+  color: var(--p-muted-2);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .pw-btn.is-primary {
-  background: var(--p-accent); border-color: var(--p-accent);
+  background: var(--g-accent); border-color: var(--p-accent-press);
   color: var(--p-on-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22),
+              0 1px 2px rgba(6, 18, 26, .18),
+              0 2px 8px -2px rgba(10, 108, 123, .4);
 }
-.pw-btn.is-primary:hover { background: var(--p-accent-hover); border-color: var(--p-accent-hover); color: #fff; }
-.pw-btn.is-primary:active { background: var(--p-accent-press); }
+.pw-btn.is-primary:hover {
+  background: var(--g-accent-lift); border-color: var(--p-accent-hover); color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28),
+              0 1px 2px rgba(6, 18, 26, .18),
+              0 4px 14px -3px rgba(10, 108, 123, .5);
+}
+.pw-btn.is-primary:active {
+  background: var(--p-accent-press); border-color: var(--p-accent-press);
+  box-shadow: inset 0 1px 3px rgba(6, 18, 26, .3);
+}
 
 .pw-btn.is-quiet {
   border-color: transparent; background: transparent; color: var(--p-muted);
+  box-shadow: none;
 }
 .pw-btn.is-quiet:hover { background: var(--p-surface-3); color: var(--p-ink); border-color: transparent; }
+.pw-btn.is-quiet:active { background: var(--p-surface-4); }
 
 .pw-btn.is-alert { color: var(--p-alert); border-color: var(--p-alert-line); background: var(--p-surface); }
-.pw-btn.is-alert:hover { background: var(--p-alert-soft); border-color: var(--p-alert); }
+.pw-btn.is-alert:hover { background: var(--p-alert-soft); border-color: var(--p-alert); color: var(--p-alert); }
 
-.pw-btn.is-sm { font-size: .8rem; padding: .3rem .6rem; }
-.pw-btn.is-lg { font-size: .95rem; padding: .62rem 1.15rem; }
+.pw-btn.is-sm { font-size: var(--t-xs); min-height: 26px; padding: var(--s-2) var(--s-4); gap: var(--s-2); }
+.pw-btn.is-sm svg { width: 13px; height: 13px; }
+.pw-btn.is-lg { font-size: var(--t-md); min-height: 38px; padding: var(--s-4) var(--s-8); }
 .pw-btn.is-block { width: 100%; }
 
 .pw-linkbtn {
-  background: none; border: 0; padding: 0; font: inherit; font-size: .84rem;
+  background: none; border: 0; padding: 0; font: inherit; font-size: var(--t-sm);
   color: var(--p-accent); cursor: pointer; text-align: left;
   border-bottom: 1px solid transparent;
   transition: border-color var(--p-fast) var(--p-ease), color var(--p-fast) var(--p-ease);
 }
 .pw-linkbtn:hover { color: var(--p-accent-hover); border-bottom-color: var(--p-accent-line); }
 
-/* -- chips and tags -------------------------------------------------------- */
+/* -- chips and tags --------------------------------------------------------
+ * Small, tracked, upper case. Colour is the meaning, so the neutral chip is
+ * the default and a coloured one has to earn it. */
 
 .pw-chip {
-  display: inline-flex; align-items: center; gap: .32rem;
-  font-size: .695rem; font-weight: 600; letter-spacing: .055em;
+  display: inline-flex; align-items: center; gap: var(--s-3);
+  font-size: var(--t-2xs); font-weight: 600; letter-spacing: .05em;
+  line-height: 1.5;
   text-transform: uppercase;
-  padding: .16rem .44rem;
-  border-radius: var(--p-r-xs);
+  padding: 2px var(--s-4);
+  border-radius: var(--p-r-pill);
   border: 1px solid var(--p-line);
-  background: var(--p-surface-3);
+  background: var(--p-surface-2);
   color: var(--p-muted);
   white-space: nowrap;
 }
-.pw-chip.is-accent { background: var(--p-accent-soft); border-color: var(--p-accent-line); color: var(--p-accent); }
+.pw-chip.is-accent { background: var(--p-accent-soft); border-color: var(--p-accent-line); color: var(--p-accent-ink); }
 .pw-chip.is-alert { background: var(--p-alert-soft); border-color: var(--p-alert-line); color: var(--p-alert); }
 .pw-chip.is-caution { background: var(--p-caution-soft); border-color: var(--p-caution-line); color: var(--p-caution); }
 .pw-chip.is-good { background: var(--p-good-soft); border-color: var(--p-good-line); color: var(--p-good); }
-.pw-chip.is-plain { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: .755rem; }
+.pw-chip.is-plain {
+  text-transform: none; letter-spacing: -0.002em; font-weight: 500;
+  font-size: var(--t-xs); padding: 3px var(--s-4);
+}
 
 .pw-dot {
-  width: 7px; height: 7px; border-radius: 50%;
+  width: 6px; height: 6px; border-radius: 50%;
   background: var(--p-muted-2); display: inline-block; flex: none;
 }
 .pw-dot.is-accent { background: var(--p-accent); }
@@ -252,169 +602,278 @@ a:hover { color: var(--p-accent-hover); }
 .pw-card {
   background: var(--p-surface);
   border: 1px solid var(--p-line);
-  border-radius: var(--p-r);
-  padding: 1.15rem 1.25rem;
+  border-radius: var(--p-r-xl);
+  padding: var(--s-7) var(--s-8);
+  box-shadow: var(--p-edge), var(--p-shadow-1);
 }
 .pw-card.is-flat { box-shadow: none; }
-.pw-card.is-raised { box-shadow: var(--p-shadow-1); }
+.pw-card.is-raised { box-shadow: var(--p-edge), var(--p-shadow-1); }
 
 .pw-kicker {
-  font-size: .7rem; font-weight: 600; letter-spacing: .09em;
+  font-size: var(--t-2xs); font-weight: 700; letter-spacing: .085em;
   text-transform: uppercase; color: var(--p-muted-2);
-  margin-bottom: .35rem;
+  margin-bottom: var(--s-3);
 }
 
 .pw-note {
   border-left: 3px solid var(--p-line-strong);
-  padding: .6rem .85rem;
+  border-radius: var(--p-r);
+  padding: var(--s-5) var(--s-6);
   background: var(--p-surface-2);
   border-radius: 0 var(--p-r-sm) var(--p-r-sm) 0;
-  font-size: .855rem;
+  font-size: var(--t-sm);
   color: var(--p-ink-2);
 }
 .pw-note.is-caution { border-left-color: var(--p-caution); background: var(--p-caution-soft); color: var(--p-caution); }
 .pw-note.is-alert { border-left-color: var(--p-alert); background: var(--p-alert-soft); color: var(--p-alert); }
 .pw-note.is-good { border-left-color: var(--p-good); background: var(--p-good-soft); color: var(--p-good); }
-.pw-note.is-accent { border-left-color: var(--p-accent); background: var(--p-accent-soft); color: var(--p-accent); }
+.pw-note.is-accent { border-left-color: var(--p-accent); background: var(--p-accent-soft); color: var(--p-accent-ink); }
 
-.pw-divider { height: 1px; background: var(--p-line); border: 0; margin: 1.1rem 0; }
+.pw-divider { height: 1px; background: var(--p-line); border: 0; margin: var(--s-7) 0; }
 
-/* -- forms ------------------------------------------------------------------ */
+/* -- forms ------------------------------------------------------------------
+ * Controls share the button's height and radius so a row mixing a select, an
+ * input and a button sits on one baseline. */
 
-.pw-field { display: block; margin-bottom: .85rem; }
+.pw-field { display: block; margin-bottom: var(--s-6); }
 .pw-label {
-  display: block; font-size: .78rem; font-weight: 600; color: var(--p-ink-2);
-  margin-bottom: .28rem;
+  display: block; font-size: var(--t-xs); font-weight: 600; color: var(--p-ink-2);
+  letter-spacing: -0.002em;
+  margin-bottom: var(--s-3);
 }
-.pw-hint { font-size: .76rem; color: var(--p-muted); margin-top: .25rem; }
+.pw-hint { font-size: var(--t-xs); color: var(--p-muted); margin-top: var(--s-2); }
 
 .pw-input, .pw-select, .pw-textarea {
-  width: 100%; font: inherit; font-size: .875rem;
-  padding: .45rem .6rem;
+  width: 100%; font: inherit; font-size: var(--t-sm);
+  min-height: 30px;
+  padding: var(--s-3) var(--s-4);
   border: 1px solid var(--p-line-strong);
   border-radius: var(--p-r-sm);
   background: var(--p-surface);
   color: var(--p-ink);
+  box-shadow: inset 0 1px 1px rgba(20, 23, 28, .025);
   transition: border-color var(--p-fast) var(--p-ease),
               box-shadow var(--p-fast) var(--p-ease);
 }
 .pw-input:hover, .pw-select:hover, .pw-textarea:hover { border-color: var(--p-muted-2); }
 .pw-input:focus-visible, .pw-select:focus-visible, .pw-textarea:focus-visible {
-  border-color: var(--p-accent); box-shadow: var(--p-focus-tight);
+  outline: none;
+  border-color: var(--p-accent);
+  box-shadow: var(--p-focus-tight);
 }
-.pw-textarea { min-height: 6rem; resize: vertical; line-height: 1.5; }
+.pw-input::placeholder, .pw-textarea::placeholder { color: var(--p-muted-2); }
+.pw-textarea { min-height: 6rem; resize: vertical; line-height: 1.55; }
 
-/* -- tables ----------------------------------------------------------------- */
+/* A self-authored chevron, inlined. Native select arrows differ wildly
+ * between platforms and are the loudest remaining piece of OS chrome in an
+ * otherwise consistent interface. */
+.pw-select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: var(--s-8);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7' fill='none'%3E%3Cpath d='M1 1.5L5 5.5L9 1.5' stroke='%235d6674' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--s-4) center;
+}
 
-.pw-tablewrap { overflow-x: auto; border-radius: var(--p-r); border: 1px solid var(--p-line); background: var(--p-surface); }
-.pw-table { width: 100%; border-collapse: collapse; font-size: .855rem; }
+/* Native controls, tinted to the accent rather than replaced: they keep
+ * their platform keyboard behaviour and their accessibility tree. */
+input[type="checkbox"], input[type="radio"] {
+  accent-color: var(--p-accent);
+  width: 14px; height: 14px;
+  margin: 0;
+}
+
+/* -- tables -----------------------------------------------------------------
+ * Dense and rule-light. The header is the only thing that separates itself
+ * from the body; rows are divided by a hairline, never by a fill. */
+
+.pw-tablewrap {
+  overflow-x: auto;
+  border-radius: var(--p-r-xl);
+  border: 1px solid var(--p-line);
+  background: var(--p-surface);
+  box-shadow: var(--p-edge), var(--p-shadow-2);
+}
+.pw-table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
 .pw-table th {
-  text-align: left; font-size: .715rem; font-weight: 600;
-  letter-spacing: .06em; text-transform: uppercase; color: var(--p-muted-2);
-  padding: .6rem .85rem; border-bottom: 1px solid var(--p-line);
-  background: var(--p-surface-2); white-space: nowrap;
+  text-align: left; font-size: var(--t-2xs); font-weight: 600;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--p-muted-2);
+  padding: var(--s-5) var(--s-7);
+  border-bottom: 1px solid var(--p-line);
+  background: linear-gradient(180deg, var(--p-surface-2) 0%, var(--p-surface-3) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
+  white-space: nowrap;
 }
-.pw-table td { padding: .62rem .85rem; border-bottom: 1px solid var(--p-line-soft); vertical-align: top; }
+.pw-table td {
+  padding: var(--s-5) var(--s-7);
+  border-bottom: 1px solid var(--p-line-soft);
+  vertical-align: top;
+}
 .pw-table tbody tr:last-child td { border-bottom: 0; }
-.pw-table tbody tr { transition: background var(--p-fast) var(--p-ease); }
-.pw-table tbody tr:hover { background: var(--p-surface-2); }
-.pw-table td.is-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pw-table tbody tr { transition: background var(--p-med) var(--p-ease); }
+.pw-table tbody tr:hover { background: var(--p-accent-wash); }
+/* `is-num` means "these figures line up", not "this column is right
+ * aligned": it is carried by timestamps and durations as well as by scores,
+ * and right-aligning a date under a left-aligned header is worse than not
+ * aligning it at all. */
+.pw-table td.is-num, .pw-table th.is-num {
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 .pw-table a { font-weight: 500; text-decoration: none; }
 .pw-table a:hover { text-decoration: underline; }
 
 /* -- empty state ------------------------------------------------------------ */
 
 .pw-empty {
-  text-align: center; padding: 2.2rem 1rem; color: var(--p-muted);
-  font-size: .875rem;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center;
+  padding: var(--s-9) var(--s-7); color: var(--p-muted);
+  font-size: var(--t-sm);
+  max-width: 34ch; margin: 0 auto;
 }
-.pw-empty h3 { color: var(--p-ink-2); margin-bottom: .3rem; }
+.pw-empty h3 { color: var(--p-ink-2); margin-bottom: var(--s-3); font-size: var(--t-md); }
 
 /* -- prototype banner --------------------------------------------------------
  * On every prototype screen. A reviewer must never mistake one of these pages
  * for implemented product. */
 
 .pw-protobanner {
-  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
-  background: var(--p-caution-soft);
-  border-bottom: 1px solid var(--p-caution-line);
-  color: var(--p-caution);
-  font-size: .775rem;
-  padding: .35rem .95rem;
+  display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap;
+  background: linear-gradient(180deg, #14212b 0%, #0b1720 100%);
+  border-bottom: 1px solid rgba(233, 216, 171, .16);
+  box-shadow: inset 0 1px 0 rgba(240, 215, 155, .12);
+  color: #e6cd93;
+  font-size: var(--t-xs);
+  padding: var(--s-3) var(--s-7);
 }
-.pw-protobanner strong { font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: .69rem; }
+.pw-protobanner strong { color: #f5e3b6; }
+.pw-protobanner strong {
+  font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  font-size: var(--t-2xs);
+}
 
 /* -- prototype developer panel ------------------------------------------------
  * Explicitly not a learner feature. Fixed, labelled, and collapsible so it
- * stays out of screenshots. */
+ * stays out of screenshots.
+ *
+ * Its palette is chosen to be impossible to confuse with the product's. The
+ * product is blue-slate chrome and light documents; the tooling is neutral
+ * warm graphite with an amber marker and a hazard strip along its head. None
+ * of those appear anywhere in the product, so a screenshot containing this
+ * panel is unambiguous about what it is -- which matters far more than the
+ * panel looking good. */
 
 .pw-dev {
-  position: fixed; right: 14px; bottom: 14px; z-index: var(--z-dev);
-  width: 268px; max-height: calc(100vh - 28px);
+  position: fixed; right: var(--s-5); bottom: var(--s-5); z-index: var(--z-dev);
+  width: 272px; max-height: calc(100vh - 24px);
   display: flex; flex-direction: column;
-  background: #1c2128;
-  color: #e6e9ee;
-  border: 1px solid #2f3742;
+  background: #1f1e1c;
+  color: #e6e3dd;
+  border: 1px solid #43413c;
   border-radius: var(--p-r);
-  box-shadow: var(--p-shadow-3);
-  font-size: .79rem;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .7);
+  font-size: var(--t-xs);
 }
 .pw-dev-head {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .5rem .65rem; border-bottom: 1px solid #2f3742;
+  position: relative;
+  display: flex; align-items: center; gap: var(--s-4);
+  padding: var(--s-5) var(--s-4) var(--s-4) var(--s-5);
+  border-bottom: 1px solid #43413c;
+}
+/* Diagonal hazard tape. Three pixels, no animation, and nothing in the
+ * product looks remotely like it. */
+.pw-dev-head::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  border-radius: var(--p-r) var(--p-r) 0 0;
+  background: repeating-linear-gradient(-45deg,
+    #d9a441 0 6px, #1f1e1c 6px 12px);
+  opacity: .85;
 }
 .pw-dev-head h2 {
-  font-size: .69rem; letter-spacing: .09em; text-transform: uppercase;
-  color: #9aa5b4; font-weight: 700; margin: 0; flex: 1;
+  font-family: var(--p-mono);
+  font-size: var(--t-2xs); letter-spacing: .1em; text-transform: uppercase;
+  color: #d9a441; font-weight: 700; margin: 0; flex: 1;
 }
-.pw-dev-body { padding: .65rem; overflow-y: auto; }
-.pw-dev-group { margin-bottom: .8rem; }
+.pw-dev-body { padding: var(--s-5); overflow-y: auto; }
+.pw-dev-group { margin-bottom: var(--s-6); }
 .pw-dev-group:last-child { margin-bottom: 0; }
 .pw-dev-group > h3 {
-  font-size: .665rem; letter-spacing: .09em; text-transform: uppercase;
-  color: #7d8899; margin: 0 0 .35rem;
+  font-family: var(--p-mono);
+  font-size: var(--t-2xs); letter-spacing: .09em; text-transform: uppercase;
+  color: #9b958a; margin: 0 0 var(--s-3); font-weight: 600;
 }
-.pw-dev-row { display: flex; flex-wrap: wrap; gap: .3rem; }
+.pw-dev-row { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .pw-dev button, .pw-dev select {
-  font: inherit; font-size: .755rem;
-  background: #262d36; color: #dfe4ec;
-  border: 1px solid #39414d; border-radius: var(--p-r-xs);
-  padding: .26rem .5rem; cursor: pointer;
+  font: inherit; font-size: var(--t-2xs);
+  background: #2b2a27; color: #e6e3dd;
+  border: 1px solid #4c4941; border-radius: var(--p-r-xs);
+  padding: var(--s-2) var(--s-4); cursor: pointer;
   transition: background var(--p-fast) var(--p-ease), border-color var(--p-fast) var(--p-ease);
 }
-.pw-dev button:hover, .pw-dev select:hover { background: #303844; border-color: #4c5766; }
+.pw-dev button:hover, .pw-dev select:hover { background: #38362f; border-color: #6a655a; }
 .pw-dev button:active { transform: translateY(1px); }
+/* The product focus ring is invisible on this panel's dark ground, so the
+ * panel supplies its own. */
 .pw-dev button:focus-visible, .pw-dev select:focus-visible,
 .pw-dev-toggle:focus-visible {
-  box-shadow: 0 0 0 2px #1c2128, 0 0 0 4px rgba(140, 175, 210, .8);
+  outline: 2px solid #e6bb63;
+  outline-offset: 1px;
 }
 .pw-dev select { width: 100%; }
-.pw-dev label { display: block; color: #9aa5b4; margin-bottom: .2rem; font-size: .715rem; }
-.pw-dev-check { display: flex; align-items: center; gap: .4rem; color: #c9d1dc; font-size: .755rem; }
-.pw-dev-note { color: #7d8899; font-size: .705rem; line-height: 1.45; margin: .45rem 0 0; }
+.pw-dev label { display: block; color: #b4ada0; margin-bottom: var(--s-1); font-size: var(--t-2xs); }
+.pw-dev-check { display: flex; align-items: center; gap: var(--s-3); color: #d3cec3; font-size: var(--t-2xs); }
+.pw-dev-check input[type="checkbox"] { accent-color: #d9a441; }
+.pw-dev-note { color: #9b958a; font-size: var(--t-2xs); line-height: 1.5; margin: var(--s-3) 0 0; }
 .pw-dev[hidden] { display: none !important; }
 
 .pw-dev-toggle {
-  position: fixed; right: 14px; bottom: 14px; z-index: var(--z-dev);
-  font: inherit; font-size: .715rem; font-weight: 600;
-  letter-spacing: .06em; text-transform: uppercase;
-  background: #1c2128; color: #9aa5b4;
-  border: 1px solid #2f3742; border-radius: var(--p-r-sm);
-  padding: .35rem .6rem; cursor: pointer;
-  box-shadow: var(--p-shadow-2);
+  position: fixed; right: var(--s-5); bottom: var(--s-5); z-index: var(--z-dev);
+  font: inherit; font-size: var(--t-2xs); font-weight: 600;
+  letter-spacing: .07em; text-transform: uppercase;
+  font-family: var(--p-mono);
+  background: #1f1e1c; color: #d9a441;
+  border: 1px solid #4c4941; border-radius: var(--p-r-sm);
+  border-top: 2px solid #d9a441;
+  padding: var(--s-3) var(--s-5); cursor: pointer;
+  box-shadow: 0 8px 22px -8px rgba(0, 0, 0, .7);
 }
-.pw-dev-toggle:hover { color: #dfe4ec; border-color: #4c5766; }
+.pw-dev-toggle:hover { color: #f0d79b; border-color: #6a655a; border-top-color: #e6bb63; }
 .pw-dev-toggle[hidden] { display: none !important; }
 
-/* -- page shell for non-workstation prototype screens ----------------------- */
+/* -- page shell for non-workstation prototype screens -----------------------
+ *
+ * These are documents, so they stay light and readable. What changed is what
+ * they stand on: instead of a flat grey field, the canvas is a deep band at
+ * the top -- continuous with the sticky chrome header and with the dark slab
+ * the entry and results screens open on -- resolving downward into the light
+ * canvas the document itself sits on.
+ *
+ * The point is that the header, the opening slab and the ground behind them
+ * read as one environment, rather than as a dark rectangle pasted onto a
+ * grey page. Nothing above the fold is a white box any more. */
 
-.pw-page { max-width: 74rem; margin: 0 auto; padding: 1.9rem 1.35rem 4rem; }
+body.pw.is-framed,
+body.pw.is-console {
+  background-color: var(--p-canvas);
+  background-image:
+    radial-gradient(78% 40% at 50% 0%, rgba(63, 220, 216, .16) 0%,
+                    rgba(63, 220, 216, 0) 60%),
+    radial-gradient(52% 26% at 92% 6%, rgba(99, 192, 240, .12) 0%,
+                    rgba(99, 192, 240, 0) 62%),
+    linear-gradient(180deg,
+      #06121a 0rem, #071a24 14rem, #0d2733 24rem,
+      var(--p-canvas-deep) 34rem, var(--p-canvas) 44rem);
+  background-repeat: no-repeat;
+  background-size: 100% 46rem, 100% 46rem, 100% 46rem;
+}
+
+.pw-page { max-width: 74rem; margin: 0 auto; padding: var(--s-9) var(--s-7) var(--s-11); }
 .pw-page.is-narrow { max-width: 52rem; }
 
-.pw-pagehead { margin-bottom: 1.6rem; }
-.pw-pagehead p { color: var(--p-muted); font-size: .93rem; }
+.pw-pagehead { margin-bottom: var(--s-9); }
+.pw-pagehead p { color: var(--p-muted); font-size: var(--t-md); }
 
-.pw-grid { display: grid; gap: 1rem; }
+.pw-grid { display: grid; gap: var(--s-6); }
 .pw-grid.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pw-grid.is-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .pw-grid.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -424,37 +883,51 @@ a:hover { color: var(--p-accent-hover); }
 }
 @media (max-width: 620px) {
   .pw-grid.is-2, .pw-grid.is-3, .pw-grid.is-4 { grid-template-columns: minmax(0, 1fr); }
-  .pw-page { padding: 1.35rem 1rem 3rem; }
+  .pw-page { padding: var(--s-7) var(--s-6) var(--s-10); }
 }
 
-.pw-stack > * + * { margin-top: 1rem; }
-.pw-stack.is-tight > * + * { margin-top: .55rem; }
+.pw-stack > * + * { margin-top: var(--s-6); }
+.pw-stack.is-tight > * + * { margin-top: var(--s-4); }
 
-.pw-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.pw-row { display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap; }
 .pw-row.is-between { justify-content: space-between; }
 .pw-spacer { flex: 1; }
 
 .pw-avatar {
-  width: 30px; height: 30px; flex: none;
-  border-radius: var(--p-r-sm);
-  background: var(--p-accent-soft); color: var(--p-accent);
+  width: 32px; height: 32px; flex: none;
+  border-radius: var(--p-r);
+  background: var(--p-accent-soft); color: var(--p-accent-ink);
   border: 1px solid var(--p-accent-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: .715rem; font-weight: 700; letter-spacing: .02em;
+  font-size: var(--t-2xs); font-weight: 700; letter-spacing: .02em;
 }
-.pw-avatar.is-lg { width: 40px; height: 40px; font-size: .84rem; border-radius: var(--p-r); }
+.pw-avatar.is-lg { width: 44px; height: 44px; font-size: var(--t-sm); border-radius: var(--p-r-lg); }
 .pw-avatar.is-neutral { background: var(--p-surface-3); color: var(--p-muted); border-color: var(--p-line); }
 
-/* -- meter (used by results and trainer) ------------------------------------ */
+/* -- meter (used by results and trainer) ------------------------------------
+ * A measurement, not a progress bar and not a trophy. Inset into the surface
+ * so it reads as a gauge cut into the card. */
 
 .pw-meter {
-  height: 5px; border-radius: 3px; background: var(--p-surface-3);
-  overflow: hidden; border: 1px solid var(--p-line-soft);
+  height: 6px; border-radius: var(--p-r-pill);
+  background: var(--p-surface-4);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(6, 18, 26, .1),
+              inset 0 0 0 1px rgba(6, 18, 26, .05);
 }
+/* The bar fills from the left on arrival. The animation is on `transform`
+ * with a left origin rather than on `width`, so it never triggers layout;
+ * the width itself is still set inline by the renderer and is what a screen
+ * reader's host element reports. */
 .pw-meter > span {
-  display: block; height: 100%; background: var(--p-accent);
-  border-radius: 3px;
-  transition: width var(--p-slow) var(--p-ease);
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--p-accent) 0%, #128b9b 100%);
+  border-radius: var(--p-r-pill);
+  transform-origin: left center;
+  animation: pw-meter-fill var(--p-xslow) var(--p-ease-soft) both;
+  animation-delay: calc(var(--i, 0) * 40ms + 90ms);
+  transition: width var(--p-slow) var(--p-ease-soft);
 }
 .pw-meter.is-low > span { background: var(--p-alert); }
 .pw-meter.is-mid > span { background: var(--p-caution); }
@@ -464,30 +937,47 @@ a:hover { color: var(--p-accent-hover); }
 
 .pw-scrim {
   position: fixed; inset: 0; z-index: var(--z-dialog);
-  background: rgba(22, 26, 32, .42);
+  background:
+    radial-gradient(88% 68% at 50% 36%, rgba(16, 42, 55, .58) 0%,
+                    rgba(3, 10, 15, .82) 100%);
+  -webkit-backdrop-filter: saturate(130%) blur(8px);
+  backdrop-filter: saturate(130%) blur(8px);
   display: flex; align-items: center; justify-content: center;
-  padding: 1.25rem;
+  padding: var(--s-7);
   animation: pw-fade var(--p-med) var(--p-ease);
 }
 .pw-scrim[hidden] { display: none !important; }
 
 .pw-dialog {
   background: var(--p-surface);
-  border: 1px solid var(--p-line);
-  border-radius: var(--p-r-lg);
-  box-shadow: var(--p-shadow-3);
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: var(--p-r-xl);
+  /* The dialog itself stays an opaque reading surface. What makes it read as
+   * glass is the frame *around* it: a hairline, a wide translucent cyan
+   * halo standing in for the thickness of the pane, and the long cast. */
+  box-shadow: var(--p-edge),
+              0 0 0 1px rgba(6, 18, 26, .1),
+              0 0 0 9px rgba(63, 220, 216, .07),
+              0 0 60px -10px rgba(63, 220, 216, .18),
+              var(--p-shadow-4);
   width: min(34rem, 100%);
   max-height: min(86vh, 44rem);
   display: flex; flex-direction: column;
-  animation: pw-rise var(--p-med) var(--p-ease);
+  overflow: hidden;
+  animation: pw-dialog-in var(--p-slow) var(--p-ease-soft);
 }
-.pw-dialog-head { padding: 1.05rem 1.25rem .55rem; }
-.pw-dialog-body { padding: 0 1.25rem 1.05rem; overflow-y: auto; font-size: .885rem; color: var(--p-ink-2); }
+.pw-dialog-head { padding: var(--s-7) var(--s-8) var(--s-4); }
+.pw-dialog-head h2 { font-size: var(--t-xl); }
+.pw-dialog-body {
+  padding: 0 var(--s-8) var(--s-7); overflow-y: auto;
+  font-size: var(--t-md); color: var(--p-ink-2); line-height: 1.6;
+}
 .pw-dialog-foot {
-  display: flex; gap: .55rem; justify-content: flex-end;
-  padding: .85rem 1.25rem; border-top: 1px solid var(--p-line);
+  display: flex; gap: var(--s-4); justify-content: flex-end;
+  padding: var(--s-5) var(--s-8);
+  border-top: 1px solid var(--p-line);
   background: var(--p-surface-2);
-  border-radius: 0 0 var(--p-r-lg) var(--p-r-lg);
+  border-radius: 0 0 var(--p-r-xl) var(--p-r-xl);
   flex-wrap: wrap;
 }
 
@@ -498,8 +988,244 @@ a:hover { color: var(--p-accent-hover); }
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 .pw-muted { color: var(--p-muted); }
-.pw-small { font-size: .8rem; }
-.pw-xsmall { font-size: .735rem; }
+.pw-small { font-size: var(--t-sm); }
+.pw-xsmall { font-size: var(--t-xs); }
 .pw-strong { font-weight: 600; }
 .pw-break { overflow-wrap: anywhere; }
 [hidden] { display: none !important; }
+
+
+/* ==========================================================================
+ * The chrome register
+ * --------------------------------------------------------------------------
+ * Shared by every deep surface in the product: the workstation status strip
+ * and rail, the notification centre, toasts, the results and trainer page
+ * headers, and the incident review shell. Declared once here so those five
+ * places cannot drift apart, and so a component that moves onto a deep
+ * ground inherits legible text and a legible focus ring by doing nothing.
+ * ========================================================================== */
+
+.pw-onchrome {
+  background: var(--g-chrome);
+  color: var(--d-ink-2);
+}
+.pw-onchrome h1, .pw-onchrome h2, .pw-onchrome h3, .pw-onchrome h4,
+.pw-onchrome b, .pw-onchrome strong { color: var(--d-ink); }
+.pw-onchrome a { color: var(--p-accent-lift); }
+.pw-onchrome a:hover { color: #8ae4e0; }
+.pw-onchrome .pw-muted { color: var(--d-muted); }
+
+/* A hairline of accent light along the top edge of a chrome band. This is
+ * the single strongest identity cue in the product and it costs one
+ * pseudo-element: it reads as the surface being lit rather than painted. */
+.pw-chrome-lit { position: relative; }
+.pw-chrome-lit::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(63, 220, 216, 0) 0%,
+    rgba(63, 220, 216, .5) 18%,
+    rgba(99, 192, 240, .38) 52%,
+    rgba(63, 220, 216, 0) 100%);
+}
+
+/* The product mark. A lit cyan tile rather than a flat swatch -- the same
+ * lighting model as every other chrome surface, at 26px. Not a logo
+ * redesign: the glyph inside it is unchanged. */
+.pw-mark {
+  width: 28px; height: 28px; flex: none;
+  border-radius: var(--p-r);
+  background: var(--g-accent);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34),
+              inset 0 0 0 1px rgba(6, 18, 26, .22),
+              0 1px 3px rgba(6, 18, 26, .3),
+              0 0 0 1px rgba(63, 220, 216, .16);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pw-mark svg { width: 15px; height: 15px; }
+.pw-mark.is-lg { width: 34px; height: 34px; border-radius: var(--p-r); }
+.pw-mark.is-lg svg { width: 19px; height: 19px; }
+
+/* Chip and dot on a deep ground. Same shapes, restated in the chrome ramp
+ * rather than tinted down from the light one, because a light chip
+ * transplanted onto a dark surface always looks like a mistake. */
+.pw-onchrome .pw-chip, .pw-chip.on-chrome {
+  background: rgba(140, 214, 226, .1);
+  border-color: var(--d-line-2);
+  color: var(--d-ink-2);
+}
+.pw-onchrome .pw-chip.is-accent, .pw-chip.on-chrome.is-accent {
+  background: rgba(63, 220, 216, .16);
+  border-color: rgba(63, 220, 216, .34);
+  color: #a7ece8;
+}
+.pw-onchrome .pw-chip.is-caution {
+  background: rgba(226, 170, 62, .14);
+  border-color: rgba(226, 170, 62, .3);
+  color: #edc275;
+}
+.pw-onchrome .pw-chip.is-alert {
+  background: rgba(226, 106, 96, .14);
+  border-color: rgba(226, 106, 96, .3);
+  color: #eda49c;
+}
+
+/* A live session indicator. Teal, because teal in this product only ever
+ * means "the system is in this state" -- never "this was the right call". */
+.pw-livedot {
+  width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: var(--p-teal-lift);
+  box-shadow: 0 0 0 3px rgba(99, 192, 240, .16);
+}
+
+/* A quiet control on a deep ground: the notification button, a window
+ * control in chrome, the panel close. */
+.pw-onchrome .pw-btn, .pw-btn.on-chrome {
+  background: rgba(140, 214, 226, .09);
+  border-color: var(--d-line-2);
+  color: var(--d-ink-2);
+  box-shadow: var(--d-edge);
+}
+.pw-onchrome .pw-btn:hover, .pw-btn.on-chrome:hover {
+  background: rgba(140, 214, 226, .16);
+  border-color: rgba(140, 214, 226, .34);
+  color: var(--d-ink);
+}
+.pw-onchrome .pw-btn:active, .pw-btn.on-chrome:active {
+  background: rgba(6, 18, 26, .4); box-shadow: none;
+}
+.pw-onchrome .pw-btn.is-primary, .pw-btn.on-chrome.is-primary {
+  background: var(--g-accent-lift); border-color: rgba(63, 220, 216, .5);
+  color: #032027;
+}
+.pw-onchrome .pw-btn.is-quiet, .pw-btn.on-chrome.is-quiet {
+  background: transparent; border-color: transparent; color: var(--d-muted);
+  box-shadow: none;
+}
+.pw-onchrome .pw-btn.is-quiet:hover, .pw-btn.on-chrome.is-quiet:hover {
+  background: rgba(140, 214, 226, .12); color: var(--d-ink);
+}
+
+
+/* ==========================================================================
+ * Glass
+ * --------------------------------------------------------------------------
+ * The material the shell is made of. A glass surface is a translucent fill,
+ * a blur of whatever is behind it, a hairline that is brighter along its top
+ * edge than its bottom, and a cast shadow -- all four, or it does not read.
+ *
+ * `.pw-glass` is applied to chrome that FLOATS: the application rail, the
+ * status strip, the notification centre, toasts, overlay shells. It is
+ * deliberately not applied to anything a learner reads at length. Type over
+ * a translucent ground that shifts as content scrolls behind it is harder to
+ * read, and almost all of this product is reading.
+ *
+ * `backdrop-filter` is progressively enhanced: the fills below are opaque
+ * enough to stand on their own, so a browser without support gets a solid
+ * panel rather than a transparent one.
+ * ========================================================================== */
+
+.pw-glass {
+  background: var(--glass-fill);
+  border: var(--glass-line);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+.pw-glass.is-quiet {
+  background: var(--glass-fill-2);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+}
+/* An accented pane: the same glass carrying a cyan rim of light. Used for
+ * the one surface in a view that is currently live. */
+.pw-glass.is-lit {
+  box-shadow: var(--glass-edge), var(--glass-rim), var(--glass-shadow);
+}
+
+/* A single soft highlight raked across the top-left of a glass panel, which
+ * is what stops a large translucent surface from reading as flat grey. It is
+ * a static pseudo-element, not an animation: nothing here repaints. */
+.pw-glass-sheen { position: relative; }
+.pw-glass-sheen::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(120% 70% at 0% 0%, rgba(176, 236, 246, .1) 0%,
+                    rgba(176, 236, 246, 0) 58%);
+}
+
+
+/* ==========================================================================
+ * Motion, part two
+ * --------------------------------------------------------------------------
+ * Additions to the curves and keyframes above. Everything here is opacity
+ * and transform only, is under half a second, and is switched off wholesale
+ * by the `prefers-reduced-motion` block near the top of this file.
+ * ========================================================================== */
+
+/* A dialog arriving. More travel and more scale than a window, because a
+ * dialog interrupts and should be seen to arrive. */
+@keyframes pw-dialog-in {
+  from { opacity: 0; transform: translateY(16px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* A glass panel coming in from an edge. The blur ramps with it so the panel
+ * appears to *thicken* into place rather than slide in already frosted. */
+@keyframes pw-glass-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+    -webkit-backdrop-filter: blur(0) saturate(100%);
+    backdrop-filter: blur(0) saturate(100%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+}
+
+/* State snapping into place: a selection, a toggle, a count changing. Short
+ * and slightly over-shot, which is what makes it feel mechanical rather
+ * than animated. */
+@keyframes pw-pop {
+  from { transform: scale(.82); opacity: 0; }
+  60%  { transform: scale(1.06); opacity: 1; }
+  to   { transform: none; opacity: 1; }
+}
+
+/* One pass of light across a surface that has just become active. Runs once
+ * on state change, never on a loop -- a repeating shimmer is a gimmick and
+ * repaints forever. */
+@keyframes pw-sweep {
+  from { transform: translateX(-120%); opacity: 0; }
+  35%  { opacity: .85; }
+  to   { transform: translateX(120%); opacity: 0; }
+}
+
+/* A pane swapping its contents while staying in place. */
+@keyframes pw-pane-in {
+  from { opacity: 0; transform: translateY(6px) scale(.995); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Cascade helper. Children of a `.pw-stagger` arrive in sequence without
+ * every call site having to set `--i` by hand. The cascade is capped at ten
+ * because past that it stops reading as polish and starts reading as a wait. */
+.pw-stagger > * {
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
+}
+.pw-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.pw-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.pw-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.pw-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.pw-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.pw-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.pw-stagger > *:nth-child(7) { animation-delay: 240ms; }
+.pw-stagger > *:nth-child(8) { animation-delay: 280ms; }
+.pw-stagger > *:nth-child(9) { animation-delay: 320ms; }
+.pw-stagger > *:nth-child(n+10) { animation-delay: 360ms; }

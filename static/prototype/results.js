@@ -278,15 +278,18 @@
             ? '<span class="pw-dim-value">' + value + '</span>'
             : '<span class="pw-dim-value is-na">N/A</span>')
         + '</div>'
-        + (applicable
-            ? '<div class="pw-meter ' + meterClass(value) + '"><span style="width:'
-              + value + '%"></span></div>'
-            : '<div class="pw-meter"><span style="width:0"></span></div>')
         + '<p>' + esc(dim.description) + '</p>'
         + (applicable ? ''
             : '<p class="pw-xsmall pw-muted">Nothing in this session exercised '
               + 'it, so it is excluded from the overall figure rather than '
               + 'counted as zero.</p>')
+        // The gauge sits at the foot of the card, after the sentence that
+        // says what is being measured. Reading order and visual order are
+        // the same, so nothing here depends on a CSS `order` override.
+        + (applicable
+            ? '<div class="pw-meter ' + meterClass(value) + '"><span style="width:'
+              + value + '%"></span></div>'
+            : '<div class="pw-meter"><span style="width:0"></span></div>')
         + '</div>';
     }).join('');
   }
@@ -397,7 +400,18 @@
     }).join('');
   }
 
-  function renderHero(run, overall) {
+  /* Prefer the authored label over a title-cased id: "bec" and "mfa" are
+   * acronyms, and "Bec focus" is the kind of detail that quietly tells a
+   * reader nobody looked at this screen. */
+  function focusLabel(world, focusId) {
+    var found = null;
+    ((world || {}).focus_options || []).forEach(function (option) {
+      if (option.id === focusId) { found = option.label; }
+    });
+    return found || titleCase(focusId);
+  }
+
+  function renderHero(run, overall, world) {
     qs('#pw-res-overall').textContent = overall === null ? '—' : overall;
 
     var outstanding = Object.keys(run.tasks || {}).map(function (id) {
@@ -413,10 +427,11 @@
         + 'finished at ' + run.endedAt + '.';
 
     var chips = [
-      '<span class="pw-chip is-plain">' + esc(titleCase(run.focus)) + ' focus</span>',
+      '<span class="pw-chip is-plain">' + esc(focusLabel(world, run.focus)) + ' focus</span>',
       '<span class="pw-chip is-plain">' + esc(titleCase(run.mode)) + '</span>',
       '<span class="pw-chip is-plain">'
-        + (run.decisions || []).length + ' consequential decisions</span>'
+        + (run.decisions || []).length + ' consequential decision'
+        + ((run.decisions || []).length === 1 ? '' : 's') + '</span>'
     ];
     if (run.assessmentId) {
       chips.push('<span class="pw-chip is-caution">Assessment attempt</span>');
@@ -458,7 +473,7 @@
       var scores = score(run);
       var overall = overallScore(scores, world.demo_weights);
 
-      renderHero(run, overall);
+      renderHero(run, overall, world);
       renderDimensions(world, scores);
       renderTimeline(run);
       renderEvidence(run);

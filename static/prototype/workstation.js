@@ -693,10 +693,17 @@
       var n = Object.keys(WIN).length;
       var w = Math.min(spec.w, Math.max(320, size.w - 40));
       var h = Math.min(spec.h, Math.max(240, size.h - 40));
+      // The first window opens centred, slightly above the optical middle;
+      // each one after it steps down and right. Opening on the top-left
+      // corner leaves a large empty desk to its lower right and reads as a
+      // window that has not been placed so much as dropped.
+      var step = 34;
+      var baseX = Math.round((size.w - w) / 2);
+      var baseY = Math.round((size.h - h) * 0.42);
       WIN[appId] = {
         open: true, minimized: false, maximized: size.w < 1100,
-        x: clamp(18 + (n % 5) * 26, 0, Math.max(0, size.w - w - 8)),
-        y: clamp(14 + (n % 5) * 22, 0, Math.max(0, size.h - h - 8)),
+        x: clamp(baseX + (n % 5) * step, 12, Math.max(12, size.w - w - 12)),
+        y: clamp(baseY + (n % 5) * step, 12, Math.max(12, size.h - h - 12)),
         w: w, h: h, z: (zCounter += 1)
       };
     } else {
@@ -708,6 +715,20 @@
     render();
     var node = qs('[data-window="' + appId + '"] .pw-winbody');
     if (node) { node.setAttribute('tabindex', '-1'); node.focus(); }
+  }
+
+  /* Keep every open window inside the work area. Purely geometric: no window
+   * is opened, closed, focused or re-ordered here. */
+  function reflowWindows() {
+    var size = areaSize();
+    Object.keys(WIN).forEach(function (appId) {
+      var win = WIN[appId];
+      if (!win || !win.open || win.maximized) { return; }
+      win.w = Math.min(win.w, Math.max(320, size.w - 24));
+      win.h = Math.min(win.h, Math.max(220, size.h - 24));
+      win.x = clamp(win.x, 12, Math.max(12, size.w - win.w - 12));
+      win.y = clamp(win.y, 12, Math.max(12, size.h - win.h - 12));
+    });
   }
 
   function applyFocusTarget(appId, target) {
@@ -790,11 +811,21 @@
     restoreFocus();
   }
 
+  function focusLabel(focusId) {
+    var found = null;
+    (WORLD.focus_options || []).forEach(function (option) {
+      if (option.id === focusId) { found = option.label; }
+    });
+    return found || (String(focusId).charAt(0).toUpperCase()
+                     + String(focusId).slice(1));
+  }
+
   function renderTopBar() {
     qs('#pw-clock').textContent = nowLabel();
     qs('#pw-mode-label').textContent = modeLabel(S.mode);
-    qs('#pw-focus-chip').textContent =
-      S.focus.charAt(0).toUpperCase() + S.focus.slice(1) + ' focus';
+    // The authored label, not a title-cased id: capitalising the first letter
+    // of "bec" and "mfa" turns two acronyms into "Bec" and "Mfa".
+    qs('#pw-focus-chip').textContent = focusLabel(S.focus) + ' focus';
     qs('#pw-assessment-chip').hidden = !S.assessmentId;
 
     var unread = S.notifications.filter(function (n) { return n.unread; }).length;
@@ -864,7 +895,7 @@
       var node = qs('[data-window="' + appId + '"]', area);
 
       if (!win || !win.open || win.minimized) {
-        if (node) { node.parentNode.removeChild(node); }
+        if (node) { dismissWindow(node, appId, win && win.minimized); }
         return;
       }
 
@@ -885,7 +916,16 @@
       }
 
       node.style.zIndex = String(win.z);
-      node.classList.toggle('is-focused', appId === top);
+
+      // Coming to the front is the one state change a window makes that a
+      // learner needs to *see*, because it is how they know which
+      // application their next keystroke goes to. It gets one short lift.
+      // Only on a genuine change of focus -- `render` runs on every
+      // background tick, and a window that was already at the front must
+      // stay still.
+      var isTop = (appId === top);
+      if (isTop && !node.classList.contains('is-focused')) { raiseWindow(node); }
+      node.classList.toggle('is-focused', isTop);
       node.classList.toggle('is-maximized', win.maximized);
       node.classList.toggle('is-draggable', canDrag() && !win.maximized);
       if (!win.maximized) {
@@ -907,8 +947,70 @@
       // while it has focus.
       var body = qs('.pw-winbody', node);
       if (holdsFocusedPassword(body)) { return; }
-      body.innerHTML = renderApp(appId);
+
+      // Compare before writing. A background consequence tick re-renders
+      // every open window several times a session; without this the whole
+      // body is rebuilt each time, which throws away scroll position and
+      // restarts every CSS entrance animation inside it. With it, the
+      // animations in workstation.css fire when a learner actually selects
+      // something and stay still otherwise.
+      var markup = renderApp(appId);
+      if (body.innerHTML !== markup) { body.innerHTML = markup; }
     });
+  }
+
+  // A window leaving the desk plays its exit animation and is removed after
+  // it. The node stops answering to `data-window` immediately, so a window
+  // reopened during those few frames builds a fresh one rather than
+  // resurrecting the one on its way out.
+  //
+  // Focus is moved out first, to the rail button for the same application:
+  // that is where a keyboard user would expect to land after closing a
+  // window, and it means no animating, about-to-be-removed subtree ever
+  // holds the caret.
+  function dismissWindow(node, appId, minimising) {
+    if (!node.parentNode) { return; }
+    node.removeAttribute('data-window');
+
+    if (node.contains(document.activeElement)) {
+      var railButton = qs('.pw-applink[data-app="' + appId + '"]');
+      if (railButton) { railButton.focus(); }
+      else if (document.activeElement.blur) { document.activeElement.blur(); }
+    }
+
+    if (prefersReducedMotion()) {
+      node.parentNode.removeChild(node);
+      return;
+    }
+
+    node.classList.add(minimising ? 'is-minimising' : 'is-closing');
+    var handle = setTimeout(function () {
+      if (node.parentNode) { node.parentNode.removeChild(node); }
+    }, 220);
+    timers.push(handle);
+  }
+
+  // The lift a window plays on being brought forward. The class is stripped
+  // again once the animation has run, so the next focus change can replay
+  // it; under reduced motion it is never added at all, and the window simply
+  // changes its rim and elevation like every other state in the product.
+  function raiseWindow(node) {
+    if (prefersReducedMotion()) { return; }
+    node.classList.remove('is-raising');
+    // Reading a layout property between the removal and the addition is what
+    // forces the animation to start over rather than being treated as the
+    // same, still-running one.
+    void node.offsetWidth;
+    node.classList.add('is-raising');
+    var handle = setTimeout(function () {
+      node.classList.remove('is-raising');
+    }, 320);
+    timers.push(handle);
+  }
+
+  function prefersReducedMotion() {
+    return !!(window.matchMedia
+              && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
   function holdsFocusedPassword(node) {
@@ -1137,7 +1239,10 @@
       + '<div class="pw-pane-head">'
       + '  <button type="button" class="pw-btn is-sm is-quiet pw-mobile-back" data-mail-back="1">'
       + icon('back') + ' Inbox</button>'
-      + '  <button type="button" class="pw-btn is-sm" data-mail-reply="' + message.id + '">'
+      // Reply is the ordinary thing to do with a message, so it carries the
+      // toolbar's one emphasis. Nothing else in the row is ranked: Report
+      // must never look more or less encouraged than Forward or Delete.
+      + '  <button type="button" class="pw-btn is-sm is-primary" data-mail-reply="' + message.id + '">'
       + icon('reply', 'style="width:13px;height:13px"') + ' Reply</button>'
       + '  <button type="button" class="pw-btn is-sm" data-mail-forward="' + message.id + '">Forward</button>'
       + '  <button type="button" class="pw-btn is-sm" data-mail-report="' + message.id + '">'
@@ -1513,8 +1618,20 @@
         + '</button>';
     }).join('');
 
+    // A labelled column header, sharing one grid template with the rows. Two
+    // right-aligned numeric columns with nothing at the top of them read as
+    // stray figures rather than as size and date.
+    var header = ''
+      + '<div class="pw-filehead" aria-hidden="true">'
+      + '<span></span><span>Name</span>'
+      + '<span class="is-optional">Size</span>'
+      + '<span class="is-optional">Modified</span>'
+      + '<span></span></div>';
+
     if (!rows) {
-      rows = '<div class="pw-empty"><h3>Empty folder</h3></div>';
+      header = '';
+      rows = '<div class="pw-empty"><h3>Empty folder</h3>'
+        + '<p>Nothing has been saved here.</p></div>';
     }
 
     var selected = state.selected ? findFile(state.selected) : null;
@@ -1533,6 +1650,7 @@
             + '<span>' + esc(S.incidents['inc-files'].note)
             + ' The Service Desk page in the Browser has the actions.</span></div>'
           : '')
+      + header
       + '    <div class="pw-pane-scroll">' + rows + '</div>'
       + (selected ? renderFileInfo(selected) : '')
       + '  </div>'
@@ -1680,8 +1798,12 @@
               + '<dt>Address</dt><dd>' + esc(surface.ip_class) + '</dd>'
               + '</dl>'
             : '')
+        // Approve and Deny are drawn identically, and neither is emphasised.
+        // A primary Approve is a nudge towards approving, and the whole
+        // point of the prompt is that the context above it -- not the shape
+        // of the buttons -- is what a learner should be reading.
         + '<div class="pw-authactions">'
-        + '<button type="button" class="pw-btn is-primary is-sm" data-mfa-approve="'
+        + '<button type="button" class="pw-btn is-sm" data-mfa-approve="'
         + prompt.uid + '">Approve</button>'
         + '<button type="button" class="pw-btn is-sm" data-mfa-deny="' + prompt.uid + '">Deny</button>'
         + '<button type="button" class="pw-btn is-sm is-quiet" data-mfa-details="'
@@ -1914,12 +2036,29 @@
     host.appendChild(node);
 
     node.querySelector('.pw-toast-close').addEventListener('click', function () {
-      if (node.parentNode) { node.parentNode.removeChild(node); }
+      retireToast(node);
     });
 
+    var handle = setTimeout(function () { retireToast(node); }, 9000);
+    timers.push(handle);
+  }
+
+  // A toast slides out rather than blinking off, and is removed after. It is
+  // still a child of the stack while it leaves, so it still counts against
+  // TOAST_LIMIT -- which is the conservative side of that trade: the bound on
+  // how many cards can be on screen at once stays exactly what it was.
+  function retireToast(node) {
+    if (!node.parentNode || node.classList.contains('is-leaving')) { return; }
+
+    if (prefersReducedMotion()) {
+      node.parentNode.removeChild(node);
+      return;
+    }
+
+    node.classList.add('is-leaving');
     var handle = setTimeout(function () {
       if (node.parentNode) { node.parentNode.removeChild(node); }
-    }, 9000);
+    }, 200);
     timers.push(handle);
   }
 
@@ -2987,7 +3126,11 @@
       if (callback) { callback(); }
     });
 
-    window.addEventListener('resize', function () { render(); });
+    // A window keeps the geometry it was given until something changes it,
+    // so shrinking the viewport used to leave one hanging off the right edge
+    // of the desk. Clamp every open window back inside the work area first,
+    // then draw.
+    window.addEventListener('resize', function () { reflowWindows(); render(); });
   }
 
   function closeEndDialog() {

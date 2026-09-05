@@ -5,153 +5,328 @@
  * records. So this is an ordinary application chrome — a top bar with
  * sections, then documents — and it never borrows the workstation's rail,
  * windows or status strip.
+ *
+ * The register is administrative: dense tables, quiet rules, figures set
+ * light and large enough to scan down a column. Nothing here is a card with
+ * a coloured header, a sparkline or a trend arrow, and there is no ambient
+ * light -- a trainer is reading records, not inhabiting a machine.
+ *
+ * What it does share with the workstation is the material split: chrome
+ * navigation on top, documents underneath. Same product, quieter room.
  */
 
+/* The console is transparent to the atmospheric canvas painted on the body
+ * (see `body.pw.is-console` in base.css), so the dark band under the sticky
+ * navigation and the light ground the tables sit on are one continuous
+ * surface rather than two stacked rectangles. */
 .pw-tr {
   min-height: 100vh;
   display: flex; flex-direction: column;
-  background: var(--p-surface-2);
+  background: transparent;
 }
 
 .pw-tr-top {
-  background: var(--p-surface);
-  border-bottom: 1px solid var(--p-line);
   position: sticky; top: 0; z-index: var(--z-topbar);
+  /* Glass, like the workstation strip -- but the console is a quieter room,
+   * so it takes the restrained fill and a single accent hairline rather than
+   * the full rim of light. */
+  background: linear-gradient(180deg, rgba(19, 51, 65, .8) 0%,
+                              rgba(7, 21, 29, .86) 100%);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgba(140, 214, 226, .12);
+  box-shadow: inset 0 1px 0 rgba(176, 236, 246, .12),
+              0 14px 34px -18px rgba(2, 8, 12, .8);
+  color: var(--d-ink-2);
 }
+.pw-tr-top::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(63, 220, 216, .42) 0%,
+                              rgba(63, 220, 216, .1) 40%,
+                              rgba(63, 220, 216, 0) 76%);
+}
+.pw-tr-top :focus-visible { outline-color: var(--p-focus-lift); }
 .pw-tr-top-inner {
-  max-width: 84rem; margin: 0 auto; padding: .55rem 1.35rem 0;
-  display: flex; flex-direction: column; gap: .1rem;
+  max-width: 84rem; margin: 0 auto; padding: var(--s-4) var(--s-7) 0;
+  display: flex; flex-direction: column;
 }
-.pw-tr-identity { display: flex; align-items: center; gap: .6rem; padding-bottom: .5rem; }
-.pw-tr-identity b { font-size: .92rem; font-weight: 600; }
-.pw-tr-identity span { font-size: .77rem; color: var(--p-muted-2); }
-.pw-tr-identity .pw-tr-who { margin-left: auto; text-align: right; }
-.pw-tr-identity .pw-tr-who b { display: block; font-size: .82rem; }
-.pw-tr-identity .pw-tr-who span { display: block; font-size: .73rem; }
+.pw-tr-identity { display: flex; align-items: center; gap: var(--s-5); padding-bottom: var(--s-5); }
+.pw-tr-identity b { font-size: var(--t-lg); font-weight: 650; letter-spacing: -0.016em; color: #ffffff; }
+.pw-tr-identity > span > span,
+.pw-tr-identity > span:not(.pw-mark):not(.pw-tr-who) { font-size: var(--t-xs); color: var(--d-muted); }
 
-.pw-tr-tabs { display: flex; gap: .15rem; overflow-x: auto; }
+/* Who is signed in to the console. The same identity-contrast fix applied to
+ * the learner rail: a surface of its own so it separates from the glass
+ * behind it, the name in near-white at body size, the role lifted out of the
+ * muted ramp. It had been the faintest text in the header. */
+.pw-tr-identity .pw-tr-who {
+  margin-left: auto; text-align: right;
+  padding: var(--s-3) var(--s-5);
+  border-radius: var(--p-r);
+  background: linear-gradient(180deg, rgba(140, 214, 226, .12) 0%,
+                              rgba(140, 214, 226, .05) 100%);
+  border: 1px solid rgba(140, 214, 226, .18);
+  box-shadow: inset 0 1px 0 rgba(176, 236, 246, .16);
+}
+.pw-tr-identity .pw-tr-who b {
+  display: block; font-size: var(--t-md); font-weight: 650;
+  letter-spacing: -0.012em; line-height: 1.3; color: #ffffff;
+}
+.pw-tr-identity .pw-tr-who span { display: block; font-size: var(--t-xs); color: var(--d-ink-2); line-height: 1.35; }
+
+.pw-tr-tabs { display: flex; gap: var(--s-1); overflow-x: auto; }
 .pw-tr-tab {
-  display: inline-flex; align-items: center; gap: .4rem;
-  padding: .5rem .7rem; font-size: .855rem; font-weight: 500;
-  color: var(--p-muted); text-decoration: none; white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  border-radius: var(--p-r-xs) var(--p-r-xs) 0 0;
+  display: inline-flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-4) var(--s-6) var(--s-5);
+  font-size: var(--t-sm); font-weight: 500; letter-spacing: -0.004em;
+  color: var(--d-muted); text-decoration: none; white-space: nowrap;
+  border-radius: var(--p-r-lg) var(--p-r-lg) 0 0;
   transition: color var(--p-fast) var(--p-ease), background var(--p-fast) var(--p-ease);
 }
-.pw-tr-tab:hover { color: var(--p-ink); background: var(--p-surface-3); }
-.pw-tr-tab.is-active { color: var(--p-accent); border-bottom-color: var(--p-accent); font-weight: 600; }
-.pw-tr-tab svg { width: 15px; height: 15px; opacity: .8; }
+/* The underline is a separate, scaling element rather than a border, so
+ * moving between sections is a slide rather than a redraw. */
+.pw-tr-tab::after {
+  content: ""; position: absolute; left: var(--s-6); right: var(--s-6); bottom: 0;
+  height: 2px; border-radius: var(--p-r-pill) var(--p-r-pill) 0 0;
+  background: var(--p-accent-lift);
+  transform: scaleX(0); transform-origin: center;
+  transition: transform var(--p-med) var(--p-ease), box-shadow var(--p-med) var(--p-ease);
+}
+.pw-tr-tab { position: relative; }
+.pw-tr-tab:hover { color: var(--d-ink); background: rgba(140, 214, 226, .08); }
+.pw-tr-tab:hover::after { transform: scaleX(.4); }
+.pw-tr-tab.is-active {
+  color: #ffffff; font-weight: 600;
+  background: linear-gradient(180deg, rgba(63, 220, 216, .04) 0%,
+                              rgba(63, 220, 216, .14) 100%);
+}
+.pw-tr-tab.is-active::after {
+  transform: scaleX(1);
+  box-shadow: 0 0 10px rgba(63, 220, 216, .7);
+}
+.pw-tr-tab svg { width: 15px; height: 15px; opacity: .6; }
+.pw-tr-tab.is-active svg { opacity: 1; color: #b9f2ef; }
 
-.pw-tr-main { flex: 1; max-width: 84rem; width: 100%; margin: 0 auto; padding: 1.6rem 1.35rem 4rem; }
+.pw-tr-main { flex: 1; max-width: 84rem; width: 100%; margin: 0 auto; padding: var(--s-9) var(--s-7) var(--s-11); }
 
-.pw-tr-head { margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.pw-tr-head { margin-bottom: var(--s-8); display: flex; align-items: flex-start; gap: var(--s-6); flex-wrap: wrap; }
 .pw-tr-head-main { flex: 1; min-width: 16rem; }
-.pw-tr-head h1 { font-size: 1.4rem; }
-.pw-tr-head p { color: var(--p-muted); font-size: .89rem; margin-top: .28rem; max-width: 62ch; }
+.pw-tr-head h1 { font-size: var(--t-2xl); letter-spacing: -0.024em; }
+.pw-tr-head p { color: var(--p-muted); font-size: var(--t-md); margin-top: var(--s-3); max-width: 64ch; line-height: 1.6; }
 
-.pw-crumbs { display: flex; align-items: center; gap: .35rem; font-size: .79rem; color: var(--p-muted); margin-bottom: .55rem; }
+.pw-crumbs {
+  display: flex; align-items: center; gap: var(--s-3);
+  font-size: var(--t-xs); color: var(--p-muted); margin-bottom: var(--s-4);
+}
 .pw-crumbs a { color: var(--p-muted); text-decoration: none; }
 .pw-crumbs a:hover { color: var(--p-accent); text-decoration: underline; }
+.pw-tr-head { animation: pw-reveal var(--p-slow) var(--p-ease-soft) both; }
 .pw-crumbs span { color: var(--p-muted-2); }
 
-/* -- metric cards ----------------------------------------------------------------- */
+/* -- metric cards -----------------------------------------------------------------
+ * A label, a figure and one line of context. The figure is set light and
+ * tabular so a row of them reads as a set of measurements rather than as
+ * four headlines competing for attention. */
 
 .pw-metric {
-  border: 1px solid var(--p-line); border-radius: var(--p-r);
-  background: var(--p-surface); padding: .95rem 1.05rem;
+  position: relative; overflow: hidden;
+  border: 1px solid var(--p-line); border-radius: var(--p-r-xl);
+  background: linear-gradient(180deg, var(--p-surface) 0%, var(--p-surface-2) 100%);
+  padding: var(--s-8) var(--s-7);
+  box-shadow: var(--p-edge), var(--p-shadow-2);
+  transition: box-shadow var(--p-med) var(--p-ease),
+              transform var(--p-med) var(--p-ease);
+  animation: pw-reveal var(--p-slow) var(--p-ease-soft) both;
 }
-.pw-metric-label { font-size: .715rem; letter-spacing: .08em; text-transform: uppercase; color: var(--p-muted-2); }
+.pw-metric:nth-child(1) { animation-delay: 0ms; }
+.pw-metric:nth-child(2) { animation-delay: 40ms; }
+.pw-metric:nth-child(3) { animation-delay: 80ms; }
+.pw-metric:nth-child(n+4) { animation-delay: 120ms; }
+/* A hairline of accent along the top edge. One line per card, the same on
+ * every card: it marks these as the page's headline figures, and says
+ * nothing about whether any particular figure is good. */
+.pw-metric::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, var(--p-accent) 0%, rgba(10, 108, 123, .06) 100%);
+}
+.pw-metric:hover { box-shadow: var(--p-edge), var(--p-shadow-3); transform: translateY(-2px); }
+.pw-metric-label {
+  font-size: var(--t-2xs); letter-spacing: .09em; text-transform: uppercase;
+  color: var(--p-muted); font-weight: 600;
+}
 .pw-metric-value {
-  font-size: 1.85rem; font-weight: 300; letter-spacing: -0.03em;
-  line-height: 1.15; margin-top: .25rem; color: var(--p-ink);
+  font-family: var(--p-font-display);
+  font-size: 2.4rem; font-weight: 200; letter-spacing: -0.042em;
+  line-height: 1.05; margin-top: var(--s-4); color: var(--p-ink);
   font-variant-numeric: tabular-nums;
 }
-.pw-metric-sub { font-size: .775rem; color: var(--p-muted); margin-top: .2rem; }
+.pw-metric-sub { font-size: var(--t-xs); color: var(--p-muted); margin-top: var(--s-2); line-height: 1.5; }
 
-.pw-section { margin-top: 1.9rem; }
+.pw-section { margin-top: var(--s-9); }
 .pw-section-head {
-  display: flex; align-items: baseline; gap: .7rem; flex-wrap: wrap;
-  margin-bottom: .75rem;
+  display: flex; align-items: baseline; gap: var(--s-5); flex-wrap: wrap;
+  margin-bottom: var(--s-5);
 }
-.pw-section-head h2 { font-size: 1.02rem; }
-.pw-section-head p { font-size: .82rem; color: var(--p-muted); margin: 0; }
+.pw-section-head h2 { font-size: var(--t-xl); letter-spacing: -0.016em; }
+.pw-section-head p { font-size: var(--t-sm); color: var(--p-muted); margin: 0; }
 .pw-section-head .pw-spacer { flex: 1; }
 
 /* -- record panel (student/group detail) -------------------------------------------- */
 
 .pw-record {
   display: grid; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
-  gap: 1.25rem; align-items: start;
+  gap: var(--s-7); align-items: start;
 }
 @media (max-width: 900px) { .pw-record { grid-template-columns: minmax(0, 1fr); } }
 
+/* The person record. Same identity rule as the learner rail and the console
+ * header: the name is the largest thing in the panel and carries the primary
+ * ink, and the card is raised clearly off the page ground rather than being
+ * outlined on it. */
 .pw-idcard {
-  border: 1px solid var(--p-line); border-radius: var(--p-r);
-  background: var(--p-surface); padding: 1.1rem 1.15rem;
+  position: relative; overflow: hidden;
+  border: 1px solid var(--p-line); border-radius: var(--p-r-xl);
+  background: linear-gradient(180deg, var(--p-surface) 0%, var(--p-surface-2) 100%);
+  padding: var(--s-8) var(--s-7);
+  box-shadow: var(--p-edge), var(--p-shadow-2);
+  animation: pw-reveal var(--p-slow) var(--p-ease-soft) both;
 }
-.pw-idcard-head { display: flex; align-items: center; gap: .75rem; margin-bottom: .95rem; }
-.pw-idcard-head h2 { font-size: 1.04rem; }
-.pw-idcard-head p { font-size: .8rem; color: var(--p-muted); margin: 0; }
-.pw-idcard dl { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: .3rem .75rem; font-size: .835rem; margin: 0; }
+.pw-idcard .pw-avatar {
+  background: linear-gradient(180deg, var(--p-accent-soft) 0%, #cdeeee 100%);
+  box-shadow: var(--p-edge);
+}
+.pw-idcard-head { display: flex; align-items: center; gap: var(--s-5); margin-bottom: var(--s-7); }
+.pw-idcard-head h2 { font-size: var(--t-xl); letter-spacing: -0.016em; }
+.pw-idcard-head p { font-size: var(--t-sm); color: var(--p-muted); margin: 0; }
+.pw-idcard dl {
+  display: grid; grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: var(--s-3) var(--s-5); font-size: var(--t-sm); margin: 0;
+}
 .pw-idcard dt { color: var(--p-muted); }
 .pw-idcard dd { margin: 0; color: var(--p-ink-2); }
 
 /* -- provenance ---------------------------------------------------------------------
  * Architecture §27: an assignment records where it came from, and a duplicate
- * is preserved as two distinctly-provenanced rows rather than merged. */
+ * is preserved as two distinctly-provenanced rows rather than merged. The
+ * source tag is the load-bearing element of the row, so it reads first. */
 
 .pw-prov {
-  display: flex; align-items: flex-start; gap: .6rem;
-  padding: .6rem .8rem;
-  border: 1px solid var(--p-line); border-radius: var(--p-r-sm);
-  background: var(--p-surface); margin-bottom: .5rem;
+  display: flex; align-items: flex-start; gap: var(--s-5);
+  padding: var(--s-5) var(--s-6);
+  border: 1px solid var(--p-line); border-radius: var(--p-r);
+  background: var(--p-surface); margin-bottom: var(--s-3);
+  box-shadow: var(--p-edge), var(--p-shadow-1);
+  transition: box-shadow var(--p-fast) var(--p-ease), border-color var(--p-fast) var(--p-ease);
+  animation: pw-reveal var(--p-slow) var(--p-ease-soft) both;
 }
+.pw-prov:hover { border-color: var(--p-line-strong); box-shadow: var(--p-edge), var(--p-shadow-2); }
 .pw-prov:last-child { margin-bottom: 0; }
 .pw-prov-main { flex: 1; min-width: 0; }
-.pw-prov-main b { font-size: .865rem; font-weight: 600; display: block; }
-.pw-prov-main span { font-size: .78rem; color: var(--p-muted); display: block; }
+.pw-prov-main b { font-size: var(--t-sm); font-weight: 600; display: block; line-height: 1.4; }
+.pw-prov-main span { font-size: var(--t-xs); color: var(--p-muted); display: block; line-height: 1.5; }
 .pw-prov-source {
-  flex: none; font-size: .69rem; font-weight: 600; letter-spacing: .05em;
-  text-transform: uppercase; padding: .16rem .45rem;
+  flex: none; font-size: var(--t-2xs); font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; padding: 1px var(--s-3); line-height: 1.5;
   border-radius: var(--p-r-xs); white-space: nowrap;
 }
-.pw-prov-source.is-group { background: var(--p-accent-soft); color: var(--p-accent); border: 1px solid var(--p-accent-line); }
+.pw-prov-source.is-group { background: var(--p-accent-soft); color: var(--p-accent-ink); border: 1px solid var(--p-accent-line); }
 .pw-prov-source.is-direct { background: var(--p-surface-3); color: var(--p-muted); border: 1px solid var(--p-line); }
-.pw-prov.is-new { border-color: var(--p-accent-line); background: var(--p-accent-soft); }
+/* A newly created assignment is marked so a trainer can see what they just
+ * did, and marked the same way whether or not it duplicates an existing
+ * one -- the duplicate warning is a separate, explicit statement. */
+.pw-prov.is-new {
+  border-color: var(--p-accent-line);
+  background: linear-gradient(180deg, var(--p-accent-soft) 0%, var(--p-accent-wash) 100%);
+  box-shadow: inset 0 0 0 1px var(--p-accent-line), 0 6px 18px -8px rgba(10, 108, 123, .3);
+}
 
 /* -- assignment builder -------------------------------------------------------------- */
 
 .pw-assign {
-  border: 1px solid var(--p-line); border-radius: var(--p-r);
-  background: var(--p-surface); padding: 1.05rem 1.15rem 1.15rem;
+  border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
+  background: linear-gradient(180deg, var(--p-surface) 0%, var(--p-surface-2) 100%);
+  padding: var(--s-8);
+  box-shadow: var(--p-edge), var(--p-shadow-1);
 }
-.pw-assign-grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
-.pw-assign-foot { display: flex; gap: .55rem; align-items: center; flex-wrap: wrap; margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--p-line); }
-.pw-assign-status { font-size: .82rem; color: var(--p-muted); flex: 1; min-width: 12rem; }
+.pw-assign-grid { display: grid; gap: var(--s-6); grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+.pw-assign-foot {
+  display: flex; gap: var(--s-4); align-items: center; flex-wrap: wrap;
+  margin-top: var(--s-7); padding-top: var(--s-6); border-top: 1px solid var(--p-line);
+}
+.pw-assign-status { font-size: var(--t-sm); color: var(--p-muted); flex: 1; min-width: 12rem; line-height: 1.5; }
 
+/* The duplicate-provenance warning. Amber and clearly bounded, because it is
+ * a real caution a trainer has to read before confirming -- but it is a
+ * statement about the assignment, so it is a panel, not an error page. */
 .pw-warnbox {
-  border: 1px solid var(--p-caution-line); background: var(--p-caution-soft);
-  border-radius: var(--p-r-sm); padding: .8rem .9rem;
-  font-size: .855rem; color: var(--p-caution);
+  border: 1px solid var(--p-caution-line);
+  background: linear-gradient(180deg, #fefaf1 0%, var(--p-caution-soft) 100%);
+  border-left: 3px solid var(--p-caution);
+  border-radius: var(--p-r); padding: var(--s-6) var(--s-7);
+  font-size: var(--t-sm); color: var(--p-caution); line-height: 1.55;
+  box-shadow: var(--p-edge), var(--p-shadow-1);
+  animation: pw-view-in var(--p-slow) var(--p-ease-soft);
 }
-.pw-warnbox h3 { font-size: .875rem; color: var(--p-caution); margin-bottom: .3rem; }
-.pw-warnbox ul { margin: .45rem 0 0; padding-left: 1.05rem; }
-.pw-warnbox li { margin-bottom: .25rem; }
+.pw-warnbox h3 { font-size: var(--t-sm); color: var(--p-caution); margin-bottom: var(--s-2); }
+.pw-warnbox ul { margin: var(--s-3) 0 0; padding-left: var(--s-6); }
+.pw-warnbox li { margin-bottom: var(--s-2); }
 
 .pw-log {
   border: 1px solid var(--p-line); border-radius: var(--p-r-sm);
-  background: var(--p-surface-2); padding: .6rem .75rem;
-  font-size: .8rem; color: var(--p-ink-2);
+  background: var(--p-surface-2); padding: var(--s-5) var(--s-6);
+  font-size: var(--t-sm); color: var(--p-ink-2); line-height: 1.55;
 }
-.pw-log ul { margin: 0; padding-left: 1.05rem; }
-.pw-log li { margin-bottom: .22rem; }
+.pw-log ul { margin: 0; padding-left: var(--s-6); }
+.pw-log li { margin-bottom: var(--s-2); }
 .pw-log li:last-child { margin-bottom: 0; }
 
 /* -- read-only notice ---------------------------------------------------------------- */
 
 .pw-tr-scope {
-  border: 1px dashed var(--p-line-strong); border-radius: var(--p-r-sm);
-  padding: .65rem .85rem; font-size: .8rem; color: var(--p-muted);
-  background: transparent;
+  border: 1px dashed var(--p-line-strong); border-radius: var(--p-r);
+  padding: var(--s-6) var(--s-7); font-size: var(--t-sm); color: var(--p-muted);
+  background: rgba(255, 255, 255, .45); line-height: 1.6;
 }
 .pw-tr-scope b { color: var(--p-ink-2); font-weight: 600; }
+
+@media (max-width: 620px) {
+  .pw-tr-main { padding: var(--s-7) var(--s-6) var(--s-10); }
+  .pw-tr-top-inner { padding: var(--s-4) var(--s-6) 0; }
+  /* Who is signed in moves onto its own line rather than being squeezed into
+   * a two-word-per-line column beside the product name. */
+  .pw-tr-identity { flex-wrap: wrap; }
+  .pw-tr-identity .pw-tr-who {
+    margin-left: 0; text-align: left; width: 100%;
+    padding-top: var(--s-2); border-top: 1px solid var(--p-line-soft);
+  }
+  .pw-tr-identity .pw-tr-who b, .pw-tr-identity .pw-tr-who span { display: inline; }
+  .pw-tr-identity .pw-tr-who span::before { content: " · "; }
+}
+
+
+/* -- tables, in the administrative register ---------------------------------
+ * The trainer console is mostly tables, so the table itself has to carry
+ * material rather than sit on the page as an unstyled block. A raised
+ * surface, a recessed header, and a hover that reads as a row being pointed
+ * at rather than selected. */
+
+.pw-tr .pw-tablewrap {
+  border-radius: var(--p-r-lg);
+  box-shadow: var(--p-edge), var(--p-shadow-1);
+  animation: pw-reveal var(--p-slow) var(--p-ease-soft) both;
+}
+.pw-tr .pw-table th {
+  background: linear-gradient(180deg, var(--p-surface-2) 0%, var(--p-surface-3) 100%);
+  color: var(--p-muted);
+  box-shadow: var(--p-edge);
+}
+.pw-tr .pw-table tbody tr:hover { background: var(--p-accent-wash); }
+.pw-tr .pw-table tbody tr:hover td:first-child { box-shadow: inset 2px 0 0 var(--p-accent-line); }
+
+/* An empty section is a composed statement, not a blank area. */
+.pw-tr .pw-empty {
+  border: 1px dashed var(--p-line-strong); border-radius: var(--p-r-lg);
+  background: rgba(255, 255, 255, .5);
+  max-width: none; padding: var(--s-10) var(--s-7);
+}

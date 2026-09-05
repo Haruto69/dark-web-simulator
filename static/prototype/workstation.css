@@ -1,13 +1,26 @@
-/* RewindSec 2.0 UI prototype — the synthetic workstation.
+/* RewindSec 2.0 UI prototype -- the synthetic workstation.
  *
  * A workplace, not an operating system and not a training website. The shell
  * is a status strip plus an application rail plus a work area holding
- * windows. It is deliberately not a Windows clone: no start orb, no system
- * tray metaphor, no title-bar iconography borrowed from a shipping OS.
+ * windows. It is deliberately not a Windows clone and not a macOS clone: no
+ * start orb, no system tray metaphor, no traffic-light dots, no title-bar
+ * iconography borrowed from a shipping OS.
+ *
+ * The material split is the whole idea. The SHELL -- strip, rail, desk,
+ * notification centre, toasts -- is deep teal-black chrome, lit from above
+ * and made of glass wherever one piece of it floats over another. The rail
+ * and the work area are separate rounded panels standing in a gutter rather
+ * than two halves of one rectangle divided by a border, and that single
+ * change is what gives the shell its depth.
+ * The APPLICATIONS are light documents standing on it. That single decision
+ * is what turns a page with panels into an environment: a window has a floor
+ * to cast a shadow on, the rail reads as part of the machine rather than as
+ * a sidebar, and the learner can tell at a glance what belongs to the
+ * workstation and what belongs to the work.
  *
  * Layers, in order: work area windows, rail, status strip, notification
- * panel, dialogs, blocking comparison, prototype developer panel. The scale
- * lives in base.css; nothing here invents a z-index.
+ * panel, dialogs, blocking comparison, prototype developer panel. The scales
+ * live in base.css; nothing here invents a z-index, a radius or a colour.
  */
 
 /* -- shell ------------------------------------------------------------------ */
@@ -21,71 +34,116 @@
    * the entire workstation and pushes the work area off a narrow screen. */
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto var(--p-topbar) minmax(0, 1fr);
-  background:
-    radial-gradient(120% 90% at 82% -10%, #f2f4f8 0%, transparent 58%),
-    linear-gradient(178deg, var(--p-canvas) 0%, var(--p-canvas-deep) 100%);
+  /* The atmosphere now belongs to the whole shell rather than to the work
+   * area, so the gutter between the floating panels is lit too and they read
+   * as standing *in* the environment rather than beside it. */
+  background: var(--g-desk);
   overflow: hidden;
+  position: relative;
+  isolation: isolate;
 }
+/* The vignette drawing the edges of the environment down. Above the
+ * background, below every panel, and inert to the pointer. */
+.pw-ws::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  box-shadow: inset 0 40px 90px -60px rgba(2, 8, 12, .9),
+              inset 0 -90px 160px -90px rgba(2, 8, 12, .85);
+}
+.pw-ws > * { position: relative; z-index: 1; }
 .pw-ws.is-bannerless { grid-template-rows: var(--p-topbar) minmax(0, 1fr); }
 
-/* -- status strip ----------------------------------------------------------- */
+/* -- status strip -----------------------------------------------------------
+ * The one piece of chrome always on screen. It carries identity on the left,
+ * session state in the middle, and the two things a learner ever needs from
+ * the shell itself on the right. */
 
 .pw-top {
   grid-row: 2;
   z-index: var(--z-topbar);
-  display: flex; align-items: center; gap: .8rem;
-  padding: 0 .5rem 0 .9rem;
-  background: var(--p-surface);
-  border-bottom: 1px solid var(--p-line);
-  box-shadow: var(--p-shadow-1);
+  position: relative;
+  display: flex; align-items: center; gap: var(--s-5);
+  padding: 0 var(--s-6) 0 var(--s-7);
+  /* Glass rather than a painted bar: the desk shows faintly through it, so
+   * the strip belongs to the same environment as everything under it. */
+  background: linear-gradient(180deg, rgba(21, 56, 71, .72) 0%,
+                              rgba(7, 22, 30, .8) 100%);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgba(140, 214, 226, .1);
+  box-shadow: inset 0 1px 0 rgba(176, 236, 246, .13),
+              0 10px 30px -14px rgba(2, 8, 12, .8);
+  color: var(--d-ink-2);
   min-width: 0;
 }
-
-.pw-top-org { display: flex; align-items: center; gap: .55rem; min-width: 0; }
-.pw-mark {
-  width: 22px; height: 22px; flex: none;
-  border-radius: var(--p-r-xs);
-  background: var(--p-accent);
-  display: inline-flex; align-items: center; justify-content: center;
+/* One hairline of accent light along the bottom edge of the strip, brightest
+ * under the identity block and fading out across the width. It is the single
+ * place the product signs itself in the chrome. */
+.pw-top::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(63, 220, 216, .5) 0%,
+                              rgba(63, 220, 216, .12) 34%,
+                              rgba(63, 220, 216, 0) 72%);
 }
-.pw-mark svg { width: 13px; height: 13px; }
-.pw-top-org b { font-size: .855rem; font-weight: 600; letter-spacing: -0.008em; }
-.pw-top-org span { color: var(--p-muted-2); font-size: .75rem; }
 
-.pw-top-sep { width: 1px; height: 20px; background: var(--p-line); flex: none; }
+.pw-top-org { display: flex; align-items: center; gap: var(--s-4); min-width: 0; }
+/* `.pw-mark` itself is a shared chrome primitive and lives in base.css. */
+.pw-top-org b {
+  font-size: var(--t-md); font-weight: 650; letter-spacing: -0.012em;
+  display: block; line-height: 1.25; color: #ffffff;
+}
+.pw-top-org > span > span { color: var(--d-muted); font-size: var(--t-2xs); display: block; line-height: 1.25; letter-spacing: .012em; }
 
-.pw-top-status { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.pw-top-sep { width: 1px; height: 22px; background: var(--d-line-2); flex: none; }
+
+.pw-top-status { display: flex; align-items: center; gap: var(--s-4); min-width: 0; }
+
+/* The clock is the only continuously changing number in the shell, so it is
+ * tabular — otherwise the strip twitches every minute. */
 .pw-clock {
-  font-variant-numeric: tabular-nums; font-size: .82rem; font-weight: 500;
-  color: var(--p-ink-2); letter-spacing: .01em;
+  font-variant-numeric: tabular-nums; font-size: var(--t-sm); font-weight: 600;
+  color: var(--d-ink); letter-spacing: .012em;
 }
-.pw-session-chip { display: inline-flex; align-items: center; gap: .35rem; }
+.pw-session-chip { display: inline-flex; align-items: center; gap: var(--s-3); }
 
-.pw-top-actions { display: flex; align-items: center; gap: .3rem; margin-left: auto; }
+.pw-top-actions { display: flex; align-items: center; gap: var(--s-3); margin-left: auto; }
 
 .pw-iconbtn {
   position: relative;
-  display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
-  height: 30px; min-width: 30px; padding: 0 .5rem;
-  font: inherit; font-size: .8rem;
-  background: transparent; border: 1px solid transparent;
-  border-radius: var(--p-r-sm); color: var(--p-muted); cursor: pointer;
-  transition: background var(--p-fast) var(--p-ease), color var(--p-fast) var(--p-ease);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-3);
+  height: 34px; min-width: 34px; padding: 0 var(--s-4);
+  font: inherit; font-size: var(--t-sm);
+  background: rgba(140, 214, 226, .05);
+  border: 1px solid rgba(140, 214, 226, .1);
+  border-radius: var(--p-r-pill); color: var(--d-ink-2); cursor: pointer;
+  transition: background var(--p-fast) var(--p-ease),
+              color var(--p-fast) var(--p-ease),
+              border-color var(--p-fast) var(--p-ease);
 }
-.pw-iconbtn:hover { background: var(--p-surface-3); color: var(--p-ink); }
-.pw-iconbtn:active { transform: translateY(1px); }
+.pw-iconbtn:hover { background: rgba(140, 214, 226, .13); color: var(--d-ink); }
+.pw-iconbtn:active { background: rgba(2, 8, 12, .5); }
 .pw-iconbtn[aria-pressed="true"], .pw-iconbtn[aria-expanded="true"] {
-  background: var(--p-accent-soft); color: var(--p-accent);
+  background: rgba(63, 220, 216, .2);
+  border-color: rgba(63, 220, 216, .42);
+  color: #b9f2ef;
+  box-shadow: 0 0 18px -4px rgba(63, 220, 216, .5),
+              inset 0 1px 0 rgba(176, 236, 246, .2);
 }
 .pw-iconbtn svg { width: 16px; height: 16px; }
 
 .pw-badge {
-  position: absolute; top: 1px; right: 1px;
-  min-width: 15px; height: 15px; padding: 0 3px;
-  border-radius: 8px; background: var(--p-alert); color: #fff;
-  font-size: .625rem; font-weight: 700; line-height: 15px; text-align: center;
+  position: absolute; top: 0; right: 0;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: var(--p-r-pill);
+  /* A count, not a warning. It carries the accent rather than the alert
+   * colour: how many notifications are waiting says nothing about what any
+   * of them contains, and a red pill on arrival would imply otherwise. */
+  background: var(--g-accent-lift); color: #04222a;
+  font-size: 10px; font-weight: 800; line-height: 16px; text-align: center;
   font-variant-numeric: tabular-nums;
-  border: 1.5px solid var(--p-surface);
+  border: 1.5px solid rgba(6, 18, 26, .85);
+  box-shadow: 0 0 12px -1px rgba(63, 220, 216, .7);
+  animation: pw-pop var(--p-med) var(--p-ease-snap) both;
 }
 .pw-badge[hidden] { display: none !important; }
 
@@ -95,137 +153,408 @@
   grid-row: 3;
   display: grid;
   grid-template-columns: var(--p-rail) minmax(0, 1fr);
+  /* The gutter. Both children are free-standing rounded panels now, so the
+   * separation is space and shadow rather than a shared 1px border. */
+  gap: var(--p-gutter);
+  padding: var(--p-gutter);
   min-height: 0;
 }
 
 .pw-rail {
+  position: relative;
   z-index: var(--z-rail);
-  background: var(--p-surface);
-  border-right: 1px solid var(--p-line);
+  border-radius: var(--p-r-xl);
+  background: var(--glass-fill);
+  border: var(--glass-line);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--d-ink-2);
   display: flex; flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
-.pw-rail-scroll { flex: 1; overflow-y: auto; padding: .55rem .5rem; min-height: 0; }
+/* The light raking across the top-left of the pane, and a faint pool of
+ * accent at its foot. Static pseudo-element: one paint, never repainted. */
+.pw-rail::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(115% 62% at 0% 0%, rgba(176, 236, 246, .11) 0%,
+                    rgba(176, 236, 246, 0) 60%),
+    radial-gradient(90% 40% at 50% 100%, rgba(63, 220, 216, .07) 0%,
+                    rgba(63, 220, 216, 0) 70%);
+}
+.pw-rail > * { position: relative; z-index: 1; }
+
+.pw-rail-scroll { flex: 1; overflow-y: auto; padding: var(--s-5); min-height: 0; }
 .pw-rail-title {
-  font-size: .665rem; font-weight: 700; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--p-muted-2);
-  padding: .35rem .5rem .3rem;
+  font-size: var(--t-2xs); font-weight: 700; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--d-muted-2);
+  padding: var(--s-3) var(--s-4) var(--s-5);
+  margin: 0;
 }
 
+/* An application in the rail. Each one is a rounded row that becomes a lit
+ * capsule when it is the focused application, with its glyph carried in a
+ * chip of its own so the column reads as a set of objects rather than as a
+ * list of links. Three states, and they are genuinely different: at rest,
+ * open-but-not-focused (the glyph chip lifts, the label brightens), and
+ * focused (the capsule fills and the accent arrives).
+ *
+ * Nothing here is coloured by what an application contains. */
 .pw-applink {
+  position: relative;
   width: 100%;
-  display: flex; align-items: center; gap: .6rem;
-  padding: .44rem .5rem;
-  border: 1px solid transparent; border-radius: var(--p-r-sm);
-  background: transparent; color: var(--p-ink-2);
-  font: inherit; font-size: .855rem; text-align: left; cursor: pointer;
-  transition: background var(--p-fast) var(--p-ease), color var(--p-fast) var(--p-ease);
+  display: flex; align-items: center; gap: var(--s-5);
+  padding: var(--s-3);
+  border: 1px solid transparent; border-radius: var(--p-r-lg);
+  background: transparent; color: var(--d-ink-2);
+  font: inherit; font-size: var(--t-sm); font-weight: 500;
+  text-align: left; cursor: pointer;
+  overflow: hidden;
+  transition: background var(--p-med) var(--p-ease),
+              color var(--p-med) var(--p-ease),
+              border-color var(--p-med) var(--p-ease),
+              transform var(--p-fast) var(--p-ease),
+              box-shadow var(--p-med) var(--p-ease);
 }
-.pw-applink + .pw-applink { margin-top: 1px; }
-.pw-applink:hover { background: var(--p-surface-3); }
-.pw-applink:active { transform: translateY(1px); }
-.pw-applink.is-open { color: var(--p-ink); font-weight: 500; }
+.pw-applink + .pw-applink { margin-top: var(--s-2); }
+
+/* The one pass of light across a capsule that has just become focused. It is
+ * driven by the `is-active` class arriving, runs once, and leaves nothing
+ * animating afterwards. */
+.pw-applink::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, rgba(176, 236, 246, 0) 0%,
+                              rgba(176, 236, 246, .22) 50%,
+                              rgba(176, 236, 246, 0) 100%);
+  opacity: 0; transform: translateX(-120%);
+}
+.pw-applink.is-active::before {
+  animation: pw-sweep 620ms var(--p-ease-soft) 1;
+}
+
+.pw-applink:hover {
+  background: rgba(140, 214, 226, .07);
+  border-color: rgba(140, 214, 226, .1);
+  color: var(--d-ink);
+}
+.pw-applink:active { transform: scale(.985); }
+
+.pw-applink.is-open { color: var(--d-ink); }
+.pw-applink.is-open svg,
+.pw-applink.is-open .pw-applink-icon {
+  background: rgba(140, 214, 226, .13);
+  border-color: rgba(140, 214, 226, .2);
+  color: var(--d-ink);
+}
+
+/* The focused application: the one lit surface in the rail. A cyan glass
+ * capsule with a highlight along its top edge and a soft glow beneath it. */
 .pw-applink.is-active {
-  background: var(--p-accent-soft); border-color: var(--p-accent-line);
-  color: var(--p-accent); font-weight: 600;
+  background: linear-gradient(180deg, rgba(63, 220, 216, .22) 0%,
+                              rgba(63, 220, 216, .09) 100%);
+  border-color: rgba(63, 220, 216, .3);
+  color: #ffffff; font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(176, 236, 246, .28),
+              0 6px 20px -10px rgba(63, 220, 216, .55);
 }
-.pw-applink svg { width: 17px; height: 17px; flex: none; opacity: .82; }
-.pw-applink.is-active svg { opacity: 1; }
+.pw-applink.is-active svg,
+.pw-applink.is-active .pw-applink-icon {
+  background: var(--g-accent-lift);
+  border-color: rgba(126, 240, 234, .6);
+  color: #04222a;
+  box-shadow: 0 0 16px -2px rgba(63, 220, 216, .7),
+              inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+
+/* The glyph chip. Reference A carries every sidebar icon in a soft rounded
+ * container, and it is what makes an icon column read as deliberate; the SVG
+ * itself is the box, so no wrapper element was added to the markup. */
+.pw-applink svg,
+.pw-applink .pw-applink-icon {
+  width: 32px; height: 32px; flex: none; padding: 7px;
+  border-radius: var(--p-r-sm);
+  background: rgba(140, 214, 226, .07);
+  border: 1px solid rgba(140, 214, 226, .11);
+  color: var(--d-muted);
+  transition: background var(--p-med) var(--p-ease),
+              border-color var(--p-med) var(--p-ease),
+              color var(--p-med) var(--p-ease),
+              box-shadow var(--p-med) var(--p-ease);
+}
+.pw-applink:hover svg,
+.pw-applink:hover .pw-applink-icon { color: var(--d-ink-2); }
+
 .pw-applink-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The unread count. A capsule in the accent, glowing slightly, animating in
+ * when it appears -- and never in the alert colour: a count of waiting items
+ * is not a warning about them. */
 .pw-applink-count {
-  font-size: .7rem; font-weight: 700; font-variant-numeric: tabular-nums;
-  min-width: 17px; height: 17px; line-height: 15px; text-align: center;
-  border-radius: 9px; padding: 0 4px;
-  background: var(--p-accent); color: #fff; border: 1px solid var(--p-accent);
+  font-size: var(--t-2xs); font-weight: 800; font-variant-numeric: tabular-nums;
+  min-width: 20px; height: 19px; line-height: 17px; text-align: center;
+  border-radius: var(--p-r-pill); padding: 0 var(--s-3);
+  background: var(--g-accent-lift); color: #04222a;
+  border: 1px solid rgba(126, 240, 234, .55);
+  box-shadow: 0 0 14px -2px rgba(63, 220, 216, .65);
+  animation: pw-pop var(--p-med) var(--p-ease-snap) both;
 }
-.pw-applink-count.is-quiet { background: var(--p-surface-3); color: var(--p-muted); border-color: var(--p-line); }
-.pw-applink-open {
-  width: 5px; height: 5px; border-radius: 50%; background: var(--p-accent);
-  flex: none; opacity: .75;
+.pw-applink-count.is-quiet {
+  background: rgba(140, 214, 226, .13); color: var(--d-ink-2);
+  border-color: var(--d-line-2); box-shadow: none;
 }
 
 .pw-rail-foot {
-  border-top: 1px solid var(--p-line);
-  padding: .55rem;
-  display: flex; flex-direction: column; gap: .4rem;
+  border-top: 1px solid var(--d-line);
+  box-shadow: inset 0 1px 0 rgba(2, 8, 12, .55);
+  padding: var(--s-5);
+  display: flex; flex-direction: column; gap: var(--s-3);
 }
-.pw-rail-user { display: flex; align-items: center; gap: .55rem; padding: .1rem .15rem; min-width: 0; }
-.pw-rail-user b { font-size: .8rem; font-weight: 600; display: block; }
-.pw-rail-user span { font-size: .715rem; color: var(--p-muted); display: block; }
 
-/* -- work area --------------------------------------------------------------- */
+/* Who the learner is signed in as.
+ *
+ * This is a named person, and it had been the quietest thing in the rail --
+ * small, mid-grey, and sitting flat on a translucent panel that took most of
+ * its remaining contrast away. It is now a raised surface of its own, which
+ * separates it from the glass behind it, and the name is set at body size in
+ * near-white. The role stays secondary but is lifted out of the muted ramp
+ * so it is read rather than merely seen.
+ *
+ * The same treatment is repeated wherever a person record appears -- the
+ * trainer identity block, the student record header -- because identity that
+ * dissolves into the chrome is a problem everywhere, not only here. */
+.pw-rail-user {
+  display: flex; align-items: center; gap: var(--s-5);
+  padding: var(--s-4) var(--s-5);
+  min-width: 0;
+  border-radius: var(--p-r);
+  background: linear-gradient(180deg, rgba(140, 214, 226, .12) 0%,
+                              rgba(140, 214, 226, .05) 100%);
+  border: 1px solid rgba(140, 214, 226, .18);
+  box-shadow: inset 0 1px 0 rgba(176, 236, 246, .16),
+              0 2px 10px -6px rgba(2, 8, 12, .8);
+}
+.pw-rail-user b {
+  font-size: var(--t-md); font-weight: 650; letter-spacing: -0.012em;
+  display: block; line-height: 1.3; color: #ffffff;
+}
+.pw-rail-user span {
+  font-size: var(--t-xs); color: var(--d-ink-2); display: block; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pw-rail-user > span:last-child { min-width: 0; }
+.pw-rail-user .pw-avatar {
+  width: 36px; height: 36px; font-size: var(--t-xs); border-radius: var(--p-r);
+  background: var(--g-accent-lift); color: #04222a;
+  border-color: rgba(126, 240, 234, .5);
+  box-shadow: 0 0 16px -3px rgba(63, 220, 216, .6),
+              inset 0 1px 0 rgba(255, 255, 255, .45);
+}
 
-.pw-workarea { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+/* -- work area ---------------------------------------------------------------
+ * The desk. A deep surface with two pools of light on it -- azure spilling
+ * down from under the status strip, a much fainter teal in the far corner --
+ * and a vignette drawing the edges down. It is a static background: no
+ * animation, no blur filter, no canvas, nothing that repaints while a
+ * learner works.
+ *
+ * This is the surface that everything else is measured against. A white
+ * window on it reads as a physical object with a shadow; the same window on
+ * a light grey canvas reads as a div. */
+
+.pw-workarea {
+  position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  border-radius: var(--p-r-xl);
+  border: 1px solid rgba(140, 214, 226, .1);
+  background:
+    radial-gradient(96% 62% at 50% -10%, rgba(63, 220, 216, .09) 0%,
+                    rgba(63, 220, 216, 0) 60%),
+    linear-gradient(178deg, rgba(10, 32, 42, .5) 0%, rgba(3, 12, 18, .62) 100%);
+  box-shadow: inset 0 1px 0 rgba(176, 236, 246, .07),
+              inset 0 0 60px -20px rgba(2, 8, 12, .9);
+}
+.pw-workarea::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 26px 50px -36px rgba(2, 8, 12, .9),
+              inset 0 -60px 120px -74px rgba(2, 8, 12, .8);
+}
 
 .pw-desk {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  padding: 2rem; text-align: center; pointer-events: none;
+  padding: var(--s-9); text-align: center; pointer-events: none;
+  transition: opacity var(--p-slow) var(--p-ease);
 }
-.pw-desk-inner { max-width: 26rem; color: var(--p-muted); }
-.pw-desk-inner h2 { color: var(--p-ink-2); font-size: 1rem; margin-bottom: .35rem; }
-.pw-desk-inner p { font-size: .855rem; }
+.pw-desk-inner {
+  max-width: 30rem; color: var(--d-muted);
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
+}
+/* The greeting names the learner, so it is identity too and is set to be
+ * read: near-white, at the display size, rather than the previous light grey
+ * that sank into the desk behind it. */
+.pw-desk-inner h2 {
+  color: #ffffff; font-size: var(--t-3xl); margin-bottom: var(--s-5);
+  font-weight: 350; letter-spacing: -0.028em;
+  text-shadow: 0 1px 24px rgba(63, 220, 216, .18);
+}
+.pw-desk-inner p { font-size: var(--t-md); line-height: 1.65; max-width: 38ch; margin: 0 auto; color: var(--d-ink-2); }
+/* Outstanding work, on a raised chrome panel rather than a white card --
+ * this belongs to the workstation, not to any application. */
 .pw-desk-tasks {
-  margin-top: 1.1rem; text-align: left; pointer-events: auto;
-  background: rgba(255, 255, 255, .72);
-  border: 1px solid var(--p-line);
-  border-radius: var(--p-r);
-  padding: .75rem .9rem;
+  margin-top: var(--s-9); text-align: left; pointer-events: auto;
+  background: var(--glass-fill-2);
+  border: var(--glass-line);
+  border-radius: var(--p-r-xl);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  padding: var(--s-6) var(--s-7);
+  animation: pw-reveal var(--p-xslow) var(--p-ease-soft) both;
+  animation-delay: 70ms;
 }
-.pw-desk-tasks h3 { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--p-muted-2); margin-bottom: .4rem; }
-.pw-desk-tasks li { font-size: .82rem; color: var(--p-ink-2); }
-.pw-desk-tasks ul { margin: 0; padding-left: 1.05rem; }
+.pw-desk-tasks h3 {
+  font-size: var(--t-2xs); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--p-accent-lift); margin-bottom: var(--s-4); font-weight: 700;
+}
+.pw-desk-tasks b, .pw-desk-tasks strong { color: var(--d-ink); }
+.pw-desk-tasks li { font-size: var(--t-sm); color: var(--d-ink-2); margin-bottom: var(--s-2); }
+.pw-desk-tasks ul { margin: 0; padding-left: var(--s-6); }
 
-/* -- windows ------------------------------------------------------------------ */
+/* -- windows -------------------------------------------------------------------
+ * A light document standing on the deep desk. The focused window is lifted
+ * further, keeps a white title bar and carries a faint azure rim; an
+ * unfocused one settles, cools its title bar and dims its controls -- which
+ * is how a real window manager tells you where you are, without dimming
+ * content you may still be reading.
+ *
+ * Both the arrival and the departure are animated. `is-closing` and
+ * `is-minimising` are set by the renderer for exactly one animation frame
+ * before the node is removed; see workstation.js. */
 
 .pw-window {
   position: absolute;
   z-index: var(--z-window);
   display: flex; flex-direction: column;
   background: var(--p-surface);
-  border: 1px solid var(--p-line-strong);
-  border-radius: var(--p-r-lg);
-  box-shadow: var(--p-shadow-2);
+  border: 1px solid rgba(2, 8, 12, .45);
+  /* Much softer corners, and the application content is clipped to them, so
+   * the window reads as a single object rather than as a rounded frame with
+   * square panes inside it. */
+  border-radius: var(--p-r-xl);
+  box-shadow: var(--p-shadow-window-flat);
   overflow: hidden;
   min-width: 320px; min-height: 220px;
-  animation: pw-rise var(--p-med) var(--p-ease);
+  animation: pw-window-in var(--p-slow) var(--p-ease-soft);
+  transition: box-shadow var(--p-med) var(--p-ease),
+              border-color var(--p-med) var(--p-ease);
 }
-.pw-window.is-focused { box-shadow: var(--p-shadow-3); border-color: var(--p-muted-2); }
-.pw-window.is-maximized { inset: 10px !important; width: auto !important; height: auto !important; }
+/* The focused window carries a cyan rim and a wide, very faint halo -- the
+ * light of the desk catching its edge. It is the only thing that changes
+ * besides elevation, because dimming the content of an unfocused window
+ * would make text a learner may still be reading harder to read. */
+.pw-window.is-focused {
+  border-color: rgba(2, 8, 12, .55);
+  box-shadow: var(--p-edge),
+              0 0 0 1px rgba(63, 220, 216, .3),
+              0 0 44px -6px rgba(63, 220, 216, .22),
+              var(--p-shadow-window);
+}
+.pw-window.is-closing {
+  animation: pw-window-out var(--p-med) var(--p-ease-exit) forwards;
+  pointer-events: none;
+}
+.pw-window.is-minimising {
+  animation: pw-window-min var(--p-med) var(--p-ease-exit) forwards;
+  pointer-events: none;
+}
+.pw-window.is-maximized { inset: var(--s-4) !important; width: auto !important; height: auto !important; }
 .pw-window[hidden] { display: none !important; }
 
 .pw-winbar {
-  display: flex; align-items: center; gap: .5rem;
-  height: 36px; flex: none;
-  padding: 0 .35rem 0 .75rem;
-  background: var(--p-surface-2);
+  display: flex; align-items: center; gap: var(--s-4);
+  height: 46px; flex: none;
+  padding: 0 var(--s-4) 0 var(--s-6);
+  background: var(--p-surface-3);
   border-bottom: 1px solid var(--p-line);
   cursor: default;
   user-select: none;
+  transition: background var(--p-med) var(--p-ease),
+              box-shadow var(--p-med) var(--p-ease);
+}
+.pw-window.is-focused .pw-winbar {
+  background: var(--g-titlebar);
+  box-shadow: var(--p-edge);
 }
 .pw-window.is-draggable .pw-winbar { cursor: move; }
+
 .pw-winbar-title {
-  display: flex; align-items: center; gap: .45rem;
-  font-size: .805rem; font-weight: 600; color: var(--p-ink-2);
+  display: flex; align-items: baseline; gap: var(--s-4);
+  font-size: var(--t-sm); font-weight: 600; color: var(--p-muted);
+  letter-spacing: -0.004em;
   min-width: 0;
+  transition: color var(--p-med) var(--p-ease);
 }
-.pw-winbar-title svg { width: 15px; height: 15px; opacity: .7; flex: none; }
-.pw-winbar-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pw-winbar-sub { font-size: .755rem; color: var(--p-muted-2); font-weight: 400; }
-.pw-winbar-actions { margin-left: auto; display: flex; gap: 1px; }
+.pw-window.is-focused .pw-winbar-title { color: var(--p-ink); }
+.pw-winbar-title svg {
+  width: 15px; height: 15px; opacity: .55; flex: none;
+  align-self: center;
+  transition: opacity var(--p-med) var(--p-ease);
+}
+.pw-window.is-focused .pw-winbar-title svg { opacity: .8; }
+.pw-winbar-title > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pw-winbar-sub {
+  font-size: var(--t-xs); color: var(--p-muted-2); font-weight: 400;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pw-winbar-actions { margin-left: auto; display: flex; gap: var(--s-1); flex: none; }
 
 .pw-winctl {
-  width: 27px; height: 26px;
+  width: 30px; height: 30px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: transparent; border: 1px solid transparent; border-radius: var(--p-r-xs);
-  color: var(--p-muted); cursor: pointer;
-  transition: background var(--p-fast) var(--p-ease), color var(--p-fast) var(--p-ease);
+  background: transparent; border: 0; border-radius: var(--p-r-pill);
+  color: var(--p-muted-2); cursor: pointer;
+  transition: background var(--p-fast) var(--p-ease),
+              color var(--p-fast) var(--p-ease),
+              transform var(--p-fast) var(--p-ease);
 }
+.pw-window.is-focused .pw-winctl { color: var(--p-muted); }
 .pw-winctl:hover { background: var(--p-surface-3); color: var(--p-ink); }
-.pw-winctl.is-close:hover { background: var(--p-alert-soft); color: var(--p-alert); }
+.pw-winctl:active { background: var(--p-surface-4); transform: scale(.92); }
+/* Close is the one destructive control in the chrome, so it is the one that
+ * changes colour on hover. This says "this closes the window", not "closing
+ * is wrong". */
+.pw-winctl.is-close:hover { background: var(--p-alert); color: #fff; }
 .pw-winctl svg { width: 13px; height: 13px; }
 
 .pw-winbody { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+
+/* Content arriving inside a pane that is already on screen -- a different
+ * message, file, contact or conversation. The renderer only replaces a
+ * window body when its markup actually changed (see workstation.js), so this
+ * fires on a real selection and stays still during a background tick. */
+.pw-mainpane > .pw-pane-scroll > .pw-reader,
+.pw-mainpane > .pw-pane-scroll > .pw-contact,
+.pw-mainpane > .pw-pane-scroll > .pw-fileinfo,
+.pw-mainpane > .pw-pane-scroll > .pw-thread,
+.pw-mainpane > .pw-pane-scroll > .pw-empty,
+.pw-viewport > .pw-site,
+.pw-viewport > .pw-signin,
+.pw-viewport > .pw-blocked {
+  animation: pw-view-in var(--p-slow) var(--p-ease-soft);
+}
+
+/* A window being brought to the front. Very little travel and no fade --
+ * the window is already on screen and fully readable, so this is a lift, not
+ * an entrance. Added and removed by the renderer; see `raiseWindow` in
+ * workstation.js. */
+@keyframes pw-window-raise {
+  from { transform: scale(.988); }
+  60%  { transform: scale(1.004); }
+  to   { transform: none; }
+}
+.pw-window.is-raising { animation: pw-window-raise 300ms var(--p-ease-snap); }
 
 /* -- app scaffolding ----------------------------------------------------------- */
 
@@ -233,439 +562,903 @@
 .pw-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .pw-pane + .pw-pane { border-left: 1px solid var(--p-line); }
 .pw-pane-head {
-  flex: none; padding: .55rem .75rem;
+  flex: none; padding: var(--s-4) var(--s-6);
   border-bottom: 1px solid var(--p-line);
-  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
-  background: var(--p-surface);
-  min-height: 42px;
+  display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap;
+  background: var(--g-titlebar);
+  box-shadow: inset 0 -1px 0 rgba(6, 18, 26, .03);
+  min-height: 46px;
 }
-.pw-pane-head h3 { font-size: .82rem; font-weight: 600; }
+/* A pane heading is a label for a column, not a title. Tracked and small,
+ * so the eye reads the content under it rather than the furniture. */
+.pw-pane-head h3 {
+  font-size: var(--t-2xs); font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--p-muted);
+}
 .pw-pane-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
 .pw-pane-foot {
-  flex: none; padding: .5rem .75rem; border-top: 1px solid var(--p-line);
-  background: var(--p-surface-2); display: flex; gap: .4rem; flex-wrap: wrap;
+  flex: none; padding: var(--s-4) var(--s-5);
+  border-top: 1px solid var(--p-line);
+  background: var(--p-surface-2); display: flex; gap: var(--s-3); flex-wrap: wrap;
 }
 
-.pw-sidepane { width: 176px; flex: none; background: var(--p-surface-2); }
-.pw-listpane { width: 306px; flex: none; }
+/* The application's own sidebar. Recessed relative to the pane beside it,
+ * with an inner shadow along its right edge, so a three-pane application has
+ * a readable front-to-back order instead of three equal columns. */
+.pw-sidepane {
+  width: 190px; flex: none;
+  background: linear-gradient(180deg, var(--p-surface-3) 0%, var(--p-surface-2) 100%);
+  box-shadow: inset -7px 0 14px -13px rgba(6, 18, 26, .45);
+}
+.pw-listpane { width: 318px; flex: none; }
 .pw-mainpane { flex: 1; min-width: 0; }
 
 /* -- nav list (folders, locations) ---------------------------------------------- */
 
-.pw-nav { padding: .4rem .35rem; }
+.pw-nav { padding: var(--s-3); }
 .pw-navitem {
-  width: 100%; display: flex; align-items: center; gap: .5rem;
-  padding: .34rem .5rem; border-radius: var(--p-r-xs);
-  background: transparent; border: 0; font: inherit; font-size: .82rem;
+  width: 100%; display: flex; align-items: center; gap: var(--s-4);
+  padding: var(--s-3) var(--s-5); border-radius: var(--p-r-sm);
+  background: transparent; border: 0; font: inherit; font-size: var(--t-sm);
   color: var(--p-ink-2); text-align: left; cursor: pointer;
-  transition: background var(--p-fast) var(--p-ease);
+  transition: background var(--p-med) var(--p-ease),
+              color var(--p-med) var(--p-ease),
+              box-shadow var(--p-med) var(--p-ease);
 }
+.pw-navitem + .pw-navitem { margin-top: 1px; }
 .pw-navitem:hover { background: var(--p-surface-3); }
-.pw-navitem.is-active { background: var(--p-accent-soft); color: var(--p-accent); font-weight: 600; }
-.pw-navitem svg { width: 15px; height: 15px; opacity: .7; flex: none; }
-.pw-navitem-count { margin-left: auto; font-size: .715rem; color: var(--p-muted-2); font-variant-numeric: tabular-nums; }
-.pw-navitem.is-active .pw-navitem-count { color: var(--p-accent); }
+.pw-navitem.is-active {
+  background: linear-gradient(180deg, var(--p-accent-soft) 0%, var(--p-accent-wash) 100%);
+  color: var(--p-accent-ink); font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--p-accent-line),
+              inset 0 1px 0 rgba(255, 255, 255, .7);
+}
+.pw-navitem svg { width: 15px; height: 15px; opacity: .62; flex: none; }
+.pw-navitem.is-active svg { opacity: .95; }
+.pw-navitem > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pw-navitem-count {
+  margin-left: auto; font-size: var(--t-2xs); color: var(--p-muted-2);
+  font-variant-numeric: tabular-nums; font-weight: 600; flex: none;
+}
+.pw-navitem.is-active .pw-navitem-count { color: var(--p-accent-ink); }
 
-/* -- mail --------------------------------------------------------------------- */
+/* -- search ---------------------------------------------------------------------- */
 
 .pw-search { position: relative; flex: 1; min-width: 0; }
 .pw-search input {
-  width: 100%; font: inherit; font-size: .8rem;
-  padding: .32rem .55rem .32rem 1.85rem;
-  border: 1px solid var(--p-line-strong); border-radius: var(--p-r-sm);
-  background: var(--p-surface);
+  width: 100%; font: inherit; font-size: var(--t-sm);
+  padding: var(--s-3) var(--s-5) var(--s-3) var(--s-9);
+  min-height: 32px;
+  border: 1px solid var(--p-line); border-radius: var(--p-r-pill);
+  background: var(--p-surface-3);
+  color: var(--p-ink);
+  transition: background var(--p-fast) var(--p-ease),
+              border-color var(--p-fast) var(--p-ease),
+              box-shadow var(--p-fast) var(--p-ease);
 }
-.pw-search input:focus-visible { border-color: var(--p-accent); box-shadow: var(--p-focus-tight); }
+.pw-search input::placeholder { color: var(--p-muted-2); }
+.pw-search input:hover { border-color: var(--p-line-strong); }
+.pw-search input:focus-visible {
+  outline: none;
+  background: var(--p-surface);
+  border-color: var(--p-accent); box-shadow: var(--p-focus-tight);
+}
 .pw-search svg {
-  position: absolute; left: .5rem; top: 50%; transform: translateY(-50%);
+  position: absolute; left: var(--s-5); top: 50%; transform: translateY(-50%);
   width: 14px; height: 14px; color: var(--p-muted-2); pointer-events: none;
 }
 
+/* -- mail: the list ---------------------------------------------------------------
+ * Three lines with a deliberate weight ladder: sender, then subject, then
+ * preview. Unread is carried by a marker in the gutter and by weight — not by
+ * a fill, because a fill would make an inbox of unread mail into a wall of
+ * colour, and because nothing about a message's own content may be hinted at
+ * by how the client draws it. */
+
 .pw-msgrow {
+  position: relative;
   width: 100%; display: block; text-align: left;
-  padding: .55rem .75rem .58rem;
+  padding: var(--s-5) var(--s-6) var(--s-5) var(--s-9);
   border: 0; border-bottom: 1px solid var(--p-line-soft);
-  border-left: 3px solid transparent;
   background: transparent; font: inherit; cursor: pointer;
-  transition: background var(--p-fast) var(--p-ease);
+  transition: background var(--p-med) var(--p-ease),
+              box-shadow var(--p-med) var(--p-ease);
+}
+.pw-msgrow::before {
+  content: ""; position: absolute; left: var(--s-6); top: 19px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: transparent;
+  transition: background var(--p-med) var(--p-ease),
+              box-shadow var(--p-med) var(--p-ease);
 }
 .pw-msgrow:hover { background: var(--p-surface-2); }
-.pw-msgrow.is-active { background: var(--p-accent-soft); border-left-color: var(--p-accent); }
-.pw-msgrow.is-unread .pw-msgrow-from,
-.pw-msgrow.is-unread .pw-msgrow-subject { font-weight: 700; color: var(--p-ink); }
-.pw-msgrow-top { display: flex; align-items: baseline; gap: .5rem; min-width: 0; }
-.pw-msgrow-from { font-size: .825rem; font-weight: 500; color: var(--p-ink-2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pw-msgrow-time { font-size: .715rem; color: var(--p-muted-2); flex: none; font-variant-numeric: tabular-nums; }
-.pw-msgrow-subject { display: block; font-size: .81rem; color: var(--p-ink-2); margin-top: .1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pw-msgrow-preview { display: block; font-size: .755rem; color: var(--p-muted); margin-top: .12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pw-msgrow-flags { display: flex; gap: .25rem; margin-top: .3rem; }
-
-.pw-reader { padding: 1.05rem 1.25rem 1.4rem; }
-.pw-reader-subject { font-size: 1.06rem; font-weight: 600; letter-spacing: -0.012em; margin-bottom: .55rem; }
-.pw-reader-from { display: flex; align-items: flex-start; gap: .65rem; margin-bottom: .8rem; }
-.pw-reader-from-main { min-width: 0; flex: 1; }
-.pw-reader-from-main b { font-size: .875rem; display: block; }
-.pw-reader-from-main span { font-size: .78rem; color: var(--p-muted); display: block; overflow-wrap: anywhere; }
-.pw-reader-headers {
-  margin: .6rem 0 .9rem; border: 1px solid var(--p-line); border-radius: var(--p-r-sm);
-  background: var(--p-surface-2); font-size: .775rem;
+/* The selected message. A tinted panel with a highlight along its top edge
+ * and an accent rule down the gutter, so selection reads as a raised object
+ * in the column rather than as a coloured stripe.
+ *
+ * Selection and unread are the only two things this row expresses. Neither
+ * is affected by what the message contains. */
+.pw-msgrow.is-active {
+  background: linear-gradient(100deg, var(--p-accent-soft) 0%, var(--p-accent-wash) 68%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8),
+              inset 0 -1px 0 var(--p-accent-line);
 }
-.pw-reader-headers dl { margin: 0; padding: .55rem .7rem; display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: .2rem .6rem; }
-.pw-reader-headers dt { color: var(--p-muted); font-weight: 500; }
-.pw-reader-headers dd { margin: 0; font-family: var(--p-mono); font-size: .74rem; overflow-wrap: anywhere; color: var(--p-ink-2); }
-.pw-reader-body { font-size: .885rem; color: var(--p-ink-2); line-height: 1.62; }
-.pw-reader-body p { margin: 0 0 .85em; white-space: pre-line; }
-.pw-reader-quote { border-left: 2px solid var(--p-line-strong); padding-left: .8rem; color: var(--p-muted); font-size: .84rem; }
+.pw-msgrow.is-active::after {
+  content: ""; position: absolute; left: 0; top: 0; bottom: -1px;
+  width: 3px; background: var(--g-accent);
+  box-shadow: 0 0 12px -1px rgba(10, 108, 123, .5);
+}
+.pw-msgrow.is-active .pw-msgrow-from,
+.pw-msgrow.is-active .pw-msgrow-subject { color: var(--p-ink); }
+
+/* Unread. A filled marker in the gutter plus a real weight and colour step
+ * on the two lines that identify the message -- read mail drops to the
+ * secondary ink, so the two states are separable at a glance without a fill
+ * that would turn a full inbox into a wall of colour. */
+.pw-msgrow.is-unread::before {
+  background: var(--p-accent);
+  box-shadow: 0 0 0 3px rgba(10, 108, 123, .12),
+              0 0 8px rgba(10, 108, 123, .35);
+}
+.pw-msgrow.is-unread .pw-msgrow-from { font-weight: 700; color: var(--p-ink); }
+.pw-msgrow.is-unread .pw-msgrow-subject { font-weight: 600; color: var(--p-ink); }
+.pw-msgrow.is-unread .pw-msgrow-preview { color: var(--p-ink-2); }
+.pw-msgrow-top { display: flex; align-items: baseline; gap: var(--s-4); min-width: 0; }
+.pw-msgrow-from {
+  font-size: var(--t-sm); font-weight: 500; color: var(--p-ink-2);
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pw-msgrow-time {
+  font-size: var(--t-2xs); color: var(--p-muted-2); flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.pw-msgrow-subject {
+  display: block; font-size: var(--t-sm); color: var(--p-ink-2);
+  margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pw-msgrow-preview {
+  display: block; font-size: var(--t-xs); color: var(--p-muted);
+  margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pw-msgrow-flags { display: flex; gap: var(--s-2); margin-top: var(--s-3); }
+
+/* -- mail: the reader -------------------------------------------------------------- */
+
+.pw-reader { padding: var(--s-8) var(--s-9) var(--s-10); }
+.pw-reader-subject {
+  font-family: var(--p-font-display);
+  font-size: var(--t-2xl); font-weight: 650; letter-spacing: -0.024em;
+  line-height: 1.26; margin-bottom: var(--s-6); color: var(--p-ink);
+}
+/* The sender block sits on a recessed surface of its own. It is the part of
+ * a message a learner is most often asked to look at carefully, so it is
+ * given a frame and room -- identically for every message, whoever it is
+ * from and whatever it turns out to be. */
+.pw-reader-from {
+  display: flex; align-items: flex-start; gap: var(--s-5);
+  padding: var(--s-5) var(--s-6); margin-bottom: var(--s-6);
+  border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
+  background: linear-gradient(180deg, var(--p-surface-2) 0%, var(--p-surface-3) 100%);
+  box-shadow: var(--p-edge);
+}
+.pw-reader-from-main { min-width: 0; flex: 1; }
+.pw-reader-from-main b { font-size: var(--t-md); font-weight: 650; display: block; line-height: 1.35; color: var(--p-ink); }
+.pw-reader-from-main span {
+  font-size: var(--t-xs); color: var(--p-muted); display: block;
+  overflow-wrap: anywhere; line-height: 1.45;
+}
+
+/* Header inspection. Monospaced, because the whole point is that a learner
+ * can compare two strings character by character. */
+.pw-reader-headers {
+  margin: 0 0 var(--s-6);
+  border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
+  background: var(--p-surface-3); font-size: var(--t-xs);
+  box-shadow: inset 0 1px 3px rgba(6, 18, 26, .06);
+  overflow: hidden;
+  animation: pw-view-in var(--p-med) var(--p-ease-soft);
+}
+.pw-reader-headers dl {
+  margin: 0; padding: var(--s-4) var(--s-5);
+  display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--s-3) var(--s-5);
+}
+.pw-reader-headers dt {
+  color: var(--p-muted); font-weight: 500;
+  font-size: var(--t-2xs); text-transform: uppercase; letter-spacing: .06em;
+  padding-top: 1px;
+}
+.pw-reader-headers dd {
+  margin: 0; font-family: var(--p-mono); font-size: var(--t-xs);
+  letter-spacing: -0.01em; overflow-wrap: anywhere; color: var(--p-ink-2);
+}
+.pw-reader-body { font-size: var(--t-md); color: var(--p-ink-2); line-height: 1.65; max-width: 68ch; }
+.pw-reader-body p { margin: 0 0 .9em; white-space: pre-line; }
+.pw-reader-quote {
+  border-left: 2px solid var(--p-line); padding-left: var(--s-5);
+  color: var(--p-muted); font-size: var(--t-sm);
+}
 
 .pw-attach {
-  display: flex; align-items: center; gap: .6rem;
-  border: 1px solid var(--p-line); border-radius: var(--p-r-sm);
-  padding: .5rem .65rem; background: var(--p-surface-2);
-  margin-top: .5rem;
+  display: flex; align-items: center; gap: var(--s-5);
+  border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
+  padding: var(--s-5) var(--s-6);
+  background: linear-gradient(180deg, var(--p-surface) 0%, var(--p-surface-2) 100%);
+  margin-top: var(--s-4);
+  box-shadow: var(--p-edge);
+  transition: border-color var(--p-med) var(--p-ease),
+              box-shadow var(--p-med) var(--p-ease),
+              transform var(--p-med) var(--p-ease);
 }
-.pw-attach svg { width: 20px; height: 20px; color: var(--p-muted); flex: none; }
+.pw-attach:hover {
+  border-color: var(--p-line-strong);
+  box-shadow: var(--p-edge), var(--p-shadow-2);
+  transform: translateY(-1px);
+}
+/* An attachment tile is drawn identically whatever the file turns out to
+ * be. The icon is neutral, the frame is neutral, and nothing here reacts to
+ * the extension. */
+.pw-attach svg {
+  width: 30px; height: 30px; flex: none;
+  padding: 6px; border-radius: var(--p-r-sm);
+  background: var(--p-surface-3); color: var(--p-muted);
+  box-shadow: inset 0 0 0 1px var(--p-line);
+}
 .pw-attach-main { flex: 1; min-width: 0; }
-.pw-attach-main b { font-size: .82rem; display: block; overflow-wrap: anywhere; }
-.pw-attach-main span { font-size: .73rem; color: var(--p-muted); }
-.pw-attach-actions { display: flex; gap: .3rem; flex: none; flex-wrap: wrap; }
+.pw-attach-main b { font-size: var(--t-sm); display: block; overflow-wrap: anywhere; }
+.pw-attach-main span { font-size: var(--t-xs); color: var(--p-muted); }
+.pw-attach-actions { display: flex; gap: var(--s-2); flex: none; flex-wrap: wrap; }
 
 .pw-maillink {
-  display: inline-flex; align-items: center; gap: .3rem;
+  display: inline-flex; align-items: center; gap: var(--s-2);
   color: var(--p-accent); text-decoration: underline; cursor: pointer;
   background: none; border: 0; font: inherit; font-size: inherit; padding: 0;
+  text-underline-offset: 2px;
 }
 .pw-maillink:hover { color: var(--p-accent-hover); }
 .pw-linkinfo {
-  margin-top: .45rem; font-family: var(--p-mono); font-size: .745rem;
+  margin-top: var(--s-3); font-family: var(--p-mono); font-size: var(--t-xs);
+  letter-spacing: -0.01em;
   background: var(--p-surface-3); border: 1px solid var(--p-line);
-  border-radius: var(--p-r-sm); padding: .4rem .55rem; color: var(--p-ink-2);
+  border-radius: var(--p-r-sm); padding: var(--s-3) var(--s-4); color: var(--p-ink-2);
+  box-shadow: inset 0 1px 3px rgba(6, 18, 26, .07);
   overflow-wrap: anywhere;
+  animation: pw-view-in var(--p-med) var(--p-ease-soft);
 }
 
 .pw-mailbanner {
-  display: flex; align-items: flex-start; gap: .5rem;
-  margin: 0 0 .1rem; padding: .5rem .75rem;
+  display: flex; align-items: flex-start; gap: var(--s-4);
+  margin: 0; padding: var(--s-4) var(--s-5);
   background: var(--p-caution-soft); border-bottom: 1px solid var(--p-caution-line);
-  color: var(--p-caution); font-size: .79rem;
+  color: var(--p-caution); font-size: var(--t-xs); line-height: 1.5;
 }
 .pw-mailbanner svg { width: 15px; height: 15px; flex: none; margin-top: 1px; }
 
 /* -- compose / reply ----------------------------------------------------------- */
 
-.pw-compose { padding: .8rem .9rem; border-top: 1px solid var(--p-line); background: var(--p-surface-2); }
-.pw-compose h4 { font-size: .78rem; color: var(--p-muted); margin-bottom: .4rem; }
-.pw-compose textarea {
-  width: 100%; min-height: 4.5rem; font: inherit; font-size: .84rem;
-  border: 1px solid var(--p-line-strong); border-radius: var(--p-r-sm);
-  padding: .45rem .6rem; resize: vertical; background: var(--p-surface);
+.pw-compose { padding: var(--s-5) var(--s-6); border-top: 1px solid var(--p-line); background: var(--p-surface-2); }
+.pw-compose h4 {
+  font-size: var(--t-2xs); color: var(--p-muted-2); margin-bottom: var(--s-3);
+  text-transform: uppercase; letter-spacing: .08em; font-weight: 700;
 }
-.pw-compose textarea:focus-visible { border-color: var(--p-accent); box-shadow: var(--p-focus-tight); }
-.pw-compose-actions { display: flex; gap: .4rem; margin-top: .5rem; flex-wrap: wrap; }
+.pw-compose textarea {
+  width: 100%; min-height: 4.5rem; font: inherit; font-size: var(--t-sm);
+  border: 1px solid var(--p-line-strong); border-radius: var(--p-r-sm);
+  padding: var(--s-4) var(--s-4); resize: vertical; background: var(--p-surface);
+  line-height: 1.55;
+  box-shadow: inset 0 1px 1px rgba(20, 23, 28, .025);
+}
+.pw-compose textarea:focus-visible {
+  outline: none;
+  border-color: var(--p-accent); box-shadow: var(--p-focus-tight);
+}
+.pw-compose-actions { display: flex; gap: var(--s-3); margin-top: var(--s-4); flex-wrap: wrap; }
 
-/* -- browser -------------------------------------------------------------------- */
+/* -- browser --------------------------------------------------------------------
+ * Enough chrome to make the address bar meaningful, and no more. The tab
+ * strip is recessed so the active tab reads as coming forward out of it. */
 
 .pw-browser { flex-direction: column; }
 .pw-tabstrip {
   display: flex; align-items: flex-end; gap: 2px; flex: none;
-  padding: .35rem .4rem 0; background: var(--p-surface-3);
+  padding: var(--s-3) var(--s-3) 0;
+  background: linear-gradient(180deg, var(--p-canvas-deep) 0%, var(--p-surface-4) 100%);
   border-bottom: 1px solid var(--p-line);
+  box-shadow: inset 0 2px 5px -3px rgba(6, 18, 26, .35);
   overflow-x: auto;
 }
 .pw-tab {
-  display: flex; align-items: center; gap: .4rem;
-  max-width: 200px; padding: .34rem .5rem;
-  border: 1px solid var(--p-line); border-bottom: 0;
+  display: flex; align-items: center; gap: var(--s-3);
+  max-width: 210px; padding: var(--s-3) var(--s-4);
+  border: 1px solid transparent; border-bottom: 0;
   border-radius: var(--p-r-sm) var(--p-r-sm) 0 0;
-  background: var(--p-surface-2); color: var(--p-muted);
-  font: inherit; font-size: .78rem; cursor: pointer; white-space: nowrap;
+  background: transparent; color: var(--p-muted);
+  font: inherit; font-size: var(--t-xs); cursor: pointer; white-space: nowrap;
+  transition: background var(--p-fast) var(--p-ease), color var(--p-fast) var(--p-ease);
 }
-.pw-tab.is-active { background: var(--p-surface); color: var(--p-ink); font-weight: 500; }
+.pw-tab:hover { background: rgba(255, 255, 255, .55); color: var(--p-ink-2); }
+.pw-tab.is-active {
+  background: var(--p-surface); color: var(--p-ink); font-weight: 600;
+  border-color: var(--p-line);
+  box-shadow: var(--p-edge), 0 -2px 6px -2px rgba(6, 18, 26, .16);
+}
 .pw-tab span { overflow: hidden; text-overflow: ellipsis; }
-.pw-tab-close { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 1px; line-height: 1; opacity: .6; }
-.pw-tab-close:hover { opacity: 1; }
+.pw-tab-close {
+  border: 0; background: none; color: inherit; cursor: pointer;
+  padding: 0; line-height: 1; opacity: .55; border-radius: var(--p-r-xs);
+  width: 16px; height: 16px; display: inline-flex;
+  align-items: center; justify-content: center; flex: none;
+}
+.pw-tab-close:hover { opacity: 1; background: var(--p-surface-4); }
 
 .pw-urlbar {
-  display: flex; align-items: center; gap: .4rem; flex: none;
-  padding: .4rem .5rem; border-bottom: 1px solid var(--p-line);
-  background: var(--p-surface);
+  display: flex; align-items: center; gap: var(--s-3); flex: none;
+  padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--p-line);
+  background: var(--g-titlebar);
 }
 .pw-urlfield {
-  flex: 1; display: flex; align-items: center; gap: .45rem; min-width: 0;
-  border: 1px solid var(--p-line-strong); border-radius: 14px;
-  background: var(--p-surface-2); padding: .18rem .6rem;
+  flex: 1; display: flex; align-items: center; gap: var(--s-3); min-width: 0;
+  border: 1px solid var(--p-line); border-radius: var(--p-r-sm);
+  background: var(--p-surface-3); padding: var(--s-1) var(--s-4);
+  box-shadow: inset 0 1px 2px rgba(6, 18, 26, .06);
+  min-height: 28px;
+  transition: background var(--p-fast) var(--p-ease),
+              border-color var(--p-fast) var(--p-ease),
+              box-shadow var(--p-fast) var(--p-ease);
 }
-.pw-urlfield:focus-within { border-color: var(--p-accent); box-shadow: var(--p-focus-tight); background: var(--p-surface); }
+.pw-urlfield:hover { border-color: var(--p-line-strong); }
+.pw-urlfield:focus-within {
+  border-color: var(--p-accent); box-shadow: var(--p-focus-tight);
+  background: var(--p-surface);
+}
+/* The lock is a statement about the connection, not about the destination:
+ * an internal host is marked, an unrecognised one simply is not. Nothing
+ * here is allowed to editorialise about whether a site is hostile. */
 .pw-urlfield svg { width: 13px; height: 13px; flex: none; color: var(--p-muted-2); }
-.pw-urlfield svg.is-internal { color: var(--p-good); }
+/* Teal, not green. In this product teal means "the workstation recognises
+ * this host", which is a statement about the network -- green would read as
+ * "this page is safe", which the workstation cannot know and must never
+ * imply. */
+.pw-urlfield svg.is-internal { color: var(--p-teal); }
 .pw-urlfield input {
   flex: 1; min-width: 0; border: 0; background: none; font: inherit;
-  font-size: .8rem; font-family: var(--p-mono); color: var(--p-ink-2); padding: .18rem 0;
+  font-size: var(--t-xs); font-family: var(--p-mono); letter-spacing: -0.01em;
+  color: var(--p-ink-2); padding: var(--s-2) 0;
 }
 .pw-urlfield input:focus { outline: none; }
 
-.pw-bookmarks { display: flex; gap: .25rem; flex: none; padding: .25rem .5rem; border-bottom: 1px solid var(--p-line); background: var(--p-surface-2); overflow-x: auto; }
+.pw-bookmarks {
+  display: flex; gap: var(--s-1); flex: none;
+  padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--p-line);
+  background: var(--p-surface-2); overflow-x: auto;
+}
 .pw-bookmark {
-  font: inherit; font-size: .755rem; color: var(--p-muted);
-  background: none; border: 1px solid transparent; border-radius: var(--p-r-xs);
-  padding: .18rem .42rem; cursor: pointer; white-space: nowrap;
+  font: inherit; font-size: var(--t-xs); color: var(--p-muted);
+  background: none; border: 0; border-radius: var(--p-r-xs);
+  padding: var(--s-2) var(--s-3); cursor: pointer; white-space: nowrap;
+  transition: background var(--p-fast) var(--p-ease), color var(--p-fast) var(--p-ease);
 }
 .pw-bookmark:hover { background: var(--p-surface-3); color: var(--p-ink); }
 
-.pw-viewport { flex: 1; overflow-y: auto; background: #fff; min-height: 0; }
+.pw-viewport { flex: 1; overflow-y: auto; background: var(--p-surface); min-height: 0; }
 
-.pw-site { padding: 1.6rem 1.9rem 2.4rem; max-width: 46rem; }
-.pw-site-head { border-bottom: 1px solid var(--p-line); padding-bottom: .9rem; margin-bottom: 1.2rem; }
-.pw-site-head h1 { font-size: 1.3rem; }
-.pw-site-head p { color: var(--p-muted); font-size: .875rem; margin: .25rem 0 0; }
-.pw-site-section { margin-bottom: 1.35rem; }
-.pw-site-section h2 { font-size: .8rem; letter-spacing: .07em; text-transform: uppercase; color: var(--p-muted-2); margin-bottom: .45rem; }
-.pw-site-section ul { margin: 0; padding-left: 1.05rem; }
-.pw-site-section li { font-size: .875rem; color: var(--p-ink-2); margin-bottom: .3rem; }
+/* Fictional intranet and vendor pages. Plain document typography — these are
+ * meant to look like ordinary corporate web pages, and every one of them is
+ * drawn with exactly the same rules. */
+.pw-site { padding: var(--s-9) var(--s-10) var(--s-11); max-width: 48rem; }
+.pw-site-head { border-bottom: 1px solid var(--p-line); padding-bottom: var(--s-6); margin-bottom: var(--s-8); }
+.pw-site-head h1 { font-size: var(--t-2xl); }
+.pw-site-head p { color: var(--p-muted); font-size: var(--t-md); margin: var(--s-3) 0 0; }
+.pw-site-section { margin-bottom: var(--s-8); }
+.pw-site-section h2 {
+  font-size: var(--t-2xs); letter-spacing: .09em; text-transform: uppercase;
+  color: var(--p-muted-2); margin-bottom: var(--s-4); font-weight: 700;
+}
+.pw-site-section ul { margin: 0; padding-left: var(--s-6); }
+.pw-site-section li { font-size: var(--t-md); color: var(--p-ink-2); margin-bottom: var(--s-3); }
 
 .pw-signin {
-  max-width: 22rem; margin: 2.6rem auto; padding: 1.6rem 1.7rem 1.7rem;
+  max-width: 23rem; margin: var(--s-11) auto; padding: var(--s-8) var(--s-8) var(--s-9);
   border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
-  background: var(--p-surface); box-shadow: var(--p-shadow-1);
+  background: var(--p-surface); box-shadow: var(--p-edge), var(--p-shadow-1);
 }
-.pw-signin h1 { font-size: 1.14rem; }
-.pw-signin p.pw-signin-sub { color: var(--p-muted); font-size: .84rem; margin: .3rem 0 1.15rem; }
-.pw-signin-note { font-size: .765rem; color: var(--p-muted-2); margin-top: .9rem; }
+.pw-signin h1 { font-size: var(--t-xl); }
+.pw-signin p.pw-signin-sub { color: var(--p-muted); font-size: var(--t-sm); margin: var(--s-3) 0 var(--s-7); }
+.pw-signin-note { font-size: var(--t-xs); color: var(--p-muted-2); margin-top: var(--s-6); line-height: 1.5; }
 
-.pw-blocked { padding: 3rem 2rem; max-width: 34rem; margin: 0 auto; text-align: center; color: var(--p-muted); }
-.pw-blocked h1 { font-size: 1.05rem; color: var(--p-ink-2); margin-bottom: .4rem; }
-.pw-blocked p { font-size: .865rem; }
+.pw-blocked { padding: var(--s-11) var(--s-9); max-width: 34rem; margin: 0 auto; text-align: center; color: var(--p-muted); }
+.pw-blocked h1 { font-size: var(--t-xl); color: var(--p-ink-2); margin-bottom: var(--s-3); }
+.pw-blocked p { font-size: var(--t-md); line-height: 1.6; }
 
-/* -- files ---------------------------------------------------------------------- */
+/* -- files ------------------------------------------------------------------------
+ * A column list with a real header, so the two metadata columns are labelled
+ * rather than floating. Both share one grid template. */
+
+.pw-filehead, .pw-filerow {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 5.2rem 8rem 4.6rem;
+  align-items: center; gap: var(--s-4);
+  width: 100%; text-align: left;
+  padding: var(--s-3) var(--s-5);
+}
+.pw-filehead {
+  flex: none;
+  border-bottom: 1px solid var(--p-line);
+  background: var(--p-surface-2);
+  font-size: var(--t-2xs); font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--p-muted-2);
+  position: sticky; top: 0; z-index: 1;
+}
+.pw-filehead span:nth-child(3), .pw-filehead span:nth-child(4) { text-align: right; }
 
 .pw-filerow {
-  display: grid; grid-template-columns: 22px minmax(0, 1fr) 6.2rem 8.6rem auto;
-  align-items: center; gap: .65rem;
-  width: 100%; text-align: left;
-  padding: .44rem .75rem;
   border: 0; border-bottom: 1px solid var(--p-line-soft);
   background: transparent; font: inherit; cursor: pointer;
   transition: background var(--p-fast) var(--p-ease);
 }
 .pw-filerow:hover { background: var(--p-surface-2); }
-.pw-filerow.is-active { background: var(--p-accent-soft); }
-.pw-filerow svg { width: 17px; height: 17px; color: var(--p-muted); }
-.pw-filerow-name { font-size: .835rem; color: var(--p-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pw-filerow-meta { font-size: .755rem; color: var(--p-muted-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pw-filerow.is-unavailable .pw-filerow-name { color: var(--p-alert); text-decoration: line-through; text-decoration-color: var(--p-alert-line); }
-.pw-filerow.is-unavailable svg { color: var(--p-alert); }
+.pw-filerow.is-active {
+  background: linear-gradient(90deg, var(--p-accent-soft) 0%, var(--p-accent-wash) 60%);
+  box-shadow: inset 3px 0 0 var(--p-accent);
+}
+.pw-filerow svg { width: 17px; height: 17px; color: var(--p-muted-2); }
+.pw-filerow-name {
+  font-size: var(--t-sm); color: var(--p-ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pw-filerow-meta {
+  font-size: var(--t-xs); color: var(--p-muted-2);
+  font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right;
+}
+.pw-filerow-meta:last-child { text-align: left; }
+/* A file the workstation can no longer open. Muted and struck through, the
+ * way a file manager reports a file it cannot read — not an alarm. */
+.pw-filerow.is-unavailable .pw-filerow-name {
+  color: var(--p-muted);
+  text-decoration: line-through; text-decoration-color: var(--p-line-strong);
+}
+/* A file the workstation cannot open still gets the ordinary neutral icon
+ * treatment -- greyed, not alarmed. The workplace symptom is that the file
+ * will not open, which the struck-through name and the state column already
+ * say. */
+.pw-filerow.is-unavailable svg { color: var(--p-muted-2); opacity: .6; }
 .pw-filerow.is-new .pw-filerow-name { font-weight: 600; color: var(--p-ink); }
 
-.pw-fileinfo { padding: .9rem 1rem; }
-.pw-fileinfo dl { margin: .5rem 0 0; display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: .25rem .7rem; font-size: .8rem; }
+.pw-fileinfo { padding: var(--s-5) var(--s-6); }
+.pw-fileinfo dl {
+  margin: var(--s-4) 0 0;
+  display: grid; grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: var(--s-2) var(--s-5); font-size: var(--t-sm);
+}
 .pw-fileinfo dt { color: var(--p-muted); }
 .pw-fileinfo dd { margin: 0; color: var(--p-ink-2); overflow-wrap: anywhere; }
 .pw-filepreview {
-  margin-top: .8rem; padding: .7rem .8rem; background: var(--p-surface-2);
+  margin-top: var(--s-5); padding: var(--s-5) var(--s-6); background: var(--p-surface-2);
   border: 1px solid var(--p-line); border-radius: var(--p-r-sm);
-  font-size: .8rem; color: var(--p-ink-2); line-height: 1.55;
+  font-size: var(--t-sm); color: var(--p-ink-2); line-height: 1.6;
 }
-.pw-filepreview p { margin: 0 0 .55em; }
+.pw-filepreview p { margin: 0 0 .6em; }
 
 @media (max-width: 720px) {
-  .pw-filerow { grid-template-columns: 22px minmax(0, 1fr) auto; }
-  .pw-filerow-meta.is-optional { display: none; }
+  .pw-filehead, .pw-filerow { grid-template-columns: 20px minmax(0, 1fr) 4.6rem; }
+  .pw-filerow-meta.is-optional, .pw-filehead span.is-optional { display: none; }
 }
 
-/* -- notes ---------------------------------------------------------------------- */
+/* -- notes --------------------------------------------------------------------------
+ * The one learner application with a working clipboard, so it has to be
+ * pleasant to actually write in: a wide measure, a comfortable line height,
+ * and no chrome between the caret and the page. */
 
 .pw-noterow {
-  width: 100%; text-align: left; padding: .55rem .75rem;
+  position: relative;
+  width: 100%; text-align: left; padding: var(--s-4) var(--s-5);
   border: 0; border-bottom: 1px solid var(--p-line-soft);
-  border-left: 3px solid transparent;
   background: transparent; font: inherit; cursor: pointer;
+  transition: background var(--p-fast) var(--p-ease);
 }
 .pw-noterow:hover { background: var(--p-surface-2); }
-.pw-noterow.is-active { background: var(--p-accent-soft); border-left-color: var(--p-accent); }
-.pw-noterow b { font-size: .835rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pw-noterow span { font-size: .73rem; color: var(--p-muted-2); }
+.pw-noterow.is-active {
+  background: linear-gradient(90deg, var(--p-accent-soft) 0%, var(--p-accent-wash) 60%);
+  box-shadow: inset 3px 0 0 var(--p-accent);
+}
+.pw-noterow b {
+  font-size: var(--t-sm); font-weight: 600; display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pw-noterow span { font-size: var(--t-2xs); color: var(--p-muted-2); }
 
 .pw-noteedit { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .pw-noteedit input.pw-notetitle {
   border: 0; border-bottom: 1px solid var(--p-line); background: none;
-  font: inherit; font-size: .98rem; font-weight: 600; padding: .7rem .95rem;
+  font: inherit; font-family: var(--p-font-display);
+  font-size: var(--t-lg); font-weight: 600; letter-spacing: -0.012em;
+  padding: var(--s-5) var(--s-6);
 }
-.pw-noteedit input.pw-notetitle:focus-visible { box-shadow: none; border-bottom-color: var(--p-accent); }
+.pw-noteedit input.pw-notetitle:focus-visible {
+  outline: none; box-shadow: none; border-bottom-color: var(--p-accent);
+}
+/* Notes is the learner's own workspace and the one application where the
+ * clipboard works, so the page it gives them is very slightly warmer than
+ * the rest of the workstation and completely free of chrome. */
 .pw-noteedit textarea {
-  flex: 1; border: 0; background: none; font: inherit; font-size: .87rem;
-  line-height: 1.6; padding: .8rem .95rem; resize: none; min-height: 0;
+  flex: 1; border: 0; background: none; font: inherit; font-size: var(--t-md);
+  line-height: 1.75; padding: var(--s-7) var(--s-8); resize: none; min-height: 0;
+  color: var(--p-ink-2);
 }
-.pw-noteedit textarea:focus-visible { box-shadow: none; }
+.pw-noteedit { background: linear-gradient(180deg, #fffefb 0%, #fdfcf8 100%); }
+.pw-noteedit input.pw-notetitle { background: transparent; }
+.pw-noteedit textarea:focus-visible { outline: none; box-shadow: none; }
 
-/* -- authenticator ---------------------------------------------------------------- */
+/* -- authenticator --------------------------------------------------------------------
+ * Both prompts are drawn by exactly the same rules. Nothing about the card
+ * tells a learner which request is expected: the context in the card is the
+ * evidence, and reading it is the exercise. */
 
 .pw-authprompt {
-  margin: .75rem; padding: 1rem 1.05rem;
-  border: 1px solid var(--p-line-strong); border-radius: var(--p-r);
-  background: var(--p-surface); box-shadow: var(--p-shadow-1);
+  margin: var(--s-5); padding: var(--s-7);
+  border: 1px solid var(--p-line); border-radius: var(--p-r-lg);
+  background: linear-gradient(180deg, var(--p-surface) 0%, var(--p-surface-2) 100%);
+  box-shadow: var(--p-edge), var(--p-shadow-2);
+  animation: pw-view-in var(--p-slow) var(--p-ease-soft);
 }
-.pw-authprompt h3 { font-size: .95rem; margin-bottom: .15rem; }
-.pw-authprompt .pw-authsub { font-size: .8rem; color: var(--p-muted); margin-bottom: .75rem; }
+.pw-authprompt h3 { font-size: var(--t-lg); margin-bottom: var(--s-1); }
+.pw-authprompt .pw-authsub { font-size: var(--t-sm); color: var(--p-muted); margin-bottom: var(--s-5); }
 .pw-authnum {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 46px; height: 46px; border-radius: var(--p-r);
-  background: var(--p-surface-3); border: 1px solid var(--p-line);
-  font-size: 1.28rem; font-weight: 700; font-variant-numeric: tabular-nums;
-  color: var(--p-ink); letter-spacing: .02em;
+  min-width: 58px; height: 58px; border-radius: var(--p-r-lg);
+  background: linear-gradient(180deg, var(--p-surface-4) 0%, var(--p-surface-3) 100%);
+  box-shadow: inset 0 0 0 1px var(--p-line-strong),
+              inset 0 2px 4px rgba(6, 18, 26, .12),
+              inset 0 -1px 0 rgba(255, 255, 255, .9);
+  font-family: var(--p-font-display);
+  font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--p-ink); letter-spacing: .01em;
 }
-.pw-authgrid { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: .3rem .75rem; font-size: .815rem; margin: .8rem 0; }
+.pw-authgrid {
+  display: grid; grid-template-columns: 7rem minmax(0, 1fr);
+  gap: var(--s-3) var(--s-5); font-size: var(--t-sm); margin: var(--s-6) 0;
+}
 .pw-authgrid dt { color: var(--p-muted); }
 .pw-authgrid dd { margin: 0; color: var(--p-ink-2); }
-.pw-authactions { display: flex; gap: .45rem; flex-wrap: wrap; }
+/* Approve and Deny are drawn identically, are the same size, and neither is
+ * emphasised. Colouring one of them would tell the learner which way to
+ * decide before they have read the context above, which is the entire
+ * exercise. */
+.pw-authactions { display: flex; gap: var(--s-4); flex-wrap: wrap; }
+.pw-authactions .pw-btn { min-width: 6.5rem; justify-content: center; }
 
 .pw-authrow {
-  display: flex; align-items: center; gap: .6rem;
-  padding: .48rem .75rem; border-bottom: 1px solid var(--p-line-soft);
-  font-size: .8rem;
+  display: flex; align-items: center; gap: var(--s-4);
+  padding: var(--s-4) var(--s-5); border-bottom: 1px solid var(--p-line-soft);
+  font-size: var(--t-sm);
 }
 .pw-authrow-main { flex: 1; min-width: 0; }
-.pw-authrow-main b { font-size: .82rem; font-weight: 500; display: block; }
-.pw-authrow-main span { font-size: .74rem; color: var(--p-muted); display: block; }
-.pw-authrow-when { font-size: .73rem; color: var(--p-muted-2); white-space: nowrap; }
+.pw-authrow-main b { font-size: var(--t-sm); font-weight: 500; display: block; }
+.pw-authrow-main span { font-size: var(--t-xs); color: var(--p-muted); display: block; }
+.pw-authrow-when {
+  font-size: var(--t-xs); color: var(--p-muted-2); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 
-/* -- messages ---------------------------------------------------------------------- */
+/* -- messages -------------------------------------------------------------------------
+ * A workplace chat client. Squared-off on the sender's side so it does not
+ * read as a consumer messaging app, and quiet enough to sit next to Mail. */
 
 .pw-convrow {
-  width: 100%; display: flex; align-items: center; gap: .6rem;
-  padding: .55rem .75rem; text-align: left;
+  position: relative;
+  width: 100%; display: flex; align-items: center; gap: var(--s-4);
+  padding: var(--s-4) var(--s-5); text-align: left;
   border: 0; border-bottom: 1px solid var(--p-line-soft);
-  border-left: 3px solid transparent;
   background: transparent; font: inherit; cursor: pointer;
+  transition: background var(--p-fast) var(--p-ease);
 }
 .pw-convrow:hover { background: var(--p-surface-2); }
-.pw-convrow.is-active { background: var(--p-accent-soft); border-left-color: var(--p-accent); }
+.pw-convrow.is-active {
+  background: linear-gradient(90deg, var(--p-accent-soft) 0%, var(--p-accent-wash) 60%);
+  box-shadow: inset 3px 0 0 var(--p-accent);
+}
 .pw-convrow-main { flex: 1; min-width: 0; }
-.pw-convrow-main b { font-size: .835rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pw-convrow-main span { font-size: .755rem; color: var(--p-muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pw-convrow.is-unread b { font-weight: 700; }
+.pw-convrow-main b {
+  font-size: var(--t-sm); display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pw-convrow-main span {
+  font-size: var(--t-xs); color: var(--p-muted); display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pw-convrow.is-unread b { font-weight: 700; color: var(--p-ink); }
 
-.pw-thread { padding: .9rem 1rem; display: flex; flex-direction: column; gap: .6rem; }
-.pw-bubble { max-width: 78%; padding: .5rem .7rem; border-radius: var(--p-r); font-size: .85rem; line-height: 1.5; }
-.pw-bubble.is-them { align-self: flex-start; background: var(--p-surface-3); border: 1px solid var(--p-line); color: var(--p-ink-2); }
-.pw-bubble.is-me { align-self: flex-end; background: var(--p-accent-soft); border: 1px solid var(--p-accent-line); color: var(--p-ink-2); }
-.pw-bubble-meta { display: block; font-size: .7rem; color: var(--p-muted-2); margin-top: .22rem; }
+.pw-thread { padding: var(--s-6) var(--s-6); display: flex; flex-direction: column; gap: var(--s-5); }
+.pw-bubble {
+  max-width: 74%; padding: var(--s-4) var(--s-5);
+  border-radius: var(--p-r); font-size: var(--t-sm); line-height: 1.55;
+}
+.pw-bubble { animation: pw-view-in var(--p-slow) var(--p-ease-soft) both; }
+.pw-bubble.is-them {
+  align-self: flex-start; border-bottom-left-radius: var(--p-r-xs);
+  background: linear-gradient(180deg, var(--p-surface) 0%, var(--p-surface-2) 100%);
+  border: 1px solid var(--p-line); color: var(--p-ink-2);
+  box-shadow: var(--p-edge), var(--p-shadow-1);
+}
+.pw-bubble.is-me {
+  align-self: flex-end; border-bottom-right-radius: var(--p-r-xs);
+  background: linear-gradient(180deg, var(--p-accent-soft) 0%, #d8f2f2 100%);
+  border: 1px solid var(--p-accent-line); color: var(--p-ink-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), var(--p-shadow-1);
+}
+/* The thread is a conversation, so it arrives as one: a short cascade down
+ * the messages rather than every bubble at once. Capped, because a stagger
+ * that runs past about ten items stops reading as polish. */
+.pw-thread > :nth-child(1) { animation-delay: 0ms; }
+.pw-thread > :nth-child(2) { animation-delay: 35ms; }
+.pw-thread > :nth-child(3) { animation-delay: 70ms; }
+.pw-thread > :nth-child(4) { animation-delay: 105ms; }
+.pw-thread > :nth-child(5) { animation-delay: 140ms; }
+.pw-thread > :nth-child(n+6) { animation-delay: 170ms; }
+.pw-bubble-meta {
+  display: block; font-size: var(--t-2xs); color: var(--p-muted-2);
+  margin-top: var(--s-2); font-variant-numeric: tabular-nums;
+}
 
-/* -- directory ----------------------------------------------------------------------- */
+/* -- directory -------------------------------------------------------------------------- */
 
 .pw-dirrow {
-  width: 100%; display: flex; align-items: center; gap: .6rem;
-  padding: .5rem .75rem; text-align: left;
+  position: relative;
+  width: 100%; display: flex; align-items: center; gap: var(--s-4);
+  padding: var(--s-4) var(--s-5); text-align: left;
   border: 0; border-bottom: 1px solid var(--p-line-soft);
-  border-left: 3px solid transparent;
   background: transparent; font: inherit; cursor: pointer;
+  transition: background var(--p-fast) var(--p-ease);
 }
 .pw-dirrow:hover { background: var(--p-surface-2); }
-.pw-dirrow.is-active { background: var(--p-accent-soft); border-left-color: var(--p-accent); }
+.pw-dirrow.is-active {
+  background: linear-gradient(90deg, var(--p-accent-soft) 0%, var(--p-accent-wash) 60%);
+  box-shadow: inset 3px 0 0 var(--p-accent);
+}
 .pw-dirrow-main { flex: 1; min-width: 0; }
-.pw-dirrow-main b { font-size: .835rem; display: block; }
-.pw-dirrow-main span { font-size: .745rem; color: var(--p-muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pw-dirrow-main b { font-size: var(--t-sm); display: block; }
+.pw-dirrow-main span {
+  font-size: var(--t-xs); color: var(--p-muted); display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
-.pw-contact { padding: 1.1rem 1.15rem; }
-.pw-contact-head { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
-.pw-contact-head h3 { font-size: 1.02rem; }
-.pw-contact-head p { font-size: .82rem; color: var(--p-muted); margin: 0; }
-.pw-contact dl { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: .32rem .8rem; font-size: .835rem; }
+.pw-contact { padding: var(--s-7) var(--s-7); }
+/* A people directory: the identity block gets real presence at the top of
+ * the record, then the detail list underneath reads as reference. */
+.pw-contact-head {
+  display: flex; align-items: center; gap: var(--s-6); margin-bottom: var(--s-7);
+  padding-bottom: var(--s-6); border-bottom: 1px solid var(--p-line-soft);
+}
+.pw-contact-head .pw-avatar {
+  width: 52px; height: 52px; border-radius: var(--p-r-lg);
+  font-size: var(--t-lg);
+  background: linear-gradient(180deg, var(--p-accent-soft) 0%, #cdeeee 100%);
+  box-shadow: var(--p-edge);
+}
+.pw-contact-head h3 { font-size: var(--t-xl); }
+.pw-contact-head p { font-size: var(--t-sm); color: var(--p-muted); margin: 0; }
+.pw-contact dl {
+  display: grid; grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: var(--s-3) var(--s-5); font-size: var(--t-sm);
+}
 .pw-contact dt { color: var(--p-muted); }
 .pw-contact dd { margin: 0; color: var(--p-ink-2); overflow-wrap: anywhere; }
 
-/* -- notification panel ---------------------------------------------------------------- */
+/* -- notification centre -----------------------------------------------------------------
+ * Part of the workstation, not of any application, so it is chrome: a deep
+ * panel sliding in over the desk. Unread is an accent rule in the gutter
+ * plus a faint lift, never a saturated block -- a centre full of unread
+ * notifications must still be readable.
+ *
+ * The icon tint says what kind of system event this is (a security notice, a
+ * file event, an authentication request). It says nothing about whether the
+ * learner should have caused it. */
 
 .pw-notifpanel {
-  position: absolute; top: 0; right: 0; bottom: 0; width: min(360px, 100%);
+  position: absolute; top: var(--s-4); right: var(--s-4); bottom: var(--s-4);
+  width: min(390px, calc(100% - 16px));
   z-index: var(--z-panel);
-  background: var(--p-surface);
-  border-left: 1px solid var(--p-line);
-  box-shadow: var(--p-shadow-3);
+  /* A glass slab floating over the desk rather than a drawer welded to the
+   * right edge. It is inset on all four sides and fully rounded, so the work
+   * area is visibly still there behind it. */
+  border-radius: var(--p-r-xl);
+  background: var(--glass-fill);
+  border: var(--glass-line);
+  box-shadow: var(--glass-edge), var(--glass-rim), var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--d-ink-2);
   display: flex; flex-direction: column;
-  animation: pw-slide-in var(--p-med) var(--p-ease);
+  overflow: hidden;
+  animation: pw-glass-in var(--p-slow) var(--p-ease-soft);
 }
 .pw-notifpanel[hidden] { display: none !important; }
+.pw-notifpanel .pw-pane-head {
+  background: rgba(140, 214, 226, .06);
+  border-bottom-color: var(--d-line);
+  box-shadow: var(--d-edge);
+  padding: var(--s-5) var(--s-5) var(--s-5) var(--s-7);
+}
+.pw-notifpanel .pw-pane-head h3 { color: var(--p-accent-lift); }
+
+/* The window controls are drawn for a light title bar. The notification
+ * centre is chrome, so the ones inside it are restated on the dark ramp --
+ * otherwise the close control is a dark glyph on a dark pane, which is what
+ * an empty ring in the corner of the panel actually was. */
+.pw-notifpanel .pw-winctl {
+  color: var(--d-muted);
+  background: rgba(140, 214, 226, .07);
+  border: 1px solid rgba(140, 214, 226, .12);
+}
+.pw-notifpanel .pw-winctl:hover {
+  background: rgba(140, 214, 226, .2); color: var(--d-ink);
+  border-color: rgba(140, 214, 226, .3);
+}
+.pw-notifpanel .pw-winctl:active { background: rgba(2, 8, 12, .5); }
+.pw-notifpanel .pw-btn.is-quiet { color: var(--d-muted); }
+.pw-notifpanel .pw-btn.is-quiet:hover {
+  background: rgba(140, 214, 226, .14); color: var(--d-ink);
+}
+.pw-notifpanel .pw-empty { color: var(--d-muted); }
+.pw-notifpanel .pw-empty h3 { color: var(--d-ink-2); }
 
 .pw-notif {
-  display: flex; gap: .6rem; align-items: flex-start;
-  padding: .65rem .8rem;
-  border-bottom: 1px solid var(--p-line-soft);
+  position: relative;
+  display: flex; gap: var(--s-5); align-items: flex-start;
+  padding: var(--s-5) var(--s-6);
+  border-bottom: 1px solid var(--d-line);
   background: transparent;
   transition: background var(--p-fast) var(--p-ease);
+  animation: pw-reveal var(--p-slow) var(--p-ease-soft) both;
 }
-.pw-notif:hover { background: var(--p-surface-2); }
-.pw-notif.is-unread { background: var(--p-accent-soft); }
-.pw-notif.is-unread:hover { background: #e3ebf3; }
+.pw-notif:nth-child(1) { animation-delay: 0ms; }
+.pw-notif:nth-child(2) { animation-delay: 30ms; }
+.pw-notif:nth-child(3) { animation-delay: 60ms; }
+.pw-notif:nth-child(n+4) { animation-delay: 90ms; }
+.pw-notif:hover { background: rgba(140, 214, 226, .06); }
+.pw-notif.is-unread {
+  background: linear-gradient(90deg, rgba(63, 220, 216, .15) 0%,
+                              rgba(63, 220, 216, .03) 70%);
+  box-shadow: inset 3px 0 0 var(--p-accent-lift),
+              inset 12px 0 22px -14px rgba(63, 220, 216, .8);
+}
+.pw-notif.is-unread:hover { background: rgba(63, 220, 216, .18); }
 .pw-notif-icon {
-  width: 26px; height: 26px; flex: none; border-radius: var(--p-r-xs);
+  width: 34px; height: 34px; flex: none; border-radius: var(--p-r);
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--p-surface-3); color: var(--p-muted); border: 1px solid var(--p-line);
+  background: rgba(140, 214, 226, .1); color: var(--d-ink-2);
+  border: 1px solid var(--d-line-2);
+  box-shadow: var(--d-edge);
 }
-.pw-notif-icon svg { width: 14px; height: 14px; }
-.pw-notif-icon.is-security { background: var(--p-alert-soft); color: var(--p-alert); border-color: var(--p-alert-line); }
-.pw-notif-icon.is-file { background: var(--p-caution-soft); color: var(--p-caution); border-color: var(--p-caution-line); }
-.pw-notif-icon.is-auth { background: var(--p-accent-soft); color: var(--p-accent); border-color: var(--p-accent-line); }
+.pw-notif-icon svg { width: 15px; height: 15px; }
+.pw-notif-icon.is-security { background: rgba(226, 106, 96, .16); color: #eda49c; border-color: rgba(226, 106, 96, .3); }
+.pw-notif-icon.is-file { background: rgba(226, 170, 62, .15); color: #edc275; border-color: rgba(226, 170, 62, .3); }
+.pw-notif-icon.is-auth { background: rgba(63, 220, 216, .18); color: #b9f2ef; border-color: rgba(63, 220, 216, .34); }
 .pw-notif-main { flex: 1; min-width: 0; }
-.pw-notif-main b { font-size: .82rem; font-weight: 600; display: block; }
-.pw-notif-main p { font-size: .785rem; color: var(--p-muted); margin: .1rem 0 0; }
-.pw-notif-when { font-size: .705rem; color: var(--p-muted-2); margin-top: .25rem; display: block; font-variant-numeric: tabular-nums; }
-.pw-notif-actions { display: flex; gap: .3rem; margin-top: .4rem; }
+.pw-notif-main b { font-size: var(--t-sm); font-weight: 600; display: block; line-height: 1.4; color: var(--d-ink); }
+.pw-notif-main p { font-size: var(--t-xs); color: var(--d-muted); margin: var(--s-1) 0 0; line-height: 1.55; }
+.pw-notif-when {
+  font-size: var(--t-2xs); color: var(--d-muted-2); margin-top: var(--s-3);
+  display: block; font-variant-numeric: tabular-nums;
+}
+.pw-notif-actions { display: flex; gap: var(--s-2); margin-top: var(--s-4); }
+.pw-notifpanel .pw-notif-actions .pw-btn {
+  background: rgba(140, 214, 226, .1); border-color: var(--d-line-2);
+  color: var(--d-ink-2); box-shadow: var(--d-edge);
+}
+.pw-notifpanel .pw-notif-actions .pw-btn:hover {
+  background: rgba(140, 214, 226, .18); border-color: rgba(140, 214, 226, .36);
+  color: var(--d-ink);
+}
 
-/* -- toasts ------------------------------------------------------------------------------ */
+/* -- toasts -------------------------------------------------------------------------------- */
 
 .pw-toasts {
-  position: absolute; right: 14px; bottom: 14px; z-index: var(--z-panel);
-  display: flex; flex-direction: column; gap: .5rem; width: min(320px, calc(100% - 28px));
+  position: absolute; right: var(--s-6); bottom: var(--s-6); z-index: var(--z-panel);
+  display: flex; flex-direction: column; gap: var(--s-4);
+  width: min(330px, calc(100% - 28px));
   pointer-events: none;
 }
+/* A toast is the workstation speaking, so it is chrome too. On the deep desk
+ * a white card would be the brightest thing on screen for something that is
+ * only ever an aside; a lit dark slab reads as a system notice and stays out
+ * of the way of the window the learner is actually reading. */
 .pw-toast {
   pointer-events: auto;
-  display: flex; gap: .6rem; align-items: flex-start;
-  background: var(--p-surface); border: 1px solid var(--p-line-strong);
-  border-radius: var(--p-r); box-shadow: var(--p-shadow-3);
-  padding: .6rem .7rem;
-  animation: pw-slide-in var(--p-med) var(--p-ease);
+  display: flex; gap: var(--s-5); align-items: flex-start;
+  background: var(--glass-fill);
+  border: var(--glass-line);
+  border-radius: var(--p-r-lg);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--d-ink-2);
+  padding: var(--s-5) var(--s-6);
+  animation: pw-toast-in var(--p-slow) var(--p-ease-soft);
 }
-.pw-toast b { font-size: .81rem; display: block; }
-.pw-toast p { font-size: .775rem; color: var(--p-muted); margin: .1rem 0 0; }
+.pw-toast.is-leaving { animation: pw-toast-out var(--p-med) var(--p-ease-exit) forwards; }
+.pw-toast b { font-size: var(--t-sm); display: block; line-height: 1.4; color: var(--d-ink); }
+.pw-toast p { font-size: var(--t-xs); color: var(--d-muted); margin: var(--s-1) 0 0; line-height: 1.5; }
 .pw-toast-main { flex: 1; min-width: 0; }
-.pw-toast-close { background: none; border: 0; color: var(--p-muted-2); cursor: pointer; padding: 0 2px; line-height: 1; }
-.pw-toast-close:hover { color: var(--p-ink); }
+.pw-toast .pw-btn {
+  background: rgba(140, 214, 226, .12); border-color: var(--d-line-2);
+  color: var(--d-ink); box-shadow: var(--d-edge);
+}
+.pw-toast .pw-btn:hover { background: rgba(140, 214, 226, .2); border-color: rgba(140, 214, 226, .36); color: #fff; }
+.pw-toast-close {
+  background: none; border: 0; color: var(--d-muted-2); cursor: pointer;
+  padding: 0; line-height: 1; flex: none;
+  width: 20px; height: 20px; border-radius: var(--p-r-xs);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background var(--p-fast) var(--p-ease), color var(--p-fast) var(--p-ease);
+}
+.pw-toast-close:hover { color: var(--d-ink); background: rgba(140, 214, 226, .16); }
+
+/* The prototype developer tooling is fixed to the same corner as the toast
+ * stack. It is not product, so the product moves out of its way rather than
+ * being drawn over by it: a reviewer must be able to read a notification and
+ * reach the tooling at the same time. Both rules are inert once the tooling
+ * is gone, which is the point. */
+body:has(#pw-dev-toggle:not([hidden])) .pw-toasts { bottom: 56px; }
+body:has(#pw-dev:not([hidden])) .pw-toasts { right: 296px; }
 
 /* -- confirmation strip (Practice-mode explicit confirmation) ----------------------------- */
 
 .pw-confirmstrip {
-  display: flex; align-items: flex-start; gap: .55rem;
-  margin: .75rem; padding: .6rem .75rem;
-  background: var(--p-good-soft); border: 1px solid var(--p-good-line);
-  border-radius: var(--p-r-sm); color: var(--p-good); font-size: .82rem;
+  display: flex; align-items: flex-start; gap: var(--s-4);
+  margin: var(--s-5); padding: var(--s-4) var(--s-5);
+  background: var(--p-surface-2); border: 1px solid var(--p-line);
+  border-left: 3px solid var(--p-muted-2);
+  border-radius: var(--p-r);
+  color: var(--p-ink-2); font-size: var(--t-sm); line-height: 1.5;
 }
-.pw-confirmstrip svg { width: 15px; height: 15px; flex: none; margin-top: 2px; }
+.pw-confirmstrip svg { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--p-muted); }
 
 /* -- responsive --------------------------------------------------------------------------- */
 
 @media (max-width: 1180px) {
-  :root { --p-rail: 62px; }
-  .pw-applink { justify-content: center; padding: .5rem .3rem; }
-  .pw-applink-label, .pw-rail-title, .pw-rail-user b, .pw-rail-user span { display: none; }
-  .pw-applink-count { position: absolute; }
-  .pw-applink { position: relative; }
-  .pw-applink-count { top: 2px; right: 4px; }
-  .pw-rail-user { justify-content: center; }
-  .pw-sidepane { width: 148px; }
-  .pw-listpane { width: 262px; }
+  :root { --p-rail: 68px; }
+  .pw-applink { justify-content: center; padding: var(--s-2); }
+  .pw-applink-label, .pw-rail-title { display: none; }
+  /* Only the text goes. The avatar is a <span> too, so the previous blanket
+   * rule took it with them and left an empty card where the signed-in person
+   * should be -- the collapsed rail had no identity in it at all. It is the
+   * one thing that must survive the collapse, because at this width it is
+   * the only remaining indication of who the session belongs to. */
+  .pw-rail-user > span:not(.pw-avatar) { display: none; }
+  .pw-rail-scroll { padding: var(--s-4); }
+  /* The count moves onto the glyph chip, so it needs a ring dark enough to
+   * separate it from whatever is underneath. The rail is glass, so the ring
+   * is a translucent dark rather than a flat colour matched to a panel. */
+  .pw-applink-count {
+    position: absolute; top: 2px; right: 2px;
+    box-shadow: 0 0 0 2px rgba(4, 14, 20, .92);
+  }
+  .pw-applink.is-active .pw-applink-count { box-shadow: 0 0 0 2px rgba(4, 14, 20, .92); }
+  .pw-rail-user { justify-content: center; padding: var(--s-3); }
+  .pw-rail-foot { padding: var(--s-4); }
+  .pw-sidepane { width: 152px; }
+  .pw-listpane { width: 272px; }
+  .pw-reader { padding: var(--s-6) var(--s-6) var(--s-8); }
 }
 
 @media (max-width: 900px) {
   .pw-sidepane { display: none; }
   .pw-window { border-radius: var(--p-r); }
+  .pw-site { padding: var(--s-8) var(--s-7) var(--s-10); }
 }
 
 @media (max-width: 760px) {
   .pw-ws { grid-template-rows: auto var(--p-topbar) minmax(0, 1fr); }
   .pw-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
-  .pw-rail { grid-row: 2; border-right: 0; border-top: 1px solid var(--p-line); }
-  .pw-rail-scroll { display: flex; gap: .25rem; overflow-x: auto; overflow-y: hidden; padding: .4rem; }
+  .pw-rail {
+    grid-row: 2; border-right: 0; border-top: 1px solid rgba(2, 8, 12, .9);
+    background: var(--g-chrome);
+    box-shadow: inset 0 1px 0 rgba(140, 214, 226, .07),
+                0 -8px 24px -14px rgba(2, 8, 12, .9);
+  }
+  .pw-rail-scroll { display: flex; gap: var(--s-1); overflow-x: auto; overflow-y: hidden; padding: var(--s-3); }
   .pw-applink { width: auto; flex: none; }
+  .pw-applink::before { display: none; }
   .pw-rail-foot { display: none; }
   .pw-workarea { grid-row: 1; }
   /* Both selectors, because `.pw-window.is-maximized` is more specific and
@@ -673,22 +1466,49 @@
   .pw-window, .pw-window.is-maximized {
     inset: 0 !important; width: auto !important; height: auto !important;
     border-radius: 0; border-left: 0; border-right: 0;
+    box-shadow: none;
   }
+  /* A full-bleed window has nothing to slide against, and the phone layout
+   * is the one most likely to be running on modest hardware. */
+  .pw-window { animation: pw-fade var(--p-med) var(--p-ease); }
+  .pw-toast { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .pw-desk-tasks { -webkit-backdrop-filter: none; backdrop-filter: none; }
   .pw-winbar-sub { display: none; }
   .pw-listpane { width: 100%; }
   .pw-app.is-split-mobile .pw-listpane { display: none; }
   .pw-app.is-split-mobile .pw-mainpane { display: flex; }
   .pw-app:not(.is-split-mobile) .pw-mainpane { display: none; }
   .pw-notifpanel { width: 100%; }
-  .pw-top { gap: .45rem; padding: 0 .3rem 0 .5rem; overflow-x: auto; }
-  .pw-top-org span { display: none; }
+  .pw-top { gap: var(--s-3); padding: 0 var(--s-2) 0 var(--s-4); overflow-x: auto; }
+  .pw-top-org > span > span { display: none; }
   .pw-top-sep, #pw-focus-chip { display: none; }
-  .pw-top-actions { flex: none; }
+  /* The strip must not compress -- letting the status group shrink put the
+   * notification button on top of the mode chip -- and End training must
+   * stay reachable without scrolling it, so the organisation's name gives up
+   * its space to them. The mark still carries the identity. */
+  .pw-top-org, .pw-top-status, .pw-top-actions { flex: none; }
+  .pw-top-org b { display: none; }
+  .pw-protobanner { padding: var(--s-2) var(--s-4); font-size: var(--t-2xs); line-height: 1.45; }
+  .pw-reader { padding: var(--s-6) var(--s-5) var(--s-8); }
   .pw-reader-headers dl { grid-template-columns: minmax(0, 1fr); }
-  .pw-reader-headers dt { margin-top: .35rem; }
+  .pw-reader-headers dt { margin-top: var(--s-3); }
+  .pw-thread { padding: var(--s-5) var(--s-4); }
+  .pw-bubble { max-width: 88%; }
+  /* Let the actions drop to their own line rather than squeezing the file
+   * name until it breaks mid-word. */
+  .pw-attach { flex-wrap: wrap; }
+  .pw-attach-main { min-width: 60%; }
+  .pw-attach-actions { margin-left: auto; }
 }
 
 .pw-mobile-back { display: none; }
 @media (max-width: 760px) {
   .pw-mobile-back { display: inline-flex; }
+  /* The application rail occupies the bottom edge here, which is where the
+   * prototype tooling normally sits. The tooling moves; the product does
+   * not. */
+  .pw-dev-toggle { bottom: 62px; }
+  .pw-dev { bottom: 62px; max-height: calc(100vh - 74px); }
+  body:has(#pw-dev-toggle:not([hidden])) .pw-toasts { bottom: 106px; }
+  body:has(#pw-dev:not([hidden])) .pw-toasts { right: var(--s-5); bottom: 106px; }
 }

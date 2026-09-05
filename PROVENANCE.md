@@ -195,6 +195,45 @@ Both rules are enforced by
 Wall-clock timestamps are not banned from the project — only from deterministic
 state. They belong in diagnostic and telemetry layers outside `rewindsec/core/`.
 
+### Batch 1: simulation domain and persistence
+
+`rewindsec/domain/` and `rewindsec/persistence/` add the storage-independent
+session aggregate on top of the core above, and the port/adapter pair that
+persists it.
+
+| Path | Role |
+|---|---|
+| `rewindsec/domain/session.py` | `SimulationSession`: the aggregate root composing the core (`SeededRandom`, `SimClock`, `EventScheduler`) with the domain objects below, and the only object responsible for cross-object referential integrity. |
+| `rewindsec/domain/world.py` | `WorldState`: versioned, generic, auditable workplace state (no Mail/Files/Browser backends yet — later batches). |
+| `rewindsec/domain/context_ledger.py` | `ContextLedger`: the available-vs-observed distinction as first-class state. |
+| `rewindsec/domain/actions.py` | `LearnerAction`/`ActionLog`: observational vs. consequential learner actions, with their own SHA-256-derived id scheme, distinct from event ids. |
+| `rewindsec/domain/session_events.py` | `SessionEventLog` (reuses `core.events.derive_event_id` directly) and `ScheduleAuditLog`, the durable record of what was scheduled/fired/cancelled and why, independent of the live scheduler's own swept state. |
+| `rewindsec/domain/incidents.py` | `IncidentGraph`: the generic, threat-agnostic causal consequence graph. |
+| `rewindsec/persistence/ports.py` | `SessionRepository`: the storage-independent repository contract, with an optimistic-concurrency (`expected_revision`) update contract. |
+| `rewindsec/persistence/sqlalchemy_adapter.py` | The one adapter Batch 1 ships: reuses the app's existing SQLAlchemy dependency, isolated from Flask, no pickle, versioned JSON snapshots. |
+
+Rules for anything added here:
+
+* **Storage- and framework-independent domain.** Nothing under
+  `rewindsec/domain/` may import Flask, Flask-SQLAlchemy, SQLAlchemy, `random`,
+  or any v1 module; it must be usable in a pure Python test with no app context
+  and no database.
+* **SQLAlchemy stays in the adapter.** Only `rewindsec/persistence/
+  sqlalchemy_adapter.py` may import SQLAlchemy; `ports.py` (the contract) does
+  not, and neither module imports Flask.
+* **One event-id scheme.** `SessionEventLog` uses `core.events.derive_event_id`
+  directly; it does not invent a second one. `LearnerAction` ids use their own,
+  distinct, SHA-256 label so the two schemes can never collide.
+
+Enforced by `tests/test_rewindsec2_domain_boundaries.py`, alongside the
+adversarial unit and resume-determinism suites
+(`tests/test_rewindsec2_domain_*.py`, `tests/test_rewindsec2_persistence_*.py`,
+`tests/test_rewindsec2_resume_determinism.py`,
+`tests/test_rewindsec2_cross_process_determinism.py`).
+
+No application content, threat-family engine, scoring, or UI wiring is part of
+this batch — see the batch's own completion report for the full boundary.
+
 ---
 
 ## 7. Quick reference

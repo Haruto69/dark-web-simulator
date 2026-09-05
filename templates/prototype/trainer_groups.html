@@ -1,0 +1,56 @@
+{% extends "prototype/trainer_base.html" %}
+{% block tr_title %}Groups{% endblock %}
+
+{% block tr_content %}
+<div class="pw-tr-head">
+  <div class="pw-tr-head-main">
+    <h1>Groups</h1>
+    <p>A student can belong to more than one group, which is why an
+    assignment has to record where it came from.</p>
+  </div>
+</div>
+
+<div class="pw-grid is-3">
+  {% for row in rows %}
+  <section class="pw-card">
+    <div class="pw-row is-between" style="align-items:baseline">
+      <h2 style="font-size:1rem">
+        <a href="{{ url_for('prototype.trainer_group', group_id=row.group.id) }}"
+           style="text-decoration:none">{{ row.group.name }}</a>
+      </h2>
+      <span class="pw-chip">{{ row.members|length }} members</span>
+    </div>
+    <p class="pw-xsmall pw-muted" style="margin-top:.2rem">Created {{ row.group.created }}</p>
+
+    <div class="pw-row" style="gap:.3rem;margin-top:.75rem">
+      {% for member in row.members %}
+      <span class="pw-avatar is-neutral" title="{{ member.name }}"
+            aria-label="{{ member.name }}">{{ member.initials }}</span>
+      {% endfor %}
+    </div>
+
+    <hr class="pw-divider" style="margin:.9rem 0">
+
+    <p class="pw-kicker">Assessments</p>
+    {% if row.assessments %}
+      {% for entry in row.assessments %}
+      <div class="pw-small">{{ entry.assessment.name }}
+        <span class="pw-muted">· {{ entry.assessment.required_interactions }} scored interactions</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="pw-small pw-muted">None assigned to this group.</p>
+    {% endif %}
+
+    {% if row.overlapping_groups %}
+    <p class="pw-kicker" style="margin-top:.9rem">Shares members with</p>
+    {% for overlap in row.overlapping_groups %}
+    <div class="pw-xsmall pw-muted">
+      {{ overlap.group.name }} — {{ overlap.shared|join(', ') }}
+    </div>
+    {% endfor %}
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

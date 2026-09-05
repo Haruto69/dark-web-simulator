@@ -1,0 +1,113 @@
+{% extends "prototype/_base.html" %}
+{% block title %}RewindSec 2.0 prototype{% endblock %}
+
+{% block styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='prototype/screens.css') }}">
+{% endblock %}
+
+{% block body %}
+<header class="pw-frame-top">
+  <div class="pw-frame-top-inner">
+    <span class="pw-frame-brand">
+      <span class="pw-mark" aria-hidden="true"><svg viewBox="0 0 24 24" style="color:#fff"><use href="#i-mark"></use></svg></span>
+      <span>
+        <b>RewindSec 2.0</b>
+        <span>User-interface prototype</span>
+      </span>
+    </span>
+    <nav class="pw-frame-nav" aria-label="Prototype sections">
+      <a class="pw-btn is-sm" href="{{ url_for('prototype.entry') }}">Learner</a>
+      <a class="pw-btn is-sm" href="{{ url_for('prototype.trainer_dashboard') }}">Trainer</a>
+      <a class="pw-btn is-sm is-quiet" href="{{ url_for('index') }}">Leave prototype</a>
+    </nav>
+  </div>
+</header>
+
+<main class="pw-page" id="pw-main">
+  <div class="pw-index-hero">
+    <p class="pw-kicker">UI-first product gate</p>
+    <h1>A workplace, a trainer console, and one open question</h1>
+    <p>These screens exist so the RewindSec 2.0 product can be used before it
+    is built. Every message, file, contact and consequence below is authored
+    fixture data. Nothing behind them runs: there is no simulation session, no
+    scheduler, no context ledger, no scoring engine and no persistence.</p>
+    <p>The question to answer while using them is not whether the code is
+    right. It is whether this is the product worth building.</p>
+  </div>
+
+  <div class="pw-grid is-3" style="margin-bottom:1.6rem">
+    <a class="pw-launch" href="{{ url_for('prototype.entry') }}">
+      <h2>Learner workstation</h2>
+      <p>Pick a focus and a mode, then work through an ordinary morning at
+      Northbridge Systems while benign and hostile activity arrive without
+      labels.</p>
+      <span class="pw-launch-go">Start a session &rarr;</span>
+    </a>
+    <a class="pw-launch" href="{{ url_for('prototype.trainer_dashboard') }}">
+      <h2>Trainer console</h2>
+      <p>Students, groups, assessments and results — including the duplicate
+      assignment warning that keeps group and direct provenance separate.</p>
+      <span class="pw-launch-go">Open the console &rarr;</span>
+    </a>
+    <a class="pw-launch" href="{{ url_for('prototype.results') }}">
+      <h2>Learner debrief</h2>
+      <p>Six scored dimensions, an overall figure, the session timeline, the
+      evidence that was available against the evidence that was inspected, and
+      the causal chains behind each consequence.</p>
+      <span class="pw-launch-go">See a debrief &rarr;</span>
+    </a>
+  </div>
+
+  <div class="pw-grid is-2">
+    <section class="pw-card">
+      <h2>What is deliberately not here</h2>
+      <ul class="pw-safety-list" style="margin-top:.6rem">
+        <li>No automatic rewind. A decision that goes badly stays gone badly,
+        and the workstation is never rolled back to a state before it.</li>
+        <li>No Easy / Medium / Hard control. The learner picks focus and mode;
+        the scaffolding profile is derived.</li>
+        <li>No threat labels inside the workstation. A hostile message looks
+        like work, because that is the whole problem.</li>
+        <li>No verdict button. Investigation happens through Directory,
+        Messages, mail history and the Authenticator's own records.</li>
+      </ul>
+      <p class="pw-small pw-muted" style="margin-top:.9rem">Learner surfaces
+      also carry integrity controls: copy, cut and paste are blocked
+      everywhere except Notes, and a PrintScreen key raises a short notice.
+      Both are deterrence. A web page cannot prevent an operating-system
+      screen capture, and nothing in the interface claims it can. Trainer
+      screens are unaffected.</p>
+    </section>
+
+    <section class="pw-card">
+      <h2>Safety</h2>
+      <p class="pw-small pw-muted" style="margin-top:.4rem">Machine-checked
+      against the fixture content, not asserted by hand.</p>
+      <ul class="pw-safety-list">
+        {% for note in safety.notes %}<li>{{ note }}</li>{% endfor %}
+      </ul>
+      <p class="pw-small pw-strong" style="margin-top:.9rem">Every destination
+      the prototype can name
+      {% if safety.destinations_are_inert %}resolves nowhere{% else %}<span class="pw-chip is-alert">check failed</span>{% endif %}:</p>
+      <div class="pw-hostlist">
+        {% for host in safety.referenced_hosts %}<code>{{ host }}</code>{% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <section class="pw-card" style="margin-top:1rem">
+    <h2>The decision this prototype is asking you to make</h2>
+    <p class="pw-small pw-muted" style="margin-top:.35rem">Architecture §12
+    leaves one feature explicitly unfrozen.</p>
+    <p class="pw-measure" style="margin-top:.7rem">After an unsafe decision in
+    Practice or Simulation, the consequences unfold in the workstation, and
+    once the chain settles a blocking screen explains what happened, what
+    evidence was already available, and what a safer process would have
+    produced. It is not a rewind and it does not claim the decision was
+    undone.</p>
+    <p class="pw-measure">Use it a few times, then decide: keep it, redesign
+    it, or remove it. It is built so that removing it is a three-line change
+    that leaves the persistent consequences untouched.</p>
+  </section>
+</main>
+{% endblock %}

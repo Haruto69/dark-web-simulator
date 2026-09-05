@@ -1,0 +1,505 @@
+/* RewindSec 2.0 UI prototype — shared foundation.
+ *
+ * Separate from static/rewindsec.css on purpose. The v1 product stylesheet
+ * keeps serving the v1 surfaces untouched; this file and its two siblings are
+ * the whole visual layer of the prototype and are removed with it.
+ *
+ * Direction: a restrained enterprise workstation. One cool-neutral grey
+ * family, one accent, semantic colour used only where it carries meaning,
+ * hairline borders, shadows tinted with the ink hue rather than pure black,
+ * no gradients as decoration, no glass, no ambient motion. System fonts only
+ * — nothing is fetched.
+ */
+
+:root {
+  /* -- neutrals: one family, cool ------------------------------------- */
+  --p-canvas: #e9ecf1;
+  --p-canvas-deep: #dfe3ea;
+  --p-surface: #ffffff;
+  --p-surface-2: #f7f8fa;
+  --p-surface-3: #f0f2f6;
+  --p-line: #dfe3e9;
+  --p-line-soft: #eaedf2;
+  --p-line-strong: #c7ced9;
+  --p-ink: #161a20;
+  --p-ink-2: #39414d;
+  --p-muted: #616b7a;
+  --p-muted-2: #868f9d;
+
+  /* -- one accent ------------------------------------------------------ */
+  --p-accent: #2c5c8a;
+  --p-accent-hover: #244d75;
+  --p-accent-press: #1e4162;
+  --p-accent-soft: #eaf0f6;
+  --p-accent-line: #c2d4e5;
+  --p-on-accent: #ffffff;
+
+  /* -- semantic, deliberately desaturated ------------------------------ */
+  --p-alert: #9d3b32;
+  --p-alert-soft: #fbeeec;
+  --p-alert-line: #ebcdc8;
+  --p-caution: #85610f;
+  --p-caution-soft: #fbf4e3;
+  --p-caution-line: #e6d5ab;
+  --p-good: #2c6a4a;
+  --p-good-soft: #eaf4ee;
+  --p-good-line: #c1dccc;
+
+  /* -- shape ------------------------------------------------------------ */
+  --p-r-xs: 3px;
+  --p-r-sm: 5px;
+  --p-r: 8px;
+  --p-r-lg: 12px;
+
+  /* Tinted with the ink hue, never pure black. */
+  --p-shadow-1: 0 1px 1px rgba(22, 26, 32, .04), 0 1px 3px rgba(22, 26, 32, .05);
+  --p-shadow-2: 0 1px 2px rgba(22, 26, 32, .05), 0 6px 16px rgba(22, 26, 32, .07);
+  --p-shadow-3: 0 2px 6px rgba(22, 26, 32, .06), 0 18px 40px rgba(22, 26, 32, .12);
+  --p-focus: 0 0 0 2px #fff, 0 0 0 4px rgba(44, 92, 138, .6);
+  --p-focus-tight: 0 0 0 2px rgba(44, 92, 138, .65);
+
+  /* -- motion ----------------------------------------------------------- */
+  --p-ease: cubic-bezier(.2, .7, .3, 1);
+  --p-fast: 110ms;
+  --p-med: 180ms;
+  --p-slow: 280ms;
+
+  /* -- type -------------------------------------------------------------- */
+  --p-font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system,
+            "Helvetica Neue", Arial, sans-serif;
+  --p-mono: "Cascadia Mono", "Cascadia Code", "SFMono-Regular", Consolas,
+            "Liberation Mono", Menlo, monospace;
+
+  /* -- structure --------------------------------------------------------- */
+  --p-topbar: 46px;
+  --p-rail: 216px;
+
+  /* -- one z-index scale, no arbitrary numbers -------------------------- */
+  --z-window: 10;
+  --z-rail: 40;
+  --z-topbar: 50;
+  --z-panel: 60;
+  --z-dialog: 70;
+  --z-blocking: 80;
+  --z-dev: 90;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body.pw {
+  margin: 0;
+  background: var(--p-canvas);
+  color: var(--p-ink);
+  font-family: var(--p-font);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body.pw.is-fixed { height: 100vh; overflow: hidden; }
+
+h1, h2, h3, h4 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+  color: var(--p-ink);
+}
+h1 { font-size: 1.55rem; line-height: 1.24; letter-spacing: -0.02em; }
+h2 { font-size: 1.12rem; line-height: 1.32; }
+h3 { font-size: .96rem; line-height: 1.38; }
+h4 { font-size: .84rem; line-height: 1.4; }
+p { margin: 0 0 .7em; text-wrap: pretty; }
+p:last-child { margin-bottom: 0; }
+
+a { color: var(--p-accent); text-underline-offset: 2px; }
+a:hover { color: var(--p-accent-hover); }
+
+.pw-num { font-variant-numeric: tabular-nums; }
+.pw-mono { font-family: var(--p-mono); font-size: .84em; }
+
+.pw-measure { max-width: 66ch; }
+
+/* -- focus ---------------------------------------------------------------- */
+
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: var(--p-focus);
+  border-radius: var(--p-r-sm);
+}
+
+.pw-skip {
+  position: absolute; left: -9999px; top: 0; z-index: var(--z-dev);
+  background: var(--p-ink); color: #fff; padding: .55rem .95rem;
+  border-radius: 0 0 var(--p-r-sm) 0; text-decoration: none; font-size: .84rem;
+}
+.pw-skip:focus { left: 0; }
+
+/* -- motion --------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes pw-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pw-slide-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pw-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* -- buttons -------------------------------------------------------------- */
+
+.pw-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: .45rem;
+  font: inherit; font-size: .875rem; font-weight: 500;
+  padding: .46rem .85rem;
+  border-radius: var(--p-r-sm);
+  border: 1px solid var(--p-line-strong);
+  background: var(--p-surface);
+  color: var(--p-ink-2);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--p-fast) var(--p-ease),
+              border-color var(--p-fast) var(--p-ease),
+              color var(--p-fast) var(--p-ease),
+              transform var(--p-fast) var(--p-ease);
+}
+/* Every icon inside a button gets a size. Without this an inline <use>
+ * sprite falls back to the SVG default of 300x150 wherever a call site did
+ * not pass its own dimensions -- invisible on desktop where the control is
+ * hidden, enormous on the narrow layout where it is not. */
+.pw-btn svg { width: 14px; height: 14px; flex: none; }
+.pw-btn:hover { background: var(--p-surface-3); border-color: var(--p-muted-2); color: var(--p-ink); }
+.pw-btn:active { transform: translateY(1px); background: var(--p-surface-3); }
+.pw-btn[disabled], .pw-btn[aria-disabled="true"] {
+  opacity: .5; cursor: not-allowed; transform: none;
+}
+
+.pw-btn.is-primary {
+  background: var(--p-accent); border-color: var(--p-accent);
+  color: var(--p-on-accent);
+}
+.pw-btn.is-primary:hover { background: var(--p-accent-hover); border-color: var(--p-accent-hover); color: #fff; }
+.pw-btn.is-primary:active { background: var(--p-accent-press); }
+
+.pw-btn.is-quiet {
+  border-color: transparent; background: transparent; color: var(--p-muted);
+}
+.pw-btn.is-quiet:hover { background: var(--p-surface-3); color: var(--p-ink); border-color: transparent; }
+
+.pw-btn.is-alert { color: var(--p-alert); border-color: var(--p-alert-line); background: var(--p-surface); }
+.pw-btn.is-alert:hover { background: var(--p-alert-soft); border-color: var(--p-alert); }
+
+.pw-btn.is-sm { font-size: .8rem; padding: .3rem .6rem; }
+.pw-btn.is-lg { font-size: .95rem; padding: .62rem 1.15rem; }
+.pw-btn.is-block { width: 100%; }
+
+.pw-linkbtn {
+  background: none; border: 0; padding: 0; font: inherit; font-size: .84rem;
+  color: var(--p-accent); cursor: pointer; text-align: left;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--p-fast) var(--p-ease), color var(--p-fast) var(--p-ease);
+}
+.pw-linkbtn:hover { color: var(--p-accent-hover); border-bottom-color: var(--p-accent-line); }
+
+/* -- chips and tags -------------------------------------------------------- */
+
+.pw-chip {
+  display: inline-flex; align-items: center; gap: .32rem;
+  font-size: .695rem; font-weight: 600; letter-spacing: .055em;
+  text-transform: uppercase;
+  padding: .16rem .44rem;
+  border-radius: var(--p-r-xs);
+  border: 1px solid var(--p-line);
+  background: var(--p-surface-3);
+  color: var(--p-muted);
+  white-space: nowrap;
+}
+.pw-chip.is-accent { background: var(--p-accent-soft); border-color: var(--p-accent-line); color: var(--p-accent); }
+.pw-chip.is-alert { background: var(--p-alert-soft); border-color: var(--p-alert-line); color: var(--p-alert); }
+.pw-chip.is-caution { background: var(--p-caution-soft); border-color: var(--p-caution-line); color: var(--p-caution); }
+.pw-chip.is-good { background: var(--p-good-soft); border-color: var(--p-good-line); color: var(--p-good); }
+.pw-chip.is-plain { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: .755rem; }
+
+.pw-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--p-muted-2); display: inline-block; flex: none;
+}
+.pw-dot.is-accent { background: var(--p-accent); }
+.pw-dot.is-alert { background: var(--p-alert); }
+.pw-dot.is-caution { background: var(--p-caution); }
+.pw-dot.is-good { background: var(--p-good); }
+
+/* -- surfaces --------------------------------------------------------------- */
+
+.pw-card {
+  background: var(--p-surface);
+  border: 1px solid var(--p-line);
+  border-radius: var(--p-r);
+  padding: 1.15rem 1.25rem;
+}
+.pw-card.is-flat { box-shadow: none; }
+.pw-card.is-raised { box-shadow: var(--p-shadow-1); }
+
+.pw-kicker {
+  font-size: .7rem; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--p-muted-2);
+  margin-bottom: .35rem;
+}
+
+.pw-note {
+  border-left: 3px solid var(--p-line-strong);
+  padding: .6rem .85rem;
+  background: var(--p-surface-2);
+  border-radius: 0 var(--p-r-sm) var(--p-r-sm) 0;
+  font-size: .855rem;
+  color: var(--p-ink-2);
+}
+.pw-note.is-caution { border-left-color: var(--p-caution); background: var(--p-caution-soft); color: var(--p-caution); }
+.pw-note.is-alert { border-left-color: var(--p-alert); background: var(--p-alert-soft); color: var(--p-alert); }
+.pw-note.is-good { border-left-color: var(--p-good); background: var(--p-good-soft); color: var(--p-good); }
+.pw-note.is-accent { border-left-color: var(--p-accent); background: var(--p-accent-soft); color: var(--p-accent); }
+
+.pw-divider { height: 1px; background: var(--p-line); border: 0; margin: 1.1rem 0; }
+
+/* -- forms ------------------------------------------------------------------ */
+
+.pw-field { display: block; margin-bottom: .85rem; }
+.pw-label {
+  display: block; font-size: .78rem; font-weight: 600; color: var(--p-ink-2);
+  margin-bottom: .28rem;
+}
+.pw-hint { font-size: .76rem; color: var(--p-muted); margin-top: .25rem; }
+
+.pw-input, .pw-select, .pw-textarea {
+  width: 100%; font: inherit; font-size: .875rem;
+  padding: .45rem .6rem;
+  border: 1px solid var(--p-line-strong);
+  border-radius: var(--p-r-sm);
+  background: var(--p-surface);
+  color: var(--p-ink);
+  transition: border-color var(--p-fast) var(--p-ease),
+              box-shadow var(--p-fast) var(--p-ease);
+}
+.pw-input:hover, .pw-select:hover, .pw-textarea:hover { border-color: var(--p-muted-2); }
+.pw-input:focus-visible, .pw-select:focus-visible, .pw-textarea:focus-visible {
+  border-color: var(--p-accent); box-shadow: var(--p-focus-tight);
+}
+.pw-textarea { min-height: 6rem; resize: vertical; line-height: 1.5; }
+
+/* -- tables ----------------------------------------------------------------- */
+
+.pw-tablewrap { overflow-x: auto; border-radius: var(--p-r); border: 1px solid var(--p-line); background: var(--p-surface); }
+.pw-table { width: 100%; border-collapse: collapse; font-size: .855rem; }
+.pw-table th {
+  text-align: left; font-size: .715rem; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--p-muted-2);
+  padding: .6rem .85rem; border-bottom: 1px solid var(--p-line);
+  background: var(--p-surface-2); white-space: nowrap;
+}
+.pw-table td { padding: .62rem .85rem; border-bottom: 1px solid var(--p-line-soft); vertical-align: top; }
+.pw-table tbody tr:last-child td { border-bottom: 0; }
+.pw-table tbody tr { transition: background var(--p-fast) var(--p-ease); }
+.pw-table tbody tr:hover { background: var(--p-surface-2); }
+.pw-table td.is-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pw-table a { font-weight: 500; text-decoration: none; }
+.pw-table a:hover { text-decoration: underline; }
+
+/* -- empty state ------------------------------------------------------------ */
+
+.pw-empty {
+  text-align: center; padding: 2.2rem 1rem; color: var(--p-muted);
+  font-size: .875rem;
+}
+.pw-empty h3 { color: var(--p-ink-2); margin-bottom: .3rem; }
+
+/* -- prototype banner --------------------------------------------------------
+ * On every prototype screen. A reviewer must never mistake one of these pages
+ * for implemented product. */
+
+.pw-protobanner {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  background: var(--p-caution-soft);
+  border-bottom: 1px solid var(--p-caution-line);
+  color: var(--p-caution);
+  font-size: .775rem;
+  padding: .35rem .95rem;
+}
+.pw-protobanner strong { font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: .69rem; }
+
+/* -- prototype developer panel ------------------------------------------------
+ * Explicitly not a learner feature. Fixed, labelled, and collapsible so it
+ * stays out of screenshots. */
+
+.pw-dev {
+  position: fixed; right: 14px; bottom: 14px; z-index: var(--z-dev);
+  width: 268px; max-height: calc(100vh - 28px);
+  display: flex; flex-direction: column;
+  background: #1c2128;
+  color: #e6e9ee;
+  border: 1px solid #2f3742;
+  border-radius: var(--p-r);
+  box-shadow: var(--p-shadow-3);
+  font-size: .79rem;
+}
+.pw-dev-head {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .5rem .65rem; border-bottom: 1px solid #2f3742;
+}
+.pw-dev-head h2 {
+  font-size: .69rem; letter-spacing: .09em; text-transform: uppercase;
+  color: #9aa5b4; font-weight: 700; margin: 0; flex: 1;
+}
+.pw-dev-body { padding: .65rem; overflow-y: auto; }
+.pw-dev-group { margin-bottom: .8rem; }
+.pw-dev-group:last-child { margin-bottom: 0; }
+.pw-dev-group > h3 {
+  font-size: .665rem; letter-spacing: .09em; text-transform: uppercase;
+  color: #7d8899; margin: 0 0 .35rem;
+}
+.pw-dev-row { display: flex; flex-wrap: wrap; gap: .3rem; }
+.pw-dev button, .pw-dev select {
+  font: inherit; font-size: .755rem;
+  background: #262d36; color: #dfe4ec;
+  border: 1px solid #39414d; border-radius: var(--p-r-xs);
+  padding: .26rem .5rem; cursor: pointer;
+  transition: background var(--p-fast) var(--p-ease), border-color var(--p-fast) var(--p-ease);
+}
+.pw-dev button:hover, .pw-dev select:hover { background: #303844; border-color: #4c5766; }
+.pw-dev button:active { transform: translateY(1px); }
+.pw-dev button:focus-visible, .pw-dev select:focus-visible,
+.pw-dev-toggle:focus-visible {
+  box-shadow: 0 0 0 2px #1c2128, 0 0 0 4px rgba(140, 175, 210, .8);
+}
+.pw-dev select { width: 100%; }
+.pw-dev label { display: block; color: #9aa5b4; margin-bottom: .2rem; font-size: .715rem; }
+.pw-dev-check { display: flex; align-items: center; gap: .4rem; color: #c9d1dc; font-size: .755rem; }
+.pw-dev-note { color: #7d8899; font-size: .705rem; line-height: 1.45; margin: .45rem 0 0; }
+.pw-dev[hidden] { display: none !important; }
+
+.pw-dev-toggle {
+  position: fixed; right: 14px; bottom: 14px; z-index: var(--z-dev);
+  font: inherit; font-size: .715rem; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase;
+  background: #1c2128; color: #9aa5b4;
+  border: 1px solid #2f3742; border-radius: var(--p-r-sm);
+  padding: .35rem .6rem; cursor: pointer;
+  box-shadow: var(--p-shadow-2);
+}
+.pw-dev-toggle:hover { color: #dfe4ec; border-color: #4c5766; }
+.pw-dev-toggle[hidden] { display: none !important; }
+
+/* -- page shell for non-workstation prototype screens ----------------------- */
+
+.pw-page { max-width: 74rem; margin: 0 auto; padding: 1.9rem 1.35rem 4rem; }
+.pw-page.is-narrow { max-width: 52rem; }
+
+.pw-pagehead { margin-bottom: 1.6rem; }
+.pw-pagehead p { color: var(--p-muted); font-size: .93rem; }
+
+.pw-grid { display: grid; gap: 1rem; }
+.pw-grid.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pw-grid.is-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pw-grid.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+@media (max-width: 900px) {
+  .pw-grid.is-3, .pw-grid.is-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .pw-grid.is-2, .pw-grid.is-3, .pw-grid.is-4 { grid-template-columns: minmax(0, 1fr); }
+  .pw-page { padding: 1.35rem 1rem 3rem; }
+}
+
+.pw-stack > * + * { margin-top: 1rem; }
+.pw-stack.is-tight > * + * { margin-top: .55rem; }
+
+.pw-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.pw-row.is-between { justify-content: space-between; }
+.pw-spacer { flex: 1; }
+
+.pw-avatar {
+  width: 30px; height: 30px; flex: none;
+  border-radius: var(--p-r-sm);
+  background: var(--p-accent-soft); color: var(--p-accent);
+  border: 1px solid var(--p-accent-line);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .715rem; font-weight: 700; letter-spacing: .02em;
+}
+.pw-avatar.is-lg { width: 40px; height: 40px; font-size: .84rem; border-radius: var(--p-r); }
+.pw-avatar.is-neutral { background: var(--p-surface-3); color: var(--p-muted); border-color: var(--p-line); }
+
+/* -- meter (used by results and trainer) ------------------------------------ */
+
+.pw-meter {
+  height: 5px; border-radius: 3px; background: var(--p-surface-3);
+  overflow: hidden; border: 1px solid var(--p-line-soft);
+}
+.pw-meter > span {
+  display: block; height: 100%; background: var(--p-accent);
+  border-radius: 3px;
+  transition: width var(--p-slow) var(--p-ease);
+}
+.pw-meter.is-low > span { background: var(--p-alert); }
+.pw-meter.is-mid > span { background: var(--p-caution); }
+.pw-meter.is-high > span { background: var(--p-good); }
+
+/* -- generic dialog --------------------------------------------------------- */
+
+.pw-scrim {
+  position: fixed; inset: 0; z-index: var(--z-dialog);
+  background: rgba(22, 26, 32, .42);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.25rem;
+  animation: pw-fade var(--p-med) var(--p-ease);
+}
+.pw-scrim[hidden] { display: none !important; }
+
+.pw-dialog {
+  background: var(--p-surface);
+  border: 1px solid var(--p-line);
+  border-radius: var(--p-r-lg);
+  box-shadow: var(--p-shadow-3);
+  width: min(34rem, 100%);
+  max-height: min(86vh, 44rem);
+  display: flex; flex-direction: column;
+  animation: pw-rise var(--p-med) var(--p-ease);
+}
+.pw-dialog-head { padding: 1.05rem 1.25rem .55rem; }
+.pw-dialog-body { padding: 0 1.25rem 1.05rem; overflow-y: auto; font-size: .885rem; color: var(--p-ink-2); }
+.pw-dialog-foot {
+  display: flex; gap: .55rem; justify-content: flex-end;
+  padding: .85rem 1.25rem; border-top: 1px solid var(--p-line);
+  background: var(--p-surface-2);
+  border-radius: 0 0 var(--p-r-lg) var(--p-r-lg);
+  flex-wrap: wrap;
+}
+
+/* -- utility ---------------------------------------------------------------- */
+
+.pw-visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.pw-muted { color: var(--p-muted); }
+.pw-small { font-size: .8rem; }
+.pw-xsmall { font-size: .735rem; }
+.pw-strong { font-weight: 600; }
+.pw-break { overflow-wrap: anywhere; }
+[hidden] { display: none !important; }

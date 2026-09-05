@@ -1,0 +1,106 @@
+{% extends "prototype/trainer_base.html" %}
+{% block tr_title %}{{ detail.group.name }}{% endblock %}
+
+{% block tr_content %}
+<nav class="pw-crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('prototype.trainer_groups') }}">Groups</a>
+  <span aria-hidden="true">/</span>
+  <span>{{ detail.group.name }}</span>
+</nav>
+
+<div class="pw-tr-head">
+  <div class="pw-tr-head-main">
+    <h1>{{ detail.group.name }}</h1>
+    <p>Created {{ detail.group.created }} ·
+    {{ detail.members|length }} members ·
+    {{ detail.assessments|length }} assessment{{ '' if detail.assessments|length == 1 else 's' }}.</p>
+  </div>
+</div>
+
+<div class="pw-record">
+  <div class="pw-stack">
+    <div class="pw-idcard">
+      <h2 class="pw-small" style="margin-bottom:.6rem">Assessments carried by this group</h2>
+      {% if detail.assessments %}
+        {% for entry in detail.assessments %}
+        <div class="pw-prov">
+          <span class="pw-prov-main">
+            <b>{{ entry.assessment.name }}</b>
+            <span>{{ entry.assessment.required_interactions }} scored
+            interactions · {{ entry.assessment.window }}</span>
+          </span>
+          <span class="pw-prov-source is-group">group</span>
+        </div>
+        {% endfor %}
+        <p class="pw-xsmall pw-muted" style="margin-top:.7rem">
+          Every member receives these through the group. A member who is also
+          assigned one of them directly keeps both records.
+        </p>
+      {% else %}
+        <p class="pw-small pw-muted">No assessments assigned to this group.</p>
+      {% endif %}
+    </div>
+
+    {% if detail.overlapping_groups %}
+    <div class="pw-card">
+      <h2 class="pw-small" style="margin-bottom:.5rem">Overlapping groups</h2>
+      {% for overlap in detail.overlapping_groups %}
+      <div class="pw-small" style="margin-bottom:.4rem">
+        <a href="{{ url_for('prototype.trainer_group', group_id=overlap.group.id) }}">{{ overlap.group.name }}</a>
+        <div class="pw-xsmall pw-muted">Also contains {{ overlap.shared|join(', ') }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <section>
+    <div class="pw-section-head" style="margin-bottom:.6rem">
+      <h2>Members</h2>
+    </div>
+    <div class="pw-tablewrap">
+      <table class="pw-table">
+        <thead>
+          <tr>
+            <th scope="col">Student</th>
+            <th scope="col">Cohort</th>
+            <th scope="col">Other groups</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for member in detail.members %}
+          <tr>
+            <td>
+              <span class="pw-row" style="gap:.55rem;flex-wrap:nowrap">
+                <span class="pw-avatar is-neutral" aria-hidden="true">{{ member.initials }}</span>
+                <span>
+                  <a href="{{ url_for('prototype.trainer_student', student_id=member.id) }}">{{ member.name }}</a>
+                  <div class="pw-xsmall pw-muted">{{ member.ref }}</div>
+                </span>
+              </span>
+            </td>
+            <td>{{ member.cohort }}</td>
+            <td class="pw-xsmall">
+              {% set others = [] %}
+              {% for group in snapshot.groups %}
+                {% if group.id != detail.group.id and member.id in group.members %}
+                  <div><a href="{{ url_for('prototype.trainer_group', group_id=group.id) }}">{{ group.name }}</a></div>
+                {% endif %}
+              {% endfor %}
+            </td>
+            <td>
+              {% if member.status == 'active' %}
+                <span class="pw-chip is-good">Active</span>
+              {% else %}
+                <span class="pw-chip">{{ member.status|capitalize }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

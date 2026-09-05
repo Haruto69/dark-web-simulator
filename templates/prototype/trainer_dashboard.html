@@ -1,0 +1,120 @@
+{% extends "prototype/trainer_base.html" %}
+{% block tr_title %}Overview{% endblock %}
+
+{% block tr_content %}
+<div class="pw-tr-head">
+  <div class="pw-tr-head-main">
+    <h1>Overview</h1>
+    <p>Records and results for the {{ snapshot.trainer.organization }}
+    programme. Every figure on this page is prototype demonstration data.</p>
+  </div>
+</div>
+
+<div class="pw-grid is-4">
+  {% for metric in snapshot.dashboard_metrics %}
+  <div class="pw-metric">
+    <div class="pw-metric-label">{{ metric.label }}</div>
+    <div class="pw-metric-value">{{ metric.value }}</div>
+    <div class="pw-metric-sub">{{ metric.sub }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<section class="pw-section">
+  <div class="pw-section-head">
+    <h2>Recent sessions</h2>
+    <p>Focus and mode are the learner's choices; the profile is derived.</p>
+  </div>
+  <div class="pw-tablewrap">
+    <table class="pw-table">
+      <thead>
+        <tr>
+          <th scope="col">Student</th>
+          <th scope="col">Started</th>
+          <th scope="col">Focus</th>
+          <th scope="col">Mode</th>
+          <th scope="col">Derived profile</th>
+          <th scope="col">Status</th>
+          <th scope="col">Score</th>
+          <th scope="col">Notable</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for session in sessions %}
+        {% set student = snapshot.index.students_by_id[session.student_id] %}
+        <tr>
+          <td>
+            <a href="{{ url_for('prototype.trainer_student', student_id=student.id) }}">{{ student.name }}</a>
+            <div class="pw-xsmall pw-muted">{{ student.ref }}</div>
+          </td>
+          <td class="is-num">{{ session.started }}<div class="pw-xsmall pw-muted">{{ session.duration }}</div></td>
+          <td><span class="pw-chip is-plain">{{ session.focus|capitalize }}</span></td>
+          <td>
+            <span class="pw-chip is-plain">{{ session.mode|capitalize }}</span>
+            {% if session.assessment_id %}
+            <div class="pw-xsmall pw-muted" style="margin-top:.2rem">
+              {{ snapshot.index.assessments_by_id[session.assessment_id].name }}
+            </div>
+            {% endif %}
+          </td>
+          <td class="pw-xsmall pw-muted">{{ session.profile }}</td>
+          <td>
+            {% if session.status == 'complete' %}
+              <span class="pw-chip is-good">Complete</span>
+            {% elif session.status == 'in_progress' %}
+              <span class="pw-chip is-accent">In progress</span>
+            {% else %}
+              <span class="pw-chip is-caution">Abandoned</span>
+            {% endif %}
+          </td>
+          <td class="is-num">
+            {% if session.score is not none %}
+              <span class="pw-strong">{{ session.score }}</span>
+              <div class="pw-meter {% if session.score < 55 %}is-low{% elif session.score < 75 %}is-mid{% else %}is-high{% endif %}"
+                   style="width:56px;margin-top:.25rem">
+                <span style="width:{{ session.score }}%"></span>
+              </div>
+            {% else %}
+              <span class="pw-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="pw-xsmall">
+            {% for note in session.highlights %}<div>{{ note }}</div>{% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="pw-section">
+  <div class="pw-section-head">
+    <h2>Cohort metrics</h2>
+    <p>Versioned metric records rather than columns bolted onto the session
+    model, so new measures can be added without a schema change.</p>
+  </div>
+  <div class="pw-grid is-3">
+    {% for metric in snapshot.cohort_metrics %}
+    <div class="pw-card">
+      <div class="pw-row is-between" style="align-items:baseline">
+        <b class="pw-small">{{ metric.label }}</b>
+        <span class="pw-chip">{{ metric.version }}</span>
+      </div>
+      <div class="pw-metric-value" style="font-size:1.5rem">{{ metric.value }}</div>
+      <p class="pw-xsmall pw-muted" style="margin-top:.2rem">{{ metric.note }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="pw-section">
+  <div class="pw-tr-scope">
+    <b>Out of scope for this console by design.</b> The organisation profile,
+    threat-family probabilities, event sequencing, a learner's difficulty and
+    a learner's self-directed focus are system-managed. There is no control
+    for any of them here, and adding one would be an architecture change
+    rather than a feature.
+  </div>
+</section>
+{% endblock %}

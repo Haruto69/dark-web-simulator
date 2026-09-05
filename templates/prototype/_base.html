@@ -1,0 +1,54 @@
+{# Shared shell for every RewindSec 2.0 UI prototype screen.
+
+   Deliberately not extending the v1 templates/rewindsec_base.html: the v1
+   product chrome keeps serving v1 surfaces untouched, and the prototype is
+   removable as a unit. #}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="RewindSec 2.0 user-interface prototype. Fixture data only.">
+  <title>{% block title %}RewindSec 2.0 prototype{% endblock %}</title>
+  <link rel="icon" href="data:image/svg+xml,{{ '<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\'><rect width=\'24\' height=\'24\' rx=\'5\' fill=\'%232c5c8a\'/><path d=\'M6 17.5L12 6l6 11.5\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/></svg>'|urlencode }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='prototype/base.css') }}">
+  {# Learner integrity controls (clipboard restriction + screenshot notice).
+     The *server* decides which surfaces are learner surfaces -- see
+     ``LEARNER_ENDPOINTS`` in rewindsec/prototype/routes.py -- so a trainer
+     screen cannot pick the restriction up by accident, and a learner screen
+     cannot lose it by omission in a template. #}
+  {% if integrity_scope|default('none') == 'learner' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='prototype/integrity.css') }}">
+  {% endif %}
+  {% block styles %}{% endblock %}
+</head>
+<body class="pw {% block body_class %}{% endblock %}"
+      data-integrity="{{ integrity_scope|default('none') }}">
+  <a class="pw-skip" href="#{% block skip_target %}pw-main{% endblock %}">Skip to content</a>
+
+  {% include "prototype/_icons.html" %}
+
+  {% block banner %}
+  <div class="pw-protobanner" role="note">
+    <strong>Prototype</strong>
+    <span>{{ prototype_banner }}</span>
+  </div>
+  {% endblock %}
+
+  {% block body %}{% endblock %}
+
+  {% block dev_panel %}{% endblock %}
+
+  {# Loaded before the page's own scripts, and not deferred: the controller
+     must be listening before the first thing a learner can interact with is
+     drawn. It attaches to the document, not to individual fields, so nothing
+     rendered later needs to know about it. #}
+  {% if integrity_scope|default('none') == 'learner' %}
+  <script src="{{ url_for('static', filename='prototype/integrity.js') }}"></script>
+  {% endif %}
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

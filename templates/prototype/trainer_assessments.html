@@ -1,0 +1,207 @@
+{% extends "prototype/trainer_base.html" %}
+{% block tr_title %}Assessments{% endblock %}
+
+{% block tr_content %}
+<div class="pw-tr-head">
+  <div class="pw-tr-head-main">
+    <h1>Assessments</h1>
+    <p>An assessment is defined by the number of scored interactions it
+    requires, not by a raw event count — benign traffic varies between
+    attempts, so counting events would not make two attempts comparable.</p>
+  </div>
+</div>
+
+<div class="pw-tablewrap">
+  <table class="pw-table">
+    <thead>
+      <tr>
+        <th scope="col">Assessment</th>
+        <th scope="col">Focus</th>
+        <th scope="col">Scored interactions</th>
+        <th scope="col">Window</th>
+        <th scope="col">Assigned to</th>
+        <th scope="col">Status</th>
+      </tr>
+    </thead>
+    <tbody id="pw-assessment-rows">
+      {% for row in rows %}
+      <tr data-assessment-row="{{ row.assessment.id }}">
+        <td>
+          <b>{{ row.assessment.name }}</b>
+          <div class="pw-xsmall pw-muted">{{ row.assessment.note }}</div>
+        </td>
+        <td><span class="pw-chip is-plain">{{ row.assessment.focus|capitalize }}</span></td>
+        <td class="is-num">{{ row.assessment.required_interactions }}</td>
+        <td class="pw-xsmall">{{ row.assessment.window }}</td>
+        <td class="pw-xsmall" data-targets="{{ row.assessment.id }}">
+          {% for group in row.groups %}
+          <div><span class="pw-prov-source is-group">group</span>
+            <a href="{{ url_for('prototype.trainer_group', group_id=group.id) }}">{{ group.name }}</a></div>
+          {% endfor %}
+          {% for student in row.students %}
+          <div><span class="pw-prov-source is-direct">direct</span>
+            <a href="{{ url_for('prototype.trainer_student', student_id=student.id) }}">{{ student.name }}</a></div>
+          {% endfor %}
+          {% if not row.groups and not row.students %}
+          <span class="pw-muted">Not assigned</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.assessment.status == 'open' %}
+            <span class="pw-chip is-good">Open</span>
+          {% elif row.assessment.status == 'scheduled' %}
+            <span class="pw-chip is-accent">Scheduled</span>
+          {% else %}
+            <span class="pw-chip">Closed</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<section class="pw-section">
+  <div class="pw-section-head">
+    <h2>Assign an existing assessment</h2>
+    <p>Assigning to a student who already receives the assessment through a
+    group is allowed — but never silently.</p>
+  </div>
+
+  <div class="pw-assign">
+    <div class="pw-assign-grid">
+      <div class="pw-field">
+        <label class="pw-label" for="pw-assign-assessment">Assessment</label>
+        <select class="pw-select" id="pw-assign-assessment">
+          {% for assessment in snapshot.assessments %}
+          <option value="{{ assessment.id }}">{{ assessment.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="pw-field">
+        <label class="pw-label" for="pw-assign-kind">Assign to</label>
+        <select class="pw-select" id="pw-assign-kind">
+          <option value="student">An individual student</option>
+          <option value="group">A group</option>
+        </select>
+      </div>
+
+      <div class="pw-field" id="pw-assign-student-field">
+        <label class="pw-label" for="pw-assign-student">Student</label>
+        <select class="pw-select" id="pw-assign-student">
+          {% for student in snapshot.students %}
+          <option value="{{ student.id }}"
+            {% if student.id == 'stu-devika-raghavan' %}selected{% endif %}>
+            {{ student.name }} — {{ student.ref }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="pw-field" id="pw-assign-group-field" hidden>
+        <label class="pw-label" for="pw-assign-group">Group</label>
+        <select class="pw-select" id="pw-assign-group">
+          {% for group in snapshot.groups %}
+          <option value="{{ group.id }}">{{ group.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="pw-assign-foot">
+      <p class="pw-assign-status" id="pw-assign-status" role="status">
+        Try “Q3 judgement check” for Devika Raghavan — she already receives it
+        through Operations — Cohort A.
+      </p>
+      <button type="button" class="pw-btn is-primary" id="pw-assign-btn">Assign</button>
+    </div>
+  </div>
+
+  <div class="pw-log" id="pw-assign-log" style="margin-top:.9rem" hidden>
+    <b class="pw-xsmall">Assignments made in this prototype session</b>
+    <ul id="pw-assign-loglist"></ul>
+  </div>
+</section>
+
+<section class="pw-section">
+  <div class="pw-section-head">
+    <h2>Create an assessment</h2>
+    <p>Prototype only. Nothing is persisted; the new row appears in the table
+    above for the rest of this page visit.</p>
+  </div>
+
+  <div class="pw-assign">
+    <div class="pw-assign-grid">
+      <div class="pw-field">
+        <label class="pw-label" for="pw-new-name">Name</label>
+        <input class="pw-input" id="pw-new-name" type="text"
+               value="October judgement check" autocomplete="off">
+      </div>
+      <div class="pw-field">
+        <label class="pw-label" for="pw-new-focus">Focus</label>
+        <select class="pw-select" id="pw-new-focus">
+          <option value="mixed">Mixed</option>
+          <option value="phishing">Phishing</option>
+          <option value="ransomware">Ransomware</option>
+          <option value="mfa">MFA</option>
+          <option value="bec">BEC</option>
+        </select>
+      </div>
+      <div class="pw-field">
+        <label class="pw-label" for="pw-new-interactions">Required scored interactions</label>
+        <input class="pw-input" id="pw-new-interactions" type="number"
+               min="1" max="20" value="6" inputmode="numeric">
+        <p class="pw-hint">Not an event count. Benign traffic between scored
+        interactions varies by attempt.</p>
+      </div>
+      <div class="pw-field">
+        <label class="pw-label" for="pw-new-target">Initial target</label>
+        <select class="pw-select" id="pw-new-target">
+          <option value="">None for now</option>
+          {% for group in snapshot.groups %}
+          <option value="group:{{ group.id }}">Group — {{ group.name }}</option>
+          {% endfor %}
+          {% for student in snapshot.students %}
+          <option value="student:{{ student.id }}">Student — {{ student.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="pw-assign-foot">
+      <p class="pw-assign-status" id="pw-new-status" role="status"></p>
+      <button type="button" class="pw-btn" id="pw-new-btn">Create assessment</button>
+    </div>
+  </div>
+</section>
+
+{# -- duplicate assignment provenance warning (architecture §27) ----------- #}
+<div class="pw-scrim" id="pw-dup-scrim" hidden>
+  <div class="pw-dialog" role="dialog" aria-modal="true"
+       aria-labelledby="pw-dup-title" id="pw-dup-dialog">
+    <div class="pw-dialog-head">
+      <h2 id="pw-dup-title">This student already has this assessment</h2>
+    </div>
+    <div class="pw-dialog-body">
+      <p id="pw-dup-lead"></p>
+      <div class="pw-warnbox" style="margin-top:.7rem">
+        <h3>Where it comes from now</h3>
+        <ul id="pw-dup-sources"></ul>
+      </div>
+      <p class="pw-small pw-muted" style="margin-top:.8rem">
+        Assigning again does not replace the existing route. The student will
+        hold two separately provenanced assignments, and both will be visible
+        on their record.
+      </p>
+    </div>
+    <div class="pw-dialog-foot">
+      <button type="button" class="pw-btn" id="pw-dup-cancel">Cancel</button>
+      <button type="button" class="pw-btn is-primary" id="pw-dup-confirm">Assign again anyway</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block tr_scripts %}
+<script src="{{ url_for('static', filename='prototype/trainer.js') }}" defer></script>
+{% endblock %}

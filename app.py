@@ -975,6 +975,22 @@ app.register_blueprint(create_study_blueprint(
     study_settings))
 
 
+# --- RewindSec 2.0 UI prototype (UI-first product gate) --------------------
+# A fixture-backed presentation prototype whose only purpose is to let the
+# product be judged by hand before the backend batches start. It is not part
+# of the v1 system and it is not part of the RewindSec 2.0 backend: it runs no
+# simulation, persists nothing, touches no database, no sandbox, no telemetry
+# and no deterministic core. Every route it adds is a GET under /prototype.
+#
+# This is the whole attachment surface. Removing the prototype means deleting
+# this block, ``rewindsec/prototype/``, ``templates/prototype/`` and
+# ``static/prototype/`` -- nothing else in the application refers to it.
+
+from rewindsec.prototype.routes import create_prototype_blueprint  # noqa: E402
+
+app.register_blueprint(create_prototype_blueprint())
+
+
 def record_event(event_type, scenario_id=None, source=None, target=None,
                  details=None, session_id=None):
     """Persist one application-level SecurityEvent.

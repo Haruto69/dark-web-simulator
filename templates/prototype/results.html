@@ -1,0 +1,129 @@
+{% extends "prototype/_base.html" %}
+{% block title %}Session results — RewindSec{% endblock %}
+
+{% block styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='prototype/screens.css') }}">
+{% endblock %}
+
+{% block body %}
+<header class="pw-frame-top">
+  <div class="pw-frame-top-inner">
+    <span class="pw-frame-brand">
+      <span class="pw-mark" aria-hidden="true"><svg viewBox="0 0 24 24" style="color:#fff"><use href="#i-mark"></use></svg></span>
+      <span>
+        <b>RewindSec</b>
+        <span>Session debrief</span>
+      </span>
+    </span>
+    <nav class="pw-frame-nav" aria-label="Prototype sections">
+      <a class="pw-btn is-sm is-quiet" href="{{ url_for('prototype.entry') }}">New session</a>
+      <a class="pw-btn is-sm is-quiet" href="{{ url_for('prototype.index') }}">Prototype home</a>
+    </nav>
+  </div>
+</header>
+
+<main class="pw-results" id="pw-main">
+
+  <div class="pw-note is-caution" style="margin-bottom:1.4rem" role="note">
+    Every number on this page is prototype demonstration data produced by a
+    fixture, not a measurement. There is no scoring engine behind it, the
+    weights are placeholders, and none of it may be cited as a result.
+  </div>
+
+  <section class="pw-results-hero">
+    <div>
+      <p class="pw-kicker">Session debrief</p>
+      <h1 id="pw-res-title">Your morning at Northbridge Systems</h1>
+      <p class="pw-results-sub" id="pw-res-sub"></p>
+      <div class="pw-results-meta" id="pw-res-meta"></div>
+    </div>
+    <div class="pw-overall">
+      <div class="pw-overall-num"><span id="pw-res-overall">—</span><small>/100</small></div>
+      <div class="pw-overall-label">Overall · prototype figure</div>
+    </div>
+  </section>
+
+  <section aria-labelledby="pw-dims-title">
+    <div class="pw-section-head" style="margin-bottom:.75rem">
+      <h2 id="pw-dims-title">Dimensions</h2>
+      <p>A dimension with nothing to measure is shown as not applicable, and
+      is excluded from the overall figure rather than counted as zero.</p>
+    </div>
+    <div class="pw-dims" id="pw-res-dims"></div>
+  </section>
+
+  <div class="pw-grid is-2" style="margin-top:1.7rem;align-items:start">
+    <section aria-labelledby="pw-tl-title">
+      <div class="pw-section-head"><h2 id="pw-tl-title">Session timeline</h2></div>
+      <div class="pw-card" style="padding:1.1rem 1.2rem">
+        <ol class="pw-timeline" id="pw-res-timeline"></ol>
+      </div>
+    </section>
+
+    <section aria-labelledby="pw-ev-title">
+      <div class="pw-section-head">
+        <h2 id="pw-ev-title">Evidence</h2>
+        <p>What the workplace made available against what you actually
+        looked at.</p>
+      </div>
+      <div class="pw-tablewrap">
+        <table class="pw-table">
+          <thead>
+            <tr>
+              <th scope="col">Evidence</th>
+              <th scope="col">Where it was</th>
+              <th scope="col">Inspected</th>
+            </tr>
+          </thead>
+          <tbody id="pw-res-evidence"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section aria-labelledby="pw-cause-title" style="margin-top:1.7rem">
+    <div class="pw-section-head">
+      <h2 id="pw-cause-title">Consequences and what caused them</h2>
+      <p>Each chain is shown from the decision that started it, not as a flat
+      list of things that happened.</p>
+    </div>
+    <div class="pw-stack" id="pw-res-chains"></div>
+  </section>
+
+  <section aria-labelledby="pw-dec-title" style="margin-top:1.7rem">
+    <div class="pw-section-head"><h2 id="pw-dec-title">Decisions</h2></div>
+    <div class="pw-tablewrap">
+      <table class="pw-table">
+        <thead>
+          <tr>
+            <th scope="col">Time</th>
+            <th scope="col">Decision</th>
+            <th scope="col">Where</th>
+            <th scope="col">Relevant evidence inspected first</th>
+          </tr>
+        </thead>
+        <tbody id="pw-res-decisions"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="pw-results-actions">
+    <a class="pw-btn is-primary" id="pw-res-retry" href="#">Retry the same simulation</a>
+    <a class="pw-btn" href="{{ url_for('prototype.entry') }}">Start a new simulation</a>
+    <span class="pw-spacer"></span>
+    <span class="pw-small pw-muted" style="max-width:38ch">
+      In production, Retry reuses the same seed and Start new draws a new one.
+      Neither is implemented here.
+    </span>
+  </div>
+</main>
+{% endblock %}
+
+{% block dev_panel %}
+{% include "prototype/_dev_panel.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='prototype/dev-panel.js') }}" defer></script>
+<script src="{{ url_for('static', filename='prototype/results.js') }}" defer></script>
+{% endblock %}

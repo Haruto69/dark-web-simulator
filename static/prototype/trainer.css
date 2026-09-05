@@ -1,0 +1,157 @@
+/* RewindSec 2.0 UI prototype — trainer console.
+ *
+ * Same design system as the workstation, deliberately different shape. The
+ * trainer is not working inside a simulated desktop: they are reading
+ * records. So this is an ordinary application chrome — a top bar with
+ * sections, then documents — and it never borrows the workstation's rail,
+ * windows or status strip.
+ */
+
+.pw-tr {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--p-surface-2);
+}
+
+.pw-tr-top {
+  background: var(--p-surface);
+  border-bottom: 1px solid var(--p-line);
+  position: sticky; top: 0; z-index: var(--z-topbar);
+}
+.pw-tr-top-inner {
+  max-width: 84rem; margin: 0 auto; padding: .55rem 1.35rem 0;
+  display: flex; flex-direction: column; gap: .1rem;
+}
+.pw-tr-identity { display: flex; align-items: center; gap: .6rem; padding-bottom: .5rem; }
+.pw-tr-identity b { font-size: .92rem; font-weight: 600; }
+.pw-tr-identity span { font-size: .77rem; color: var(--p-muted-2); }
+.pw-tr-identity .pw-tr-who { margin-left: auto; text-align: right; }
+.pw-tr-identity .pw-tr-who b { display: block; font-size: .82rem; }
+.pw-tr-identity .pw-tr-who span { display: block; font-size: .73rem; }
+
+.pw-tr-tabs { display: flex; gap: .15rem; overflow-x: auto; }
+.pw-tr-tab {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .5rem .7rem; font-size: .855rem; font-weight: 500;
+  color: var(--p-muted); text-decoration: none; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--p-r-xs) var(--p-r-xs) 0 0;
+  transition: color var(--p-fast) var(--p-ease), background var(--p-fast) var(--p-ease);
+}
+.pw-tr-tab:hover { color: var(--p-ink); background: var(--p-surface-3); }
+.pw-tr-tab.is-active { color: var(--p-accent); border-bottom-color: var(--p-accent); font-weight: 600; }
+.pw-tr-tab svg { width: 15px; height: 15px; opacity: .8; }
+
+.pw-tr-main { flex: 1; max-width: 84rem; width: 100%; margin: 0 auto; padding: 1.6rem 1.35rem 4rem; }
+
+.pw-tr-head { margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.pw-tr-head-main { flex: 1; min-width: 16rem; }
+.pw-tr-head h1 { font-size: 1.4rem; }
+.pw-tr-head p { color: var(--p-muted); font-size: .89rem; margin-top: .28rem; max-width: 62ch; }
+
+.pw-crumbs { display: flex; align-items: center; gap: .35rem; font-size: .79rem; color: var(--p-muted); margin-bottom: .55rem; }
+.pw-crumbs a { color: var(--p-muted); text-decoration: none; }
+.pw-crumbs a:hover { color: var(--p-accent); text-decoration: underline; }
+.pw-crumbs span { color: var(--p-muted-2); }
+
+/* -- metric cards ----------------------------------------------------------------- */
+
+.pw-metric {
+  border: 1px solid var(--p-line); border-radius: var(--p-r);
+  background: var(--p-surface); padding: .95rem 1.05rem;
+}
+.pw-metric-label { font-size: .715rem; letter-spacing: .08em; text-transform: uppercase; color: var(--p-muted-2); }
+.pw-metric-value {
+  font-size: 1.85rem; font-weight: 300; letter-spacing: -0.03em;
+  line-height: 1.15; margin-top: .25rem; color: var(--p-ink);
+  font-variant-numeric: tabular-nums;
+}
+.pw-metric-sub { font-size: .775rem; color: var(--p-muted); margin-top: .2rem; }
+
+.pw-section { margin-top: 1.9rem; }
+.pw-section-head {
+  display: flex; align-items: baseline; gap: .7rem; flex-wrap: wrap;
+  margin-bottom: .75rem;
+}
+.pw-section-head h2 { font-size: 1.02rem; }
+.pw-section-head p { font-size: .82rem; color: var(--p-muted); margin: 0; }
+.pw-section-head .pw-spacer { flex: 1; }
+
+/* -- record panel (student/group detail) -------------------------------------------- */
+
+.pw-record {
+  display: grid; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  gap: 1.25rem; align-items: start;
+}
+@media (max-width: 900px) { .pw-record { grid-template-columns: minmax(0, 1fr); } }
+
+.pw-idcard {
+  border: 1px solid var(--p-line); border-radius: var(--p-r);
+  background: var(--p-surface); padding: 1.1rem 1.15rem;
+}
+.pw-idcard-head { display: flex; align-items: center; gap: .75rem; margin-bottom: .95rem; }
+.pw-idcard-head h2 { font-size: 1.04rem; }
+.pw-idcard-head p { font-size: .8rem; color: var(--p-muted); margin: 0; }
+.pw-idcard dl { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: .3rem .75rem; font-size: .835rem; margin: 0; }
+.pw-idcard dt { color: var(--p-muted); }
+.pw-idcard dd { margin: 0; color: var(--p-ink-2); }
+
+/* -- provenance ---------------------------------------------------------------------
+ * Architecture §27: an assignment records where it came from, and a duplicate
+ * is preserved as two distinctly-provenanced rows rather than merged. */
+
+.pw-prov {
+  display: flex; align-items: flex-start; gap: .6rem;
+  padding: .6rem .8rem;
+  border: 1px solid var(--p-line); border-radius: var(--p-r-sm);
+  background: var(--p-surface); margin-bottom: .5rem;
+}
+.pw-prov:last-child { margin-bottom: 0; }
+.pw-prov-main { flex: 1; min-width: 0; }
+.pw-prov-main b { font-size: .865rem; font-weight: 600; display: block; }
+.pw-prov-main span { font-size: .78rem; color: var(--p-muted); display: block; }
+.pw-prov-source {
+  flex: none; font-size: .69rem; font-weight: 600; letter-spacing: .05em;
+  text-transform: uppercase; padding: .16rem .45rem;
+  border-radius: var(--p-r-xs); white-space: nowrap;
+}
+.pw-prov-source.is-group { background: var(--p-accent-soft); color: var(--p-accent); border: 1px solid var(--p-accent-line); }
+.pw-prov-source.is-direct { background: var(--p-surface-3); color: var(--p-muted); border: 1px solid var(--p-line); }
+.pw-prov.is-new { border-color: var(--p-accent-line); background: var(--p-accent-soft); }
+
+/* -- assignment builder -------------------------------------------------------------- */
+
+.pw-assign {
+  border: 1px solid var(--p-line); border-radius: var(--p-r);
+  background: var(--p-surface); padding: 1.05rem 1.15rem 1.15rem;
+}
+.pw-assign-grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+.pw-assign-foot { display: flex; gap: .55rem; align-items: center; flex-wrap: wrap; margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--p-line); }
+.pw-assign-status { font-size: .82rem; color: var(--p-muted); flex: 1; min-width: 12rem; }
+
+.pw-warnbox {
+  border: 1px solid var(--p-caution-line); background: var(--p-caution-soft);
+  border-radius: var(--p-r-sm); padding: .8rem .9rem;
+  font-size: .855rem; color: var(--p-caution);
+}
+.pw-warnbox h3 { font-size: .875rem; color: var(--p-caution); margin-bottom: .3rem; }
+.pw-warnbox ul { margin: .45rem 0 0; padding-left: 1.05rem; }
+.pw-warnbox li { margin-bottom: .25rem; }
+
+.pw-log {
+  border: 1px solid var(--p-line); border-radius: var(--p-r-sm);
+  background: var(--p-surface-2); padding: .6rem .75rem;
+  font-size: .8rem; color: var(--p-ink-2);
+}
+.pw-log ul { margin: 0; padding-left: 1.05rem; }
+.pw-log li { margin-bottom: .22rem; }
+.pw-log li:last-child { margin-bottom: 0; }
+
+/* -- read-only notice ---------------------------------------------------------------- */
+
+.pw-tr-scope {
+  border: 1px dashed var(--p-line-strong); border-radius: var(--p-r-sm);
+  padding: .65rem .85rem; font-size: .8rem; color: var(--p-muted);
+  background: transparent;
+}
+.pw-tr-scope b { color: var(--p-ink-2); font-weight: 600; }

@@ -1,0 +1,152 @@
+{% extends "prototype/trainer_base.html" %}
+{% block tr_title %}{{ detail.student.name }}{% endblock %}
+
+{% block tr_content %}
+<nav class="pw-crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('prototype.trainer_students') }}">Students</a>
+  <span aria-hidden="true">/</span>
+  <span>{{ detail.student.name }}</span>
+</nav>
+
+<div class="pw-tr-head">
+  <div class="pw-tr-head-main">
+    <h1>{{ detail.student.name }}</h1>
+    <p>{{ detail.student.cohort }} cohort · {{ detail.sessions|length }}
+    recorded session{{ '' if detail.sessions|length == 1 else 's' }}.</p>
+  </div>
+</div>
+
+<div class="pw-record">
+  <div class="pw-stack">
+    <div class="pw-idcard">
+      <div class="pw-idcard-head">
+        <span class="pw-avatar is-lg" aria-hidden="true">{{ detail.student.initials }}</span>
+        <div>
+          <h2>{{ detail.student.name }}</h2>
+          <p>{{ detail.student.ref }}</p>
+        </div>
+      </div>
+      <dl>
+        <dt>Cohort</dt><dd>{{ detail.student.cohort }}</dd>
+        <dt>Status</dt><dd>{{ detail.student.status|capitalize }}</dd>
+        <dt>Groups</dt>
+        <dd>
+          {% if detail.groups %}
+            {% for group in detail.groups %}
+            <div><a href="{{ url_for('prototype.trainer_group', group_id=group.id) }}">{{ group.name }}</a></div>
+            {% endfor %}
+          {% else %}<span class="pw-muted">None</span>{% endif %}
+        </dd>
+      </dl>
+    </div>
+
+    <div class="pw-card">
+      <h2 class="pw-small" style="margin-bottom:.15rem">Assessment assignments</h2>
+      <p class="pw-xsmall pw-muted" style="margin-bottom:.7rem">
+        Where each assignment came from is kept, not merged. A student who
+        receives the same assessment through a group and directly holds two
+        rows.
+      </p>
+      <div id="pw-assign-list" data-student-id="{{ detail.student.id }}">
+        {% if detail.assignments %}
+          {% for assignment in detail.assignments %}
+          <div class="pw-prov" data-assessment-id="{{ assignment.assessment.id }}">
+            <span class="pw-prov-main">
+              <b>{{ assignment.assessment.name }}</b>
+              <span>{{ assignment.origin_label }} · added
+              {{ assignment.created }} by {{ assignment.created_by }}</span>
+            </span>
+            <span class="pw-prov-source is-{{ assignment.source }}">{{ assignment.source }}</span>
+          </div>
+          {% endfor %}
+        {% else %}
+        <p class="pw-small pw-muted">No assessments assigned.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="pw-stack">
+    <section>
+      <div class="pw-section-head" style="margin-bottom:.6rem">
+        <h2>Session history</h2>
+      </div>
+      {% if detail.sessions %}
+      <div class="pw-tablewrap">
+        <table class="pw-table">
+          <thead>
+            <tr>
+              <th scope="col">Started</th>
+              <th scope="col">Focus</th>
+              <th scope="col">Mode</th>
+              <th scope="col">Profile</th>
+              <th scope="col">Status</th>
+              <th scope="col">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for session in detail.sessions %}
+            <tr>
+              <td class="is-num">{{ session.started }}
+                <div class="pw-xsmall pw-muted">{{ session.duration }}</div>
+              </td>
+              <td><span class="pw-chip is-plain">{{ session.focus|capitalize }}</span></td>
+              <td>
+                <span class="pw-chip is-plain">{{ session.mode|capitalize }}</span>
+                {% if session.assessment_id %}
+                <div class="pw-xsmall pw-muted" style="margin-top:.2rem">
+                  {{ snapshot.index.assessments_by_id[session.assessment_id].name }}
+                </div>
+                {% endif %}
+              </td>
+              <td class="pw-xsmall pw-muted">{{ session.profile }}</td>
+              <td>
+                {% if session.status == 'complete' %}
+                  <span class="pw-chip is-good">Complete</span>
+                {% elif session.status == 'in_progress' %}
+                  <span class="pw-chip is-accent">In progress</span>
+                {% else %}
+                  <span class="pw-chip is-caution">Abandoned</span>
+                {% endif %}
+              </td>
+              <td class="is-num">
+                {% if session.score is not none %}{{ session.score }}{% else %}<span class="pw-muted">—</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="pw-card pw-empty">
+        <h3>No sessions yet</h3>
+        <p>This student has not started a training session.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <section>
+      <div class="pw-section-head" style="margin-bottom:.6rem">
+        <h2>Notable behaviour</h2>
+        <p>Taken from the session records. Demonstration data.</p>
+      </div>
+      <div class="pw-card">
+        {% if detail.sessions %}
+        <ul style="margin:0;padding-left:1.1rem">
+          {% for session in detail.sessions %}
+            {% for note in session.highlights %}
+            <li class="pw-small" style="margin-bottom:.3rem">
+              {{ note }}
+              <span class="pw-muted pw-xsmall">· {{ session.started }}</span>
+            </li>
+            {% endfor %}
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="pw-small pw-muted">Nothing recorded.</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

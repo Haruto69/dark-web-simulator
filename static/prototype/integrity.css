@@ -1,0 +1,107 @@
+/* RewindSec 2.0 UI prototype — learner integrity controls.
+ *
+ * Loaded only on learner surfaces, alongside static/prototype/integrity.js.
+ * Two components, both borrowing the existing tokens rather than introducing
+ * anything new: a quiet notice at the foot of the screen, and one modal for
+ * the screenshot message. Nothing here changes the approved workstation or
+ * trainer visual direction, and neither component exists on a trainer page.
+ */
+
+/* -- the clipboard notice --------------------------------------------------
+   Deliberately small and low-contrast for its role: it is a reminder about a
+   workspace rule, not an error and not a reprimand. Bottom-centre so it does
+   not collide with the workstation's own toast stack on the right. */
+
+.pw-int-notice {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: var(--z-blocking);
+
+  max-width: min(30rem, calc(100vw - 32px));
+  padding: .5rem .8rem;
+  border: 1px solid var(--p-line-strong);
+  border-radius: var(--p-r);
+  background: var(--p-surface);
+  box-shadow: var(--p-shadow-2);
+
+  color: var(--p-ink-2);
+  font-size: .78rem;
+  line-height: 1.45;
+  text-align: left;
+
+  /* Present in the accessibility tree the whole time so the live region is
+     not created and destroyed under a screen reader; only its appearance
+     changes. */
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 6px);
+  transition: opacity var(--p-med) var(--p-ease),
+              transform var(--p-med) var(--p-ease),
+              visibility 0s linear var(--p-med);
+}
+
+.pw-int-notice.is-on {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition-delay: 0s;
+}
+
+/* -- the screenshot modal ------------------------------------------------- */
+
+.pw-int-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-blocking);
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(22, 26, 32, .34);
+}
+
+.pw-int-scrim[hidden] { display: none; }
+
+.pw-int-dialog {
+  width: min(30rem, 100%);
+  padding: 1.15rem 1.25rem 1.05rem;
+  border: 1px solid var(--p-line);
+  border-radius: var(--p-r-lg);
+  background: var(--p-surface);
+  box-shadow: var(--p-shadow-3);
+}
+
+.pw-int-dialog h2 {
+  margin: 0 0 .5rem;
+  font-size: 1rem;
+  line-height: 1.35;
+  color: var(--p-ink);
+}
+
+.pw-int-dialog p {
+  margin: 0 0 .6rem;
+  font-size: .84rem;
+  line-height: 1.55;
+  color: var(--p-ink-2);
+}
+
+/* The honest footnote. It says plainly that this is a rule rather than a
+   technical guarantee, so the product never claims a capability it does not
+   have. */
+.pw-int-dialog .pw-int-limit {
+  margin: 0;
+  padding-top: .6rem;
+  border-top: 1px solid var(--p-line-soft);
+  font-size: .75rem;
+  color: var(--p-muted);
+}
+
+.pw-int-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: .95rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pw-int-notice { transition: none; }
+}

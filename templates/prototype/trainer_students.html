@@ -1,0 +1,73 @@
+{% extends "prototype/trainer_base.html" %}
+{% block tr_title %}Students{% endblock %}
+
+{% block tr_content %}
+<div class="pw-tr-head">
+  <div class="pw-tr-head-main">
+    <h1>Students</h1>
+    <p>Minimal identity: a display name, an employee reference and a cohort.
+    Nothing else is held.</p>
+  </div>
+</div>
+
+<div class="pw-tablewrap">
+  <table class="pw-table">
+    <thead>
+      <tr>
+        <th scope="col">Student</th>
+        <th scope="col">Cohort</th>
+        <th scope="col">Groups</th>
+        <th scope="col">Assessments</th>
+        <th scope="col">Sessions</th>
+        <th scope="col">Most recent score</th>
+        <th scope="col">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>
+          <span class="pw-row" style="gap:.55rem;flex-wrap:nowrap">
+            <span class="pw-avatar is-neutral" aria-hidden="true">{{ row.student.initials }}</span>
+            <span style="min-width:0">
+              <a href="{{ url_for('prototype.trainer_student', student_id=row.student.id) }}">{{ row.student.name }}</a>
+              <div class="pw-xsmall pw-muted">{{ row.student.ref }}</div>
+            </span>
+          </span>
+        </td>
+        <td>{{ row.student.cohort }}</td>
+        <td class="pw-xsmall">
+          {% if row.groups %}
+            {% for group in row.groups %}
+            <div><a href="{{ url_for('prototype.trainer_group', group_id=group.id) }}">{{ group.name }}</a></div>
+            {% endfor %}
+          {% else %}<span class="pw-muted">None</span>{% endif %}
+        </td>
+        <td class="pw-xsmall">
+          {% if row.assignments %}
+            {% for assignment in row.assignments %}
+            <div>{{ assignment.assessment.name }}
+              <span class="pw-muted">· {{ assignment.origin_label }}</span></div>
+            {% endfor %}
+          {% else %}<span class="pw-muted">None</span>{% endif %}
+        </td>
+        <td class="is-num">{{ row.sessions|length }}</td>
+        <td class="is-num">
+          {% if row.latest %}
+            <span class="pw-strong">{{ row.latest.score }}</span>
+            <div class="pw-xsmall pw-muted">{{ row.latest.started }}</div>
+          {% else %}<span class="pw-muted">—</span>{% endif %}
+        </td>
+        <td>
+          {% if row.student.status == 'active' %}
+            <span class="pw-chip is-good">Active</span>
+          {% else %}
+            <span class="pw-chip">{{ row.student.status|capitalize }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

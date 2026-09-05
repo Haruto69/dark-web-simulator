@@ -1,0 +1,66 @@
+{% extends "prototype/_base.html" %}
+{% block title %}{% block tr_title %}Trainer console{% endblock %} — RewindSec{% endblock %}
+
+{% block styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='prototype/trainer.css') }}">
+  {% block tr_styles %}{% endblock %}
+{% endblock %}
+
+{% block body %}
+<div class="pw-tr">
+  <header class="pw-tr-top">
+    <div class="pw-tr-top-inner">
+      <div class="pw-tr-identity">
+        <span class="pw-mark" aria-hidden="true"><svg viewBox="0 0 24 24" style="color:#fff"><use href="#i-mark"></use></svg></span>
+        <span>
+          <b>RewindSec — Trainer console</b>
+          <span>{{ snapshot.trainer.organization }}</span>
+        </span>
+        <span class="pw-tr-who">
+          <b>{{ snapshot.trainer.name }}</b>
+          <span>{{ snapshot.trainer.role }}</span>
+        </span>
+      </div>
+      <nav class="pw-tr-tabs" aria-label="Trainer sections">
+        <a class="pw-tr-tab {% if active == 'dashboard' %}is-active{% endif %}"
+           href="{{ url_for('prototype.trainer_dashboard') }}"
+           {% if active == 'dashboard' %}aria-current="page"{% endif %}>
+          <svg aria-hidden="true"><use href="#i-grid"></use></svg> Overview
+        </a>
+        <a class="pw-tr-tab {% if active == 'students' %}is-active{% endif %}"
+           href="{{ url_for('prototype.trainer_students') }}"
+           {% if active == 'students' %}aria-current="page"{% endif %}>
+          <svg aria-hidden="true"><use href="#i-users"></use></svg> Students
+        </a>
+        <a class="pw-tr-tab {% if active == 'groups' %}is-active{% endif %}"
+           href="{{ url_for('prototype.trainer_groups') }}"
+           {% if active == 'groups' %}aria-current="page"{% endif %}>
+          <svg aria-hidden="true"><use href="#i-layers"></use></svg> Groups
+        </a>
+        <a class="pw-tr-tab {% if active == 'assessments' %}is-active{% endif %}"
+           href="{{ url_for('prototype.trainer_assessments') }}"
+           {% if active == 'assessments' %}aria-current="page"{% endif %}>
+          <svg aria-hidden="true"><use href="#i-clipboard"></use></svg> Assessments
+        </a>
+        <span class="pw-spacer"></span>
+        <a class="pw-tr-tab" href="{{ url_for('prototype.index') }}">
+          <svg aria-hidden="true"><use href="#i-back"></use></svg> Prototype home
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="pw-tr-main" id="pw-main">
+    {% block tr_content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}
+
+{% block dev_panel %}
+{% include "prototype/_dev_panel.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='prototype/dev-panel.js') }}" defer></script>
+{% block tr_scripts %}{% endblock %}
+{% endblock %}

@@ -1,0 +1,107 @@
+{# Prototype developer tooling. NOT a learner feature.
+
+   Deliberately styled unlike everything else in the product so it can never
+   be mistaken for one, and collapsible so it stays out of screenshots. The
+   toggle is also bound to Ctrl+Alt+P, and ?dev=0 starts it hidden. #}
+
+<button type="button" class="pw-dev-toggle" id="pw-dev-toggle" hidden>
+  Prototype tools
+</button>
+
+{# data-clipboard="allow": the learner clipboard restriction must never
+   reach the prototype tooling. It is not a learner feature. #}
+<aside class="pw-dev" id="pw-dev" data-clipboard="allow"
+       aria-label="Prototype developer tooling">
+  <div class="pw-dev-head">
+    <h2>Prototype tooling</h2>
+    <button type="button" id="pw-dev-hide" aria-label="Hide prototype tooling">Hide</button>
+  </div>
+
+  <div class="pw-dev-body">
+    <div class="pw-dev-group" data-dev-scope="workstation">
+      <h3>Session</h3>
+      <label for="pw-dev-focus">Focus</label>
+      <select id="pw-dev-focus">
+        <option value="phishing">Phishing</option>
+        <option value="ransomware">Ransomware</option>
+        <option value="mfa">MFA</option>
+        <option value="bec">BEC</option>
+        <option value="mixed" selected>Mixed</option>
+      </select>
+      <label for="pw-dev-mode" style="margin-top:.4rem">Mode</label>
+      <select id="pw-dev-mode">
+        <option value="practice">Practice</option>
+        <option value="simulation" selected>Simulation</option>
+        <option value="assessment">Assessment</option>
+      </select>
+      <div class="pw-dev-row" style="margin-top:.45rem">
+        <button type="button" id="pw-dev-restart">Restart with these</button>
+        <button type="button" id="pw-dev-reset">Reset all state</button>
+      </div>
+    </div>
+
+    <div class="pw-dev-group" data-dev-scope="workstation">
+      <h3>Event arrival</h3>
+      <div class="pw-dev-row">
+        <button type="button" id="pw-dev-next">Deliver next</button>
+        <button type="button" id="pw-dev-all">Deliver all</button>
+      </div>
+      <label class="pw-dev-check" style="margin-top:.45rem">
+        <input type="checkbox" id="pw-dev-fast">
+        Compress consequence delays
+      </label>
+    </div>
+
+    <div class="pw-dev-group" data-dev-scope="workstation">
+      <h3>Inject</h3>
+      <div class="pw-dev-row">
+        <button type="button" data-dev-inject="notification">Notification</button>
+        <button type="button" data-dev-inject="mfa">MFA prompt</button>
+        <button type="button" data-dev-inject="message">Coworker message</button>
+        <button type="button" data-dev-inject="legit-mfa">Legitimate MFA</button>
+      </div>
+    </div>
+
+    <div class="pw-dev-group" data-dev-scope="workstation">
+      <h3>Force a consequence chain</h3>
+      <div class="pw-dev-row">
+        <button type="button" data-dev-chain="d-phish-credentials">Credential</button>
+        <button type="button" data-dev-chain="d-ransom-open">File</button>
+        <button type="button" data-dev-chain="d-mfa-approve-hostile">MFA</button>
+        <button type="button" data-dev-chain="d-bec-authorize">Payment</button>
+        <button type="button" data-dev-chain="d-report-legitimate">Over-report</button>
+        <button type="button" data-dev-chain="d-mfa-deny-legit">Denied own sign-in</button>
+      </div>
+      <p class="pw-dev-note">Applies the decision and plays its authored
+      chain, exactly as the corresponding learner action would.</p>
+    </div>
+
+    <div class="pw-dev-group" data-dev-scope="learner">
+      <h3>Integrity controls</h3>
+      <div class="pw-dev-row">
+        <button type="button" id="pw-dev-screenshot">Show screenshot notice</button>
+      </div>
+      <p class="pw-dev-note">Copy, cut and paste are blocked everywhere on a
+      learner surface except Notes. PrintScreen raises the notice on its own
+      where the browser reports the key; this button shows the same screen
+      without needing the key to arrive.</p>
+    </div>
+
+    <div class="pw-dev-group">
+      <h3>Go to</h3>
+      <div class="pw-dev-row">
+        <a class="pw-btn is-sm" style="font-size:.755rem;padding:.26rem .5rem"
+           href="{{ url_for('prototype.results') }}">Results</a>
+        <a class="pw-btn is-sm" style="font-size:.755rem;padding:.26rem .5rem"
+           href="{{ url_for('prototype.trainer_dashboard') }}">Trainer</a>
+        <a class="pw-btn is-sm" style="font-size:.755rem;padding:.26rem .5rem"
+           href="{{ url_for('prototype.entry') }}">Entry</a>
+        <a class="pw-btn is-sm" style="font-size:.755rem;padding:.26rem .5rem"
+           href="{{ url_for('prototype.index') }}">Prototype home</a>
+      </div>
+    </div>
+
+    <p class="pw-dev-note">Ctrl + Alt + P toggles this panel. Add
+    <code>?dev=0</code> to any prototype URL to start with it hidden.</p>
+  </div>
+</aside>

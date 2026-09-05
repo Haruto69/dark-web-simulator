@@ -1,0 +1,149 @@
+{% extends "prototype/_base.html" %}
+{% block title %}Start training — RewindSec{% endblock %}
+
+{% block styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='prototype/screens.css') }}">
+{% endblock %}
+
+{% block body %}
+<header class="pw-frame-top">
+  <div class="pw-frame-top-inner">
+    <span class="pw-frame-brand">
+      <span class="pw-mark" aria-hidden="true"><svg viewBox="0 0 24 24" style="color:#fff"><use href="#i-mark"></use></svg></span>
+      <span>
+        <b>RewindSec</b>
+        <span>{{ org.name }}</span>
+      </span>
+    </span>
+    <nav class="pw-frame-nav" aria-label="Prototype sections">
+      <a class="pw-btn is-sm is-quiet" href="{{ url_for('prototype.index') }}">Prototype home</a>
+    </nav>
+  </div>
+</header>
+
+<main class="pw-entry" id="pw-main">
+  <div class="pw-entry-head">
+    <p class="pw-kicker">Self-directed training</p>
+    <h1>Set up your session</h1>
+    <p>You will be working inside a synthetic {{ org.name }} workstation.
+    Ordinary work and hostile activity arrive together, and nothing announces
+    which is which.</p>
+  </div>
+
+  <div class="pw-entry-who">
+    <span class="pw-avatar is-lg" aria-hidden="true">{{ learner.initials }}</span>
+    <span class="pw-entry-who-main">
+      <b>{{ learner.name }}</b>
+      <span>{{ learner.role }} · {{ learner.department }}</span>
+    </span>
+    <span class="pw-entry-who-meta">
+      Employee {{ learner.employee_ref }}<br>
+      Manager · {{ learner.manager }}
+    </span>
+  </div>
+
+  <section class="pw-card" style="margin-bottom:1.9rem">
+    <div class="pw-row is-between" style="align-items:flex-start">
+      <div style="min-width:0">
+        <p class="pw-kicker">Assigned to you</p>
+        <h2>Payment authorisation</h2>
+        <p class="pw-small pw-muted" style="margin-top:.25rem">
+          Assessment · 4 scored interactions · window closes 30 September 2026
+        </p>
+        <p class="pw-small" style="margin-top:.55rem;max-width:52ch">
+          An assessment attempt runs in the same workstation. Nothing is
+          explained while you are in it and no score is shown until you
+          finish.
+        </p>
+      </div>
+      <a class="pw-btn"
+         href="{{ url_for('prototype.workstation') }}?focus=bec&amp;mode=assessment&amp;assessment=as-payments">
+        Start attempt
+      </a>
+    </div>
+  </section>
+
+  <form action="{{ url_for('prototype.workstation') }}" method="get"
+        id="pw-entry-form">
+    <fieldset class="pw-choicegroup">
+      <legend>Training focus</legend>
+      <p class="pw-choicegroup-hint">Focus changes what the environment leans
+      toward. It never labels an individual event, and other kinds of activity
+      still occur.</p>
+      <div class="pw-choices">
+        {% for option in focus_options %}
+        <label class="pw-choice">
+          <input type="radio" name="focus" value="{{ option.id }}"
+                 {% if option.id == 'mixed' %}checked{% endif %}>
+          <span class="pw-choice-face">
+            <b>{{ option.label }}</b>
+            <span class="pw-choice-sum">{{ option.summary }}</span>
+            <span class="pw-choice-detail">{{ option.detail }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <fieldset class="pw-choicegroup">
+      <legend>Mode</legend>
+      <p class="pw-choicegroup-hint">Mode changes how much help you get, how
+      fast events arrive, and whether anything is explained while you are still
+      working. There is no difficulty setting — the scaffolding profile is
+      derived from the mode.</p>
+      <div class="pw-choices">
+        {% for mode in modes %}
+        <label class="pw-choice">
+          <input type="radio" name="mode" value="{{ mode.id }}"
+                 {% if mode.id == 'simulation' %}checked{% endif %}>
+          <span class="pw-choice-face">
+            <b>{{ mode.label }}</b>
+            <span class="pw-choice-sum">{{ mode.summary }}</span>
+            <span class="pw-mode-semantics">
+              <ul>
+                {% for line in mode.semantics %}<li>{{ line }}</li>{% endfor %}
+              </ul>
+            </span>
+            <span class="pw-mode-cadence">{{ cadence[mode.id].note }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <div class="pw-entry-actions">
+      <p class="pw-entry-summary" id="pw-entry-summary" role="status">
+        Mixed focus, Simulation mode.
+      </p>
+      <button type="submit" class="pw-btn is-primary is-lg">Enter the workstation</button>
+    </div>
+  </form>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Live summary line for the entry form. Nothing here is simulation logic:
+   it reads the two radio groups and writes one sentence. */
+(function () {
+  var form = document.getElementById('pw-entry-form');
+  var out = document.getElementById('pw-entry-summary');
+  if (!form || !out) { return; }
+
+  function labelFor(name) {
+    var checked = form.querySelector('input[name="' + name + '"]:checked');
+    if (!checked) { return ''; }
+    var b = checked.parentNode.querySelector('.pw-choice-face b');
+    return b ? b.textContent.trim() : checked.value;
+  }
+
+  function update() {
+    out.textContent = labelFor('focus') + ' focus, ' + labelFor('mode')
+      + ' mode.';
+  }
+
+  form.addEventListener('change', update);
+  update();
+}());
+</script>
+{% endblock %}

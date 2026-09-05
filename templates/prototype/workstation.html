@@ -1,0 +1,204 @@
+{% extends "prototype/_base.html" %}
+{% block title %}{{ org.name }} workstation{% endblock %}
+{% block body_class %}is-fixed{% endblock %}
+
+{% block styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='prototype/workstation.css') }}">
+  {# PROVISIONAL feature (architecture §12). Removing the safer-alternative
+     comparison means deleting this link, comparison.js, and the one call site
+     in workstation.js. Nothing else depends on either. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='prototype/comparison.css') }}">
+{% endblock %}
+
+{# The banner belongs inside the shell grid, so it takes a row rather than
+   pushing the viewport-height workstation off the bottom of the screen. #}
+{% block banner %}{% endblock %}
+
+{# The work area is the main landmark here, not a <main> wrapper around the
+   whole shell: the status strip and the application rail are navigation, and
+   a keyboard user skipping to content wants the window they are working in. #}
+{% block skip_target %}pw-workarea{% endblock %}
+
+{% block body %}
+<div class="pw-ws" id="pw-ws">
+
+  <div class="pw-protobanner" role="note" id="pw-ws-banner">
+    <strong>Prototype</strong>
+    <span>{{ prototype_banner }}</span>
+  </div>
+
+  <header class="pw-top">
+    <span class="pw-top-org">
+      <span class="pw-mark" aria-hidden="true"><svg viewBox="0 0 24 24" style="color:#fff"><use href="#i-mark"></use></svg></span>
+      <span>
+        <b>{{ org.name }}</b>
+        <span>{{ org.domain }}</span>
+      </span>
+    </span>
+
+    <span class="pw-top-sep" aria-hidden="true"></span>
+
+    <span class="pw-top-status">
+      <span class="pw-clock" id="pw-clock" aria-label="Workstation time">09:00</span>
+      <span class="pw-chip is-plain pw-session-chip" id="pw-mode-chip">
+        <span class="pw-dot is-accent" aria-hidden="true"></span>
+        <span id="pw-mode-label">Simulation</span>
+      </span>
+      <span class="pw-chip is-plain" id="pw-focus-chip">Mixed</span>
+      <span class="pw-chip is-caution" id="pw-assessment-chip" hidden>Assessment attempt</span>
+    </span>
+
+    <span class="pw-top-actions">
+      <button type="button" class="pw-iconbtn" id="pw-notif-btn"
+              aria-expanded="false" aria-controls="pw-notifpanel"
+              aria-label="Notifications">
+        <svg aria-hidden="true"><use href="#i-bell"></use></svg>
+        <span class="pw-badge" id="pw-notif-badge" hidden>0</span>
+      </button>
+      <button type="button" class="pw-btn is-sm" id="pw-end-btn">
+        <svg aria-hidden="true" style="width:14px;height:14px"><use href="#i-exit"></use></svg>
+        End training
+      </button>
+    </span>
+  </header>
+
+  <div class="pw-body">
+    <nav class="pw-rail" aria-label="Applications">
+      <div class="pw-rail-scroll">
+        <p class="pw-rail-title">Applications</p>
+
+        <button type="button" class="pw-applink" data-app="mail">
+          <svg aria-hidden="true"><use href="#i-mail"></use></svg>
+          <span class="pw-applink-label">Mail</span>
+          <span class="pw-applink-count" data-count="mail" hidden>0</span>
+        </button>
+
+        <button type="button" class="pw-applink" data-app="browser">
+          <svg aria-hidden="true"><use href="#i-globe"></use></svg>
+          <span class="pw-applink-label">Browser</span>
+        </button>
+
+        <button type="button" class="pw-applink" data-app="files">
+          <svg aria-hidden="true"><use href="#i-folder"></use></svg>
+          <span class="pw-applink-label">Files</span>
+          <span class="pw-applink-count is-quiet" data-count="files" hidden>0</span>
+        </button>
+
+        <button type="button" class="pw-applink" data-app="messages">
+          <svg aria-hidden="true"><use href="#i-chat"></use></svg>
+          <span class="pw-applink-label">Messages</span>
+          <span class="pw-applink-count" data-count="messages" hidden>0</span>
+        </button>
+
+        <button type="button" class="pw-applink" data-app="authenticator">
+          <svg aria-hidden="true"><use href="#i-shield"></use></svg>
+          <span class="pw-applink-label">Authenticator</span>
+          <span class="pw-applink-count" data-count="authenticator" hidden>0</span>
+        </button>
+
+        <button type="button" class="pw-applink" data-app="directory">
+          <svg aria-hidden="true"><use href="#i-book"></use></svg>
+          <span class="pw-applink-label">Directory</span>
+        </button>
+
+        <button type="button" class="pw-applink" data-app="notes">
+          <svg aria-hidden="true"><use href="#i-note"></use></svg>
+          <span class="pw-applink-label">Notes</span>
+        </button>
+      </div>
+
+      <div class="pw-rail-foot">
+        <span class="pw-rail-user">
+          <span class="pw-avatar" aria-hidden="true">{{ learner.initials }}</span>
+          <span>
+            <b>{{ learner.name }}</b>
+            <span>{{ learner.role }}</span>
+          </span>
+        </span>
+      </div>
+    </nav>
+
+    <main class="pw-workarea" id="pw-workarea" tabindex="-1">
+      <div class="pw-desk" id="pw-desk">
+        <div class="pw-desk-inner">
+          <h2>Good morning, {{ learner.given_name }}</h2>
+          <p>Your applications are on the left. Work through the day as you
+          normally would.</p>
+          <div class="pw-desk-tasks" id="pw-desk-tasks" hidden>
+            <h3>Outstanding</h3>
+            <ul id="pw-desk-tasklist"></ul>
+          </div>
+        </div>
+      </div>
+
+      <aside class="pw-notifpanel" id="pw-notifpanel" hidden
+             aria-label="Notifications">
+        <div class="pw-pane-head">
+          <h3>Notifications</h3>
+          <span class="pw-spacer"></span>
+          <button type="button" class="pw-btn is-sm is-quiet" id="pw-notif-clear">Mark all read</button>
+          <button type="button" class="pw-winctl" id="pw-notif-close" aria-label="Close notifications">
+            <svg aria-hidden="true"><use href="#i-close"></use></svg>
+          </button>
+        </div>
+        <div class="pw-pane-scroll" id="pw-notiflist"></div>
+      </aside>
+
+      <div class="pw-toasts" id="pw-toasts" aria-live="polite" aria-atomic="false"></div>
+    </main>
+  </div>
+</div>
+
+{# -- End Training confirmation -------------------------------------------- #}
+<div class="pw-scrim" id="pw-end-scrim" hidden>
+  <div class="pw-dialog" role="dialog" aria-modal="true"
+       aria-labelledby="pw-end-title" id="pw-end-dialog">
+    <div class="pw-dialog-head">
+      <h2 id="pw-end-title">End this training session?</h2>
+    </div>
+    <div class="pw-dialog-body">
+      <p>The session stops here and you go to your results. Anything still
+      outstanding stays outstanding.</p>
+      <p class="pw-small pw-muted" id="pw-end-detail"></p>
+    </div>
+    <div class="pw-dialog-foot">
+      <button type="button" class="pw-btn" id="pw-end-cancel">Keep working</button>
+      <button type="button" class="pw-btn is-primary" id="pw-end-confirm">End and see results</button>
+    </div>
+  </div>
+</div>
+
+{# -- PROVISIONAL: safer-alternative comparison mount ----------------------
+     Owned entirely by comparison.js. Removing the feature removes this
+     element and nothing else in the shell changes. #}
+<div class="pwc-scrim" id="pwc-mount" hidden></div>
+
+{# -- generic confirm dialog used by consequential actions ---------------- #}
+<div class="pw-scrim" id="pw-confirm-scrim" hidden>
+  <div class="pw-dialog" role="dialog" aria-modal="true"
+       aria-labelledby="pw-confirm-title" id="pw-confirm-dialog"
+       style="width:min(28rem,100%)">
+    <div class="pw-dialog-head">
+      <h2 id="pw-confirm-title">Confirm</h2>
+    </div>
+    <div class="pw-dialog-body"><p id="pw-confirm-body"></p></div>
+    <div class="pw-dialog-foot">
+      <button type="button" class="pw-btn" id="pw-confirm-cancel">Cancel</button>
+      <button type="button" class="pw-btn is-primary" id="pw-confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block dev_panel %}
+{% include "prototype/_dev_panel.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='prototype/dev-panel.js') }}" defer></script>
+{# PROVISIONAL feature (architecture §12) — loaded before the workstation so
+   the workstation can call it if it is present, and simply skip the call if
+   it is not. #}
+<script src="{{ url_for('static', filename='prototype/comparison.js') }}" defer></script>
+<script src="{{ url_for('static', filename='prototype/workstation.js') }}" defer></script>
+{% endblock %}
